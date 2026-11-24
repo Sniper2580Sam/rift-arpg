@@ -277,6 +277,19 @@
         "Tome",
         "Focus Crystal"
       ]
+    },
+    "bonewright": {
+      "weapon": [
+        "Bone Wrench",
+        "Rivet Gun",
+        "Ossuary Maul",
+        "Marrow Spanner"
+      ],
+      "offhand": [
+        "Toolbox",
+        "Bone Buckler",
+        "Blueprint Case"
+      ]
     }
   },
   "merge": {

@@ -365,6 +365,64 @@ const RANGER_LEGS = [
   ["..kbk...kbk.", "..kbk...kbk.", ".kbbk..kbbk.", ".kkkk..kkkk."],
   ["....kbkbk...", "....kbkbk...", "...kbbkbbk..", "...kkkkkkk.."],
 ];
+// Bonewright: leather cap, ember goggles, bone apron, toolpack
+const WRIGHT_TOP = [
+  "....kkkk....",
+  "...kBBBBk...",
+  "..kBbbbbBk..",
+  "..kyykkyyk..",
+  "..kksssskk..",
+  "...kkkkkk...",
+  ".kdkwwwwkdk.",
+  "kdbbwWWwbbdk",
+  ".kskwwwwksk.",
+  "..kbwWWwbk..",
+  "..kkbkkbkk..",
+];
+const WRIGHT_LEGS = [
+  ["...kBk.kBk..", "...kBk.kBk..", "..kBBk.kBBk.", "..kkkk.kkkk."],
+  ["..kBk...kBk.", "..kBk...kBk.", ".kBBk..kBBk.", ".kkkk..kkkk."],
+  ["....kBkBk...", "....kBkBk...", "...kBBkBBk..", "...kkkkkkk.."],
+];
+// the Ossuary Colossus the Bonewright climbs into
+const COLOSSUS = [
+  [
+    "......kkkk......",
+    ".....kwwwwk.....",
+    "....kwyWWywk....",
+    "....kwwkkwwk....",
+    "..kkkkwwwwkkkk..",
+    ".kwWWkkkkkkWWwk.",
+    "kwwWdkwkwkwdWwwk",
+    "kwWdkkwkwkkkdWwk",
+    "kwWdkwkyykwkdWwk",
+    ".kwkkkwkwkkkkwk.",
+    ".kdk.kkwwkk.kdk.",
+    ".kwk.kdddWk.kwk.",
+    "kwwk.kwkkwk.kwwk",
+    "kkkk.kwk.kwk.kkk",
+    "....kwwk.kwwk...",
+    "....kkkk.kkkk...",
+  ],
+  [
+    "......kkkk......",
+    ".....kwwwwk.....",
+    "....kwyWWywk....",
+    "....kwwkkwwk....",
+    "..kkkkwwwwkkkk..",
+    ".kwWWkkkkkkWWwk.",
+    "kwwWdkwkwkwdWwwk",
+    "kwWdkkwkwkkkdWwk",
+    "kwWdkwkyykwkdWwk",
+    ".kwkkkwkwkkkkwk.",
+    ".kdk.kkwwkk.kdk.",
+    ".kwk.kdddWk.kwk.",
+    "kwwk.kwk.kwk.kwwk",
+    "kkkk.kwk..kwk.kk",
+    "....kwwk...kwwk.",
+    "....kkkk...kkkk.",
+  ],
+];
 const MAGE_TOP = [
   ".....kk...Z.",
   "....kTk..kZk",
@@ -431,6 +489,7 @@ const HERO_KEYS: Record<string, (c: Record<string, string>) => Record<string, st
   ashknight: (c) => ({ A: c.m, a: c.d, R: c.t2, r: c.t1 }),
   gloomstalker: (c) => ({ H: c.d, h: c.m, b: c.t2 }),
   stormcaller: (c) => ({ T: c.d, t: c.m }),
+  bonewright: (c) => ({ B: c.d, b: c.m, W: c.t2 }),
 };
 const PET_KEYS: Record<string, (c: Record<string, string>) => Record<string, string>> = {
   bat: (c) => ({ M: c.a, m: c.b, e: c.eye }),
@@ -442,7 +501,7 @@ const cosOf = (kind: "armor" | "wings" | "weapon" | "petSkin", id: string | unde
 const PYLON = ["..kk..", ".kwwk.", ".kwyk.", "kwwwwk", "kwyywk", "kwwwwk", "kWWWWk", "kkkkkk"];
 
 export interface SpriteBank {
-  hero: Sprite[]; ranger: Sprite[]; mage: Sprite[]; raven: Sprite[]; pets: Record<string, Sprite[]>; pylon: Sprite[];
+  hero: Sprite[]; ranger: Sprite[]; mage: Sprite[]; wright: Sprite[]; colossus: Sprite[]; raven: Sprite[]; pets: Record<string, Sprite[]>; pylon: Sprite[];
   ghoul: Sprite[]; archer: Sprite[]; brute: Sprite[]; guardian: Sprite[]; imp: Sprite[];
   icon: (slot: Slot, rarity: Rarity) => Sprite;
   /** hero frames in an armour + weapon skin */
@@ -460,11 +519,13 @@ export function buildSprites(): SpriteBank {
   const iconCache = new Map<string, Sprite>();
   const skinCache = new Map<string, Sprite[] | null>();
   const cached = (key: string, f: () => Sprite[] | null) => { if (!skinCache.has(key)) skinCache.set(key, f()); return skinCache.get(key)!; };
-  const heroRows = (cls: string) => (cls === "gloomstalker" ? RANGER_LEGS.map((l) => [...RANGER_TOP, ...l]) : cls === "stormcaller" ? MAGE_LEGS.map((l) => [...MAGE_TOP, ...l]) : HERO_LEGS.map((l) => [...HERO_TOP, ...l]));
+  const heroRows = (cls: string) => (cls === "gloomstalker" ? RANGER_LEGS.map((l) => [...RANGER_TOP, ...l]) : cls === "stormcaller" ? MAGE_LEGS.map((l) => [...MAGE_TOP, ...l]) : cls === "bonewright" ? WRIGHT_LEGS.map((l) => [...WRIGHT_TOP, ...l]) : HERO_LEGS.map((l) => [...HERO_TOP, ...l]));
   return {
     hero,
     ranger: RANGER_LEGS.map((legs) => make([...RANGER_TOP, ...legs])),
     mage: MAGE_LEGS.map((legs) => make([...MAGE_TOP, ...legs])),
+    wright: WRIGHT_LEGS.map((legs) => make([...WRIGHT_TOP, ...legs])),
+    colossus: COLOSSUS.map((r) => make(r)),
     raven: RAVEN.map((r) => make(r)),
     pets: Object.fromEntries(Object.entries(PETS).map(([k, v]) => [k, v.map((r) => make(r))])),
     pylon: [make(PYLON)],

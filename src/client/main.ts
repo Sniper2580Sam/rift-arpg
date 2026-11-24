@@ -312,7 +312,9 @@ function handleEvent(e: SimEvent) {
       if (sk.kind === "summon") { sfx.summon(); burst(e.x, e.y, 20, ["#ff8a1f", "#ffd23f"], 80, 1, 0.5); }
       if (sk.kind === "shout") { sfx.shout(); rings.push({ x: e.x, y: e.y, r: e.r ?? 100, t: 0, max: 0.5, color: e.skill === "rally_banner" ? "#7dff9a" : "#ffd23f" }); addShake(2); }
       if (sk.kind === "nova") { sfx.explosion(); const p = sim?.players.find((q) => q.pid === e.pid); const col = p ? SKILL_COLOR(p.sk[e.skill].tags) : "#ff8a1f"; rings.push({ x: e.x, y: e.y, r: e.r ?? 56, t: 0, max: 0.3, color: col, fill: true }); burst(e.x, e.y, 24, [col, "#fff"], 160, 1, 0.4); addShake(2.5); }
-      if (sk.kind === "trap") { sfx.ui(); rings.push({ x: e.x, y: e.y, r: e.r ?? 30, t: 0, max: 0.25, color: "#9be0ff" }); }
+      if (sk.kind === "trap") { sfx.ui(); rings.push({ x: e.x, y: e.y, r: e.r ?? 30, t: 0, max: 0.25, color: sk.tags.includes("construct") ? "#e8dcb0" : "#9be0ff" }); }
+      if (sk.kind === "build") { sfx.summon(); burst(e.x, e.y, 14, ["#e8dcb0", "#c9bf9f", "#ffd23f"], 70, 1, 0.45); }
+      if (e.skill === "ossuary_colossus") { burst(e.x, e.y, 40, ["#e8dcb0", "#ffd23f", "#fff"], 140, 1, 0.7); addShake(7); if (mine(e.pid)) showBanner("COLOSSUS", "Smash everything", "#ffd23f", 1.8); }
       break;
     }
     case "playerHurt":
@@ -435,7 +437,7 @@ function updateFx(dt: number) {
 // ------------------------------------------------------------------ render
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 let vignette: HTMLCanvasElement | null = null, vignetteDark = false;
-const heroFrames = (cls: string) => (cls === "gloomstalker" ? bank.ranger : cls === "stormcaller" ? bank.mage : bank.hero);
+const heroFrames = (cls: string) => (cls === "gloomstalker" ? bank.ranger : cls === "stormcaller" ? bank.mage : cls === "bonewright" ? bank.wright : bank.hero);
 
 function render(alpha: number, dt: number) {
   const s = sim!;
@@ -458,6 +460,7 @@ function render(alpha: number, dt: number) {
     if (!onScreen(h.x, h.y)) continue;
     const a = Math.min(1, h.life / 0.6);
     const frost = h.kind === "frost";
+    if (h.kind === "bone") { drawSpikes(g, h, a, t); continue; }
     g.globalAlpha = (h.max > 3 ? 0.35 : 0.5) * a;
     g.fillStyle = frost ? ((Math.floor(t * 6 + h.id) % 2) ? "#9be0ff" : "#5fb0e0") : ((Math.floor(t * 12 + h.id) % 2) ? "#ff5a1f" : "#ff8a1f");
     g.beginPath(); g.ellipse(h.x, h.y, h.r, h.r * 0.6, 0, 0, Math.PI * 2); g.fill();
@@ -527,6 +530,7 @@ function render(alpha: number, dt: number) {
   for (const m of s.summons) {
     if (!onScreen(m.x, m.y)) continue;
     const mx = lerp(m.px, m.x, alpha), my = lerp(m.py, m.y, alpha);
+    if (m.build) { list.push({ y: my, f: () => drawConstruct(g, s, m, mx, my, t) }); continue; }
     list.push({ y: my, f: () => {
       const frames = m.kind === "raven" ? bank.raven : bank.imp;
       const fr = frames[Math.floor(t * 8 + m.id) % 2];
@@ -664,7 +668,83 @@ function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, 
 }
 
 const emitFx: Emit = (x, y, vx, vy, life, color) => { if (particles.length < 600) particles.push({ x, y, vx, vy, life, max: life, color, size: 1, grav: 0 }); };
+function drawSpikes(g: CanvasRenderingContext2D, h: SimState["hazards"][number], a: number, t: number) {
+  g.globalAlpha = 0.25 * a; g.fillStyle = "#8a7f66";
+  g.beginPath(); g.ellipse(h.x, h.y, h.r, h.r * 0.6, 0, 0, Math.PI * 2); g.fill();
+  g.globalAlpha = a;
+  // a fixed scatter of spikes per hazard, rising as it appears
+  const n = Math.min(18, Math.round(h.r / 3));
+  const rise = Math.min(1, (h.max - h.life) / 0.2);
+  for (let i = 0; i < n; i++) {
+    const k = (h.id * 7919 + i * 104729) % 1000 / 1000, ang = i * 2.399 + h.id, rr = Math.sqrt(k) * h.r * 0.9;
+    const x = Math.round(h.x + Math.cos(ang) * rr), y = Math.round(h.y + Math.sin(ang) * rr * 0.6);
+    const ht = Math.round((2 + (i % 3)) * rise);
+    g.fillStyle = "#140c1c"; g.fillRect(x - 1, y - ht, 3, ht + 1);
+    g.fillStyle = (i + Math.floor(t * 2)) % 5 === 0 ? "#ffffff" : "#e8dcb0"; g.fillRect(x, y - ht, 1, ht);
+  }
+  g.globalAlpha = 1;
+}
+
+/** Bonewright constructs, drawn in code: turret, mortar, totem (with its aura ring) and lantern. */
+function drawConstruct(g: CanvasRenderingContext2D, s: SimState, m: SimState["summons"][number], x: number, y: number, t: number) {
+  const owner = s.players.find((q) => q.pid === m.pid);
+  const P = owner?.sk[m.skill]?.p;
+  const blink = m.life < 1.5 && Math.floor(t * 10) % 2 === 0;
+  const boosted = (m.boostT ?? 0) > 0;
+  const R = (cx: number, cy: number, w: number, h: number, c: string) => { g.fillStyle = c; g.fillRect(Math.round(cx), Math.round(cy), w, h); };
+  if ((m.build === 3 || m.build === 4) && P?.radius) {
+    g.globalAlpha = 0.18 + 0.06 * Math.sin(t * 3 + m.id);
+    g.strokeStyle = m.build === 3 ? "#ffd23f" : "#7dff9a";
+    g.beginPath(); g.ellipse(x, y, P.radius, P.radius * 0.6, 0, 0, Math.PI * 2); g.stroke();
+    g.globalAlpha = 0.06; g.fillStyle = g.strokeStyle; g.fill();
+  }
+  g.globalAlpha = blink ? 0.45 : 1;
+  shadow(g, x, y, 5);
+  const k = "#140c1c", bone = "#e8dcb0", boneD = "#c9bf9f", wood = "#7a4a2a";
+  const d = m.fx < 0 ? -1 : 1;
+  if (m.build === 1 || m.build === 5) {
+    // tripod legs, bone drum, barrel facing its target
+    R(x - 5, y - 2, 2, 3, k); R(x + 3, y - 2, 2, 3, k); R(x - 1, y - 2, 2, 3, k);
+    R(x - 4, y - 9, 8, 7, k); R(x - 3, y - 8, 6, 5, bone); R(x - 3, y - 4, 6, 1, boneD);
+    R(x - 1, y - 7, 2, 2, boosted ? "#ffd23f" : "#ff5a1f");
+    if (d > 0) { R(x + 3, y - 7, 5, 3, k); R(x + 4, y - 6, 4, 1, boneD); } else { R(x - 8, y - 7, 5, 3, k); R(x - 8, y - 6, 4, 1, boneD); }
+  } else if (m.build === 2) {
+    // squat mortar with a tube pointing up
+    R(x - 6, y - 5, 12, 6, k); R(x - 5, y - 4, 10, 4, wood); R(x - 5, y - 4, 10, 1, "#9a6a3a");
+    R(x - 3, y - 12, 6, 8, k); R(x - 2, y - 11, 4, 7, bone); R(x - 2, y - 12, 4, 1, "#3b2d3a");
+    if (boosted) R(x - 1, y - 9, 2, 2, "#ffd23f");
+  } else if (m.build === 3) {
+    // totem pole topped with a horned skull
+    R(x - 2, y - 14, 4, 15, k); R(x - 1, y - 13, 2, 13, wood);
+    R(x - 4, y - 19, 8, 6, k); R(x - 3, y - 18, 6, 4, bone);
+    R(x - 2, y - 17, 1, 1, "#ff3b3b"); R(x + 1, y - 17, 1, 1, "#ff3b3b");
+    R(x - 5, y - 20, 1, 3, boneD); R(x + 4, y - 20, 1, 3, boneD);
+    R(x - 3, y - 9, 6, 1, "#ffd23f");
+  } else {
+    // lantern on a crooked post
+    R(x - 1, y - 14, 2, 15, k); R(x, y - 13, 1, 13, wood); R(x, y - 15, 4, 1, k);
+    const glow = 0.6 + 0.4 * Math.sin(t * 5 + m.id);
+    R(x + 2, y - 14, 5, 6, k); R(x + 3, y - 13, 3, 4, glow > 0.7 ? "#d8ffb0" : "#7dff9a");
+    g.globalAlpha = (blink ? 0.2 : 0.35) * glow; g.fillStyle = "#7dff9a"; g.beginPath(); g.arc(x + 4.5, y - 11, 6, 0, Math.PI * 2); g.fill();
+    if (Math.random() < 0.05) particles.push({ x: x + 4, y: y - 12, vx: (Math.random() - 0.5) * 6, vy: -14, life: 0.7, max: 0.7, color: "#7dff9a", size: 1, grav: 0 });
+  }
+  g.globalAlpha = 1;
+}
+
 function drawHero(g: CanvasRenderingContext2D, p: Player, x: number, y: number, t: number) {
+  if ((p.colossusT ?? 0) > 0) {
+    // the Colossus: a big bone golem; the Bonewright rides inside
+    shadow(g, x, y, 11);
+    if (p.buff.t > 0) { g.globalAlpha = 0.3 + 0.1 * Math.sin(t * 8); g.strokeStyle = "#ffd23f"; g.beginPath(); g.ellipse(x, y, 16, 6, 0, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1; }
+    const fr = bank.colossus[p.moving ? Math.floor(p.walk / 10) % 2 : 0];
+    const ending = (p.colossusT ?? 0) < 2 && Math.floor(t * 8) % 2 === 0;
+    g.globalAlpha = ending ? 0.6 : 1;
+    drawSprite(g, fr, x, y, p.fx < 0, false, 1.6);
+    if (p.pid === ME && hurtFlash > 0.2) { g.globalAlpha = 0.5; drawSprite(g, fr, x, y, p.fx < 0, true, 1.6); }
+    g.globalAlpha = 1;
+    if (Math.random() < 0.15) particles.push({ x: x + (Math.random() - 0.5) * 10, y: y - 14, vx: 0, vy: -16, life: 0.5, max: 0.5, color: "#ffd23f", size: 1, grav: 0 });
+    return;
+  }
   shadow(g, x, y, 5);
   if (p.buff.t > 0) { g.globalAlpha = 0.3 + 0.1 * Math.sin(t * 8); g.strokeStyle = p.buff.armorPct ? "#ffd23f" : "#7dff9a"; g.beginPath(); g.ellipse(x, y, 9, 4, 0, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1; }
   if (p.invuln > 0 && p.dashT <= 0 && Math.floor(t * 15) % 2 === 0) g.globalAlpha = 0.5;
@@ -682,6 +762,7 @@ function drawPet(g: CanvasRenderingContext2D, q: Player, pt: { x: number; y: num
 // ------------------------------------------------------------------ HUD
 const SHORT: Record<string, string> = { cleave: "Cleave", ember_lance: "Lance", ash_dash: "Dash", warcry: "Warcry", flame_nova: "Nova", cinderlings: "Imps", hex_bolt: "Bolt", volley: "Volley", tumble: "Tumble", frost_snare: "Snare", rally_banner: "Banner", raven_swarm: "Ravens",
   spark: "Spark", magic_missile: "Missile", static_touch: "Touch", chain_lightning: "Chain", arcane_orb: "Orb", thunderstorm: "Storm", disintegrate: "Beam", blink: "Blink", mana_shield: "Shield", static_field: "Field", storm_avatar: "Avatar", black_hole: "Hole", arcane_torrent: "Torrent",
+  rivet_shot: "Rivet", bone_mallet: "Mallet", bone_turret: "Turret", spike_ward: "Spikes", marrow_mortar: "Mortar", scrap_burst: "Burst", war_totem: "Totem", mending_lantern: "Lantern", recoil_vault: "Vault", bone_plating: "Plating", overcharge: "Charge", ossuary_colossus: "Colossus", bone_battery: "Battery",
   searing_strike: "Sear", shield_bash: "Bash", whirling_ash: "Whirl", molten_hammer: "Hammer", iron_skin: "Iron", chain_hook: "Hook", phoenix_form: "Phoenix", inferno_pillar: "Inferno", bone_shot: "Bone", shadow_knives: "Knives", hex_rain: "Rain", soulpiercer: "Pierce", smoke_veil: "Smoke", night_hunt: "Hunt", banshee_wail: "Wail" };
 function drawHud(s: SimState, sx: number, sy: number, t: number) {
   const c = ctx, S = dpr;
@@ -730,7 +811,7 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
   const R = CLASSES[p.cls].resource;
   c.fillStyle = "#1b1424"; c.fillRect(L + 6, T + 25, lw, 8);
   c.fillStyle = R.color; c.fillRect(L + 6, T + 25, lw * Math.max(0, p.res / R.max), 8);
-  c.fillStyle = "#fff"; c.font = font(9); c.fillText(`${R.name} ${Math.floor(p.res)}`, L + 9, T + 29.5);
+  c.fillStyle = R.id === "marrow" ? "#140c1c" : "#fff"; c.font = font(9); c.fillText(`${R.name} ${Math.floor(p.res)}`, L + 9, T + 29.5);
   c.fillStyle = "#1b1424"; c.fillRect(L + 6, T + 36, lw, 3);
   c.fillStyle = "#c9b8ff"; c.fillRect(L + 6, T + 36, lw * (p.level >= RIFT.levels.max ? 1 : p.xp / xpForLevel(p.level)), 3);
   c.fillStyle = "#b8a8d0"; c.font = font(10); { let lv = `Lv ${p.level}${p.boons.length ? " · " + p.boons.join(", ") : ""}`; while (lv.length > 4 && c.measureText(lv).width > lw) lv = lv.slice(0, -2) + "…"; c.fillText(lv, L + 6, T + 48); }

@@ -3146,5 +3146,1063 @@
         }
       }
     ]
+  },
+  {
+    "id": "rivet_shot",
+    "name": "Rivet Shot",
+    "kind": "projectile",
+    "slot": "generator",
+    "type": "generator",
+    "unlock": 1,
+    "tags": [
+      "projectile",
+      "physical",
+      "single"
+    ],
+    "desc": "Fire a bone rivet at the nearest foe. Weak, but builds Marrow.",
+    "p": {
+      "damage": 0.85,
+      "interval": 0.34,
+      "speed": 300,
+      "range": 190,
+      "radius": 3,
+      "count": 1,
+      "spreadSteps": 1,
+      "pierce": 0,
+      "knockback": 20,
+      "gen": 6
+    },
+    "runes": [
+      {
+        "id": "scatter",
+        "name": "Scatter Rivets",
+        "uses": 0,
+        "desc": "3 rivets for 45% damage each.",
+        "add": {
+          "count": 2
+        },
+        "mul": {
+          "damage": 0.45
+        }
+      },
+      {
+        "id": "spotter",
+        "name": "Spotter",
+        "uses": 25,
+        "desc": "Hit enemies take 12% more damage for 3 seconds.",
+        "set": {
+          "vulnOnHit": 12
+        }
+      },
+      {
+        "id": "spur",
+        "name": "Bone Spur",
+        "uses": 70,
+        "desc": "Rivets pierce.",
+        "set": {
+          "pierce": 1
+        },
+        "addTags": [
+          "pierce"
+        ]
+      },
+      {
+        "id": "hot",
+        "name": "Hot Rivets",
+        "uses": 150,
+        "desc": "Rivets are fire and burn.",
+        "addTags": [
+          "fire"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "set": {
+          "igniteMult": 0.5
+        }
+      },
+      {
+        "id": "heavy",
+        "name": "Heavy Rivet",
+        "uses": 300,
+        "desc": "Slower, 190% damage.",
+        "mul": {
+          "interval": 1.5,
+          "damage": 1.9,
+          "knockback": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "bone_mallet",
+    "name": "Bone Mallet",
+    "kind": "melee",
+    "slot": "generator",
+    "type": "generator",
+    "unlock": 3,
+    "tags": [
+      "melee",
+      "physical"
+    ],
+    "desc": "Smack enemies in front of you. Each hit adds 0.5 seconds to your nearby constructs.",
+    "p": {
+      "damage": 1.15,
+      "interval": 0.42,
+      "range": 28,
+      "arcCos": 0.3,
+      "knockback": 55,
+      "genPerHit": 7,
+      "genMax": 18,
+      "repair": 0.5
+    },
+    "runes": [
+      {
+        "id": "wide",
+        "name": "Wide Swing",
+        "uses": 0,
+        "desc": "Hits all around you.",
+        "set": {
+          "arcCos": -1
+        },
+        "addTags": [
+          "aoe"
+        ]
+      },
+      {
+        "id": "tune",
+        "name": "Fine Tuning",
+        "uses": 25,
+        "desc": "Each hit adds 1.5 seconds to constructs.",
+        "mul": {
+          "repair": 3
+        }
+      },
+      {
+        "id": "leech",
+        "name": "Marrow Leech",
+        "uses": 70,
+        "desc": "Hits heal you for 1% of max life.",
+        "set": {
+          "healPerHit": 0.01
+        }
+      },
+      {
+        "id": "quake",
+        "name": "Quake",
+        "uses": 150,
+        "desc": "Every 3rd swing is a ring slam for 250% damage.",
+        "set": {
+          "ringEvery": 3,
+          "ringMult": 2.5
+        }
+      },
+      {
+        "id": "ember",
+        "name": "Forge Hammer",
+        "uses": 300,
+        "desc": "Becomes fire and burns.",
+        "addTags": [
+          "fire"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "set": {
+          "igniteMult": 0.6
+        }
+      }
+    ]
+  },
+  {
+    "id": "bone_turret",
+    "name": "Bone Turret",
+    "kind": "build",
+    "slot": "core",
+    "type": "core",
+    "unlock": 1,
+    "tags": [
+      "construct",
+      "summon",
+      "projectile",
+      "physical"
+    ],
+    "desc": "Build a turret at your aim point that shoots nearby enemies for 16 seconds. Up to 2 at once.",
+    "p": {
+      "build": 1,
+      "cost": 22,
+      "cooldown": 0.5,
+      "duration": 16,
+      "damage": 0.8,
+      "attackInterval": 0.5,
+      "range": 170,
+      "castRange": 110,
+      "count": 1,
+      "maxCount": 2,
+      "shots": 1,
+      "speed": 280
+    },
+    "runes": [
+      {
+        "id": "twin",
+        "name": "Twin Barrels",
+        "uses": 0,
+        "desc": "Fires 2 bolts at once, 65% damage each.",
+        "set": {
+          "shots": 2
+        },
+        "mul": {
+          "damage": 0.65
+        }
+      },
+      {
+        "id": "ballista",
+        "name": "Ballista",
+        "uses": 25,
+        "desc": "Fires half as often for 260% damage, and bolts pierce.",
+        "mul": {
+          "attackInterval": 2,
+          "damage": 2.6
+        },
+        "set": {
+          "pierce": 1
+        },
+        "addTags": [
+          "pierce"
+        ]
+      },
+      {
+        "id": "frost",
+        "name": "Frost Turret",
+        "uses": 70,
+        "desc": "Bolts are cold and slow by 35%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "set": {
+          "slowPct": 35,
+          "slowT": 1.2
+        }
+      },
+      {
+        "id": "battery",
+        "name": "Battery",
+        "uses": 150,
+        "desc": "Up to 4 turrets, but they last 30% less.",
+        "add": {
+          "maxCount": 2
+        },
+        "mul": {
+          "duration": 0.7
+        }
+      },
+      {
+        "id": "flame",
+        "name": "Flame Spitter",
+        "uses": 300,
+        "desc": "Short range fire turret that burns.",
+        "addTags": [
+          "fire"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "mul": {
+          "range": 0.6,
+          "attackInterval": 0.6
+        },
+        "set": {
+          "igniteMult": 0.8
+        }
+      }
+    ]
+  },
+  {
+    "id": "spike_ward",
+    "name": "Spike Ward",
+    "kind": "trap",
+    "slot": "core",
+    "type": "core",
+    "unlock": 3,
+    "tags": [
+      "construct",
+      "aoe",
+      "physical"
+    ],
+    "desc": "Raise a field of bone spikes that hurts and slows enemies for 4 seconds.",
+    "p": {
+      "cost": 30,
+      "cooldown": 0.6,
+      "dps": 3,
+      "radius": 38,
+      "duration": 4,
+      "castRange": 140,
+      "slowPct": 25,
+      "slowT": 0.5
+    },
+    "runes": [
+      {
+        "id": "barbed",
+        "name": "Barbed",
+        "uses": 0,
+        "desc": "Enemies in the spikes take 15% more damage.",
+        "set": {
+          "vulnOnHit": 15
+        }
+      },
+      {
+        "id": "field",
+        "name": "Wide Field",
+        "uses": 25,
+        "desc": "50% larger, 75% damage.",
+        "mul": {
+          "radius": 1.5,
+          "dps": 0.75
+        }
+      },
+      {
+        "id": "long",
+        "name": "Long Spikes",
+        "uses": 70,
+        "desc": "Lasts twice as long.",
+        "mul": {
+          "duration": 2
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Rime Spikes",
+        "uses": 150,
+        "desc": "Becomes cold and slows by 60%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "set": {
+          "slowPct": 60
+        }
+      },
+      {
+        "id": "ember",
+        "name": "Ember Spikes",
+        "uses": 300,
+        "desc": "Becomes fire, 125% damage.",
+        "addTags": [
+          "fire"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "mul": {
+          "dps": 1.25
+        }
+      }
+    ]
+  },
+  {
+    "id": "marrow_mortar",
+    "name": "Marrow Mortar",
+    "kind": "build",
+    "slot": "core",
+    "type": "core",
+    "unlock": 7,
+    "tags": [
+      "construct",
+      "summon",
+      "aoe",
+      "physical"
+    ],
+    "desc": "Build a mortar that shells enemies up to far away for 12 seconds.",
+    "p": {
+      "build": 2,
+      "cost": 40,
+      "cooldown": 4,
+      "duration": 12,
+      "damage": 1.5,
+      "attackInterval": 1.6,
+      "range": 230,
+      "castRange": 100,
+      "radius": 30,
+      "count": 1,
+      "maxCount": 1,
+      "shots": 1
+    },
+    "runes": [
+      {
+        "id": "cluster",
+        "name": "Cluster Shells",
+        "uses": 0,
+        "desc": "3 shells for 45% damage each.",
+        "set": {
+          "shots": 3
+        },
+        "mul": {
+          "damage": 0.45
+        }
+      },
+      {
+        "id": "rapid",
+        "name": "Rapid Loader",
+        "uses": 25,
+        "desc": "Fires 40% faster.",
+        "mul": {
+          "attackInterval": 0.6
+        }
+      },
+      {
+        "id": "napalm",
+        "name": "Napalm",
+        "uses": 70,
+        "desc": "Shells are fire and burn.",
+        "addTags": [
+          "fire"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "set": {
+          "igniteMult": 1
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Frost Shells",
+        "uses": 150,
+        "desc": "Shells are cold and slow by 50%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "set": {
+          "slowPct": 50,
+          "slowT": 1.5
+        }
+      },
+      {
+        "id": "siege",
+        "name": "Siege Gun",
+        "uses": 300,
+        "desc": "60% bigger blasts, 130% damage, a bit slower.",
+        "mul": {
+          "radius": 1.6,
+          "damage": 1.3,
+          "attackInterval": 1.3
+        }
+      }
+    ]
+  },
+  {
+    "id": "scrap_burst",
+    "name": "Scrap Burst",
+    "kind": "nova",
+    "slot": "core",
+    "type": "core",
+    "unlock": 5,
+    "tags": [
+      "aoe",
+      "physical"
+    ],
+    "desc": "Blast bone shrapnel all around you.",
+    "p": {
+      "cost": 35,
+      "cooldown": 1,
+      "damage": 2.0,
+      "radius": 55,
+      "pulses": 1,
+      "pull": 0,
+      "knockback": 75
+    },
+    "runes": [
+      {
+        "id": "chain",
+        "name": "Chain Burst",
+        "uses": 0,
+        "desc": "3 bursts for 50% damage each.",
+        "set": {
+          "pulses": 3
+        },
+        "mul": {
+          "damage": 0.5
+        }
+      },
+      {
+        "id": "wide",
+        "name": "Shrapnel Cloud",
+        "uses": 25,
+        "desc": "40% larger.",
+        "mul": {
+          "radius": 1.4
+        }
+      },
+      {
+        "id": "magnet",
+        "name": "Magnet",
+        "uses": 70,
+        "desc": "Pulls enemies in, 90% damage.",
+        "set": {
+          "pull": 1
+        },
+        "mul": {
+          "damage": 0.9,
+          "knockback": 0
+        }
+      },
+      {
+        "id": "recoil",
+        "name": "Recoil",
+        "uses": 150,
+        "desc": "Knocks enemies far back.",
+        "mul": {
+          "knockback": 2.5
+        }
+      },
+      {
+        "id": "ember",
+        "name": "Molten Scrap",
+        "uses": 300,
+        "desc": "Becomes fire, 115% damage and burns.",
+        "addTags": [
+          "fire"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "mul": {
+          "damage": 1.15
+        },
+        "set": {
+          "igniteMult": 0.5
+        }
+      }
+    ]
+  },
+  {
+    "id": "war_totem",
+    "name": "War Totem",
+    "kind": "build",
+    "slot": "support",
+    "type": "support",
+    "unlock": 2,
+    "tags": [
+      "construct",
+      "support"
+    ],
+    "desc": "Plant a totem for 10 seconds. You and allies near it deal 25% more damage.",
+    "p": {
+      "build": 3,
+      "cooldown": 12,
+      "duration": 10,
+      "radius": 90,
+      "dmgPct": 25,
+      "armorPct": 0,
+      "cdrPct": 0,
+      "castRange": 90,
+      "count": 1,
+      "maxCount": 1
+    },
+    "runes": [
+      {
+        "id": "iron",
+        "name": "Iron Totem",
+        "uses": 0,
+        "desc": "Also gives 60% armor.",
+        "set": {
+          "armorPct": 60
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quickening Totem",
+        "uses": 25,
+        "desc": "Also gives 20% faster cooldowns.",
+        "set": {
+          "cdrPct": 20
+        }
+      },
+      {
+        "id": "hex",
+        "name": "Hex Totem",
+        "uses": 70,
+        "desc": "Enemies near it take 20% more damage.",
+        "set": {
+          "vulnAura": 20
+        }
+      },
+      {
+        "id": "effigy",
+        "name": "Effigy",
+        "uses": 150,
+        "desc": "Enemies near it are taunted to attack it... and you.",
+        "set": {
+          "tauntAura": 1
+        }
+      },
+      {
+        "id": "twin",
+        "name": "Twin Totems",
+        "uses": 300,
+        "desc": "Up to 2 totems, each lasts 30% less.",
+        "add": {
+          "maxCount": 1
+        },
+        "mul": {
+          "duration": 0.7
+        }
+      }
+    ]
+  },
+  {
+    "id": "mending_lantern",
+    "name": "Mending Lantern",
+    "kind": "build",
+    "slot": "support",
+    "type": "support",
+    "unlock": 4,
+    "tags": [
+      "construct",
+      "support"
+    ],
+    "desc": "Hang a lantern for 8 seconds that heals you and allies near it by 4% of max life per second.",
+    "p": {
+      "build": 4,
+      "cooldown": 16,
+      "duration": 8,
+      "radius": 80,
+      "healPerSec": 0.04,
+      "castRange": 60,
+      "count": 1,
+      "maxCount": 1
+    },
+    "runes": [
+      {
+        "id": "bright",
+        "name": "Bright Lantern",
+        "uses": 0,
+        "desc": "60% larger glow.",
+        "mul": {
+          "radius": 1.6
+        }
+      },
+      {
+        "id": "wick",
+        "name": "Long Wick",
+        "uses": 25,
+        "desc": "Lasts twice as long.",
+        "mul": {
+          "duration": 2
+        }
+      },
+      {
+        "id": "surge",
+        "name": "Surge",
+        "uses": 70,
+        "desc": "Heals twice as fast for half as long.",
+        "mul": {
+          "healPerSec": 2,
+          "duration": 0.5
+        }
+      },
+      {
+        "id": "marrow",
+        "name": "Marrow Lamp",
+        "uses": 150,
+        "desc": "Also refills 8 Marrow per second.",
+        "set": {
+          "resPerSec": 8
+        }
+      },
+      {
+        "id": "ward",
+        "name": "Warding Light",
+        "uses": 300,
+        "desc": "Also gives 40% armor.",
+        "set": {
+          "armorPct": 40
+        }
+      }
+    ]
+  },
+  {
+    "id": "recoil_vault",
+    "name": "Recoil Vault",
+    "kind": "dash",
+    "slot": "utility",
+    "type": "support",
+    "unlock": 2,
+    "tags": [
+      "dash",
+      "physical"
+    ],
+    "desc": "Spring away on bone pistons. You can't be hit while vaulting.",
+    "p": {
+      "damage": 0.5,
+      "cooldown": 3,
+      "distance": 70,
+      "duration": 0.2,
+      "knockback": 50,
+      "charges": 1
+    },
+    "runes": [
+      {
+        "id": "double",
+        "name": "Double Spring",
+        "uses": 0,
+        "desc": "2 charges.",
+        "set": {
+          "charges": 2
+        }
+      },
+      {
+        "id": "long",
+        "name": "Long Jump",
+        "uses": 25,
+        "desc": "60% further.",
+        "mul": {
+          "distance": 1.6
+        }
+      },
+      {
+        "id": "patch",
+        "name": "Patch Up",
+        "uses": 70,
+        "desc": "Heals 6% of max life.",
+        "set": {
+          "healPct": 0.06
+        }
+      },
+      {
+        "id": "spikes",
+        "name": "Spike Trail",
+        "uses": 150,
+        "desc": "Leaves bone spikes behind you.",
+        "set": {
+          "trail": 1.2,
+          "slowPct": 30,
+          "slowT": 0.5
+        }
+      },
+      {
+        "id": "shock",
+        "name": "Landing Shock",
+        "uses": 300,
+        "desc": "Lands with a blast for 180% damage.",
+        "set": {
+          "endBlast": 1.8
+        }
+      }
+    ]
+  },
+  {
+    "id": "bone_plating",
+    "name": "Bone Plating",
+    "kind": "shout",
+    "slot": "utility",
+    "type": "support",
+    "unlock": 8,
+    "tags": [
+      "shout",
+      "support",
+      "defence"
+    ],
+    "desc": "You and nearby allies gain 80% armor for 5 seconds.",
+    "p": {
+      "cooldown": 14,
+      "radius": 110,
+      "duration": 5,
+      "armorPct": 80,
+      "dmgPct": 0,
+      "healPct": 0,
+      "taunt": 0,
+      "vulnPct": 0
+    },
+    "runes": [
+      {
+        "id": "rally",
+        "name": "Rally",
+        "uses": 0,
+        "desc": "Also 15% more damage.",
+        "set": {
+          "dmgPct": 15
+        }
+      },
+      {
+        "id": "long",
+        "name": "Thick Plates",
+        "uses": 25,
+        "desc": "Lasts 80% longer.",
+        "mul": {
+          "duration": 1.8
+        }
+      },
+      {
+        "id": "mend",
+        "name": "Mend",
+        "uses": 70,
+        "desc": "Also heals 15%.",
+        "set": {
+          "healPct": 0.15
+        }
+      },
+      {
+        "id": "bait",
+        "name": "Bait",
+        "uses": 150,
+        "desc": "Nearby enemies are taunted to attack you for 3 seconds.",
+        "set": {
+          "taunt": 3
+        }
+      },
+      {
+        "id": "fortify",
+        "name": "Fortify",
+        "uses": 300,
+        "desc": "Twice the armor.",
+        "mul": {
+          "armorPct": 2
+        }
+      }
+    ]
+  },
+  {
+    "id": "overcharge",
+    "name": "Overcharge",
+    "kind": "shout",
+    "slot": "support",
+    "type": "support",
+    "unlock": 10,
+    "tags": [
+      "construct",
+      "support"
+    ],
+    "desc": "Your constructs get 6 more seconds and attack 50% faster for 6 seconds.",
+    "p": {
+      "cooldown": 15,
+      "radius": 1,
+      "duration": 6,
+      "selfOnly": 1,
+      "boostBuilds": 6,
+      "boostPct": 50
+    },
+    "runes": [
+      {
+        "id": "throttle",
+        "name": "Full Throttle",
+        "uses": 0,
+        "desc": "Constructs attack 100% faster.",
+        "set": {
+          "boostPct": 100
+        }
+      },
+      {
+        "id": "repair",
+        "name": "Repair Kit",
+        "uses": 25,
+        "desc": "Also heals you for 20%.",
+        "set": {
+          "healPct": 0.2
+        }
+      },
+      {
+        "id": "battery",
+        "name": "Battery",
+        "uses": 70,
+        "desc": "Also refills 40 Marrow.",
+        "set": {
+          "resGain": 40
+        }
+      },
+      {
+        "id": "overload",
+        "name": "Overload",
+        "uses": 150,
+        "desc": "Each construct blasts for 200% damage.",
+        "set": {
+          "buildBlast": 2
+        }
+      },
+      {
+        "id": "long",
+        "name": "Long Charge",
+        "uses": 300,
+        "desc": "Constructs get 15 more seconds.",
+        "set": {
+          "boostBuilds": 15
+        }
+      }
+    ]
+  },
+  {
+    "id": "ossuary_colossus",
+    "name": "Ossuary Colossus",
+    "kind": "shout",
+    "slot": "ultimate",
+    "type": "ultimate",
+    "unlock": 6,
+    "tags": [
+      "colossus",
+      "melee",
+      "physical"
+    ],
+    "desc": "Panic button: climb into a towering bone Colossus for 14 seconds. Heal 50%, take 60% less damage, and your basic attack becomes a huge ground slam.",
+    "p": {
+      "cooldown": 60,
+      "radius": 1,
+      "duration": 14,
+      "selfOnly": 1,
+      "colossus": 1,
+      "takenPct": 60,
+      "dmgPct": 40,
+      "healPct": 0.5,
+      "slamDamage": 2.6,
+      "slamRadius": 46,
+      "slamInterval": 0.55,
+      "knockback": 70
+    },
+    "runes": [
+      {
+        "id": "titan",
+        "name": "Titan",
+        "uses": 0,
+        "desc": "Lasts 50% longer.",
+        "mul": {
+          "duration": 1.5
+        }
+      },
+      {
+        "id": "rampage",
+        "name": "Rampage",
+        "uses": 25,
+        "desc": "Slams are 40% wider.",
+        "mul": {
+          "slamRadius": 1.4
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Assembly",
+        "uses": 70,
+        "desc": "40% shorter cooldown.",
+        "mul": {
+          "cooldown": 0.6
+        }
+      },
+      {
+        "id": "stomp",
+        "name": "Arrival",
+        "uses": 150,
+        "desc": "Landing smashes everything nearby for 500% damage.",
+        "set": {
+          "arrival": 5
+        }
+      },
+      {
+        "id": "shelter",
+        "name": "Shelter",
+        "uses": 300,
+        "desc": "Nearby allies heal 40% and gain 60% armor when it arrives.",
+        "set": {
+          "partyHeal": 0.4
+        }
+      }
+    ]
+  },
+  {
+    "id": "bone_battery",
+    "name": "Bone Battery",
+    "kind": "build",
+    "slot": "ultimate",
+    "type": "ultimate",
+    "unlock": 12,
+    "tags": [
+      "construct",
+      "summon",
+      "projectile",
+      "physical"
+    ],
+    "desc": "Ring yourself with 6 turrets that fire for 10 seconds.",
+    "p": {
+      "build": 5,
+      "cooldown": 45,
+      "duration": 10,
+      "damage": 0.8,
+      "attackInterval": 0.45,
+      "range": 180,
+      "castRange": 0,
+      "count": 6,
+      "maxCount": 6,
+      "shots": 1,
+      "speed": 300
+    },
+    "runes": [
+      {
+        "id": "wall",
+        "name": "Bone Wall",
+        "uses": 0,
+        "desc": "10 turrets, 70% damage each.",
+        "set": {
+          "count": 10,
+          "maxCount": 10
+        },
+        "mul": {
+          "damage": 0.7
+        }
+      },
+      {
+        "id": "long",
+        "name": "Long Siege",
+        "uses": 25,
+        "desc": "Lasts twice as long.",
+        "mul": {
+          "duration": 2
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Frost Battery",
+        "uses": 70,
+        "desc": "Bolts are cold and slow by 40%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "set": {
+          "slowPct": 40,
+          "slowT": 1.2
+        }
+      },
+      {
+        "id": "pierce",
+        "name": "Lances",
+        "uses": 150,
+        "desc": "Bolts pierce, 120% damage.",
+        "set": {
+          "pierce": 1
+        },
+        "addTags": [
+          "pierce"
+        ],
+        "mul": {
+          "damage": 1.2
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Rapid Assembly",
+        "uses": 300,
+        "desc": "40% shorter cooldown.",
+        "mul": {
+          "cooldown": 0.6
+        }
+      }
+    ]
   }
 ]

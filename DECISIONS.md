@@ -90,3 +90,14 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Font changed from Pixelify Sans (its 5 looked like an S) to Jersey 10, which is also pixel-style and OFL-licensed, at 130% size. Faux bold is off, because it smeared the pixels.
 - Boons no longer pop up mid-fight. A pulsing "★ Boon" button appears at the top right, and solo play pauses only while the picker is open. "Later" closes the picker. Boons earned while one is waiting stack up (×2, ×3).
 - Density up again: 80 packs (spacing 80), packs about 35% bigger, ambushes every 16–22 s starting with 6 enemies, and progress needed is 420. Tiers 1 and 2 use 55% and 80% density (and progress) so fresh characters aren't swamped.
+
+## Bonewright, the 4th class (Samuel chose "new class, full build-out", 2026-11-24)
+- Asked for by Samuel's wife: a builder with a "panic button" ultimate. The theme is an original bone engineer, not a mech.
+- 13 skills, each with 5 runes. Resource: Marrow (100, refills 11/s).
+  - Generators: Rivet Shot (weak ranged) and Bone Mallet (melee; hits add time to nearby constructs).
+  - Constructs: Bone Turret (up to 2), Marrow Mortar, War Totem (+25% damage aura), Mending Lantern (heals 4%/s), Spike Ward, and Overcharge (boosts constructs).
+  - Other skills: Scrap Burst (nova), Recoil Vault (dash), Bone Plating (party armor).
+  - Ultimates: Ossuary Colossus, the panic button at level 6. For 14 s you heal 50%, take 60% less damage, deal 40% more, and your basic attack becomes a ground slam. Bone Battery at level 12 rings you with 6 turrets.
+- Constructs are timed and can't be attacked. The Effigy rune taunts enemies near the totem.
+- Two new sets: Gravewright's Toolkit (constructs) and Colossus Plate (Colossus uptime). Four new legendaries: Foreman's Grips, Marrow Engine, Ossuary Blueprint and Colossus Core. Existing summon legendaries also work on constructs.
+- ⚠ Balance: first pass from bot runs only. The fresh T1 clear time matches the other classes. The Colossus is deliberately strong.

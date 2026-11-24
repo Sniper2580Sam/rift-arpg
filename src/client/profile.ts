@@ -34,13 +34,13 @@ export interface Profile {
 
 export function newChar(cls: string): CharSave {
   const starter = mintItem(makeRng(20261124 + cls.length), "starter-" + cls, { rarity: "common", slot: "weapon", ilvl: 1, cls });
-  starter.name = cls === "gloomstalker" ? "Bone Bow" : cls === "stormcaller" ? "Ashwood Staff" : "Iron Blade";
+  starter.name = cls === "gloomstalker" ? "Bone Bow" : cls === "stormcaller" ? "Ashwood Staff" : cls === "bonewright" ? "Bone Wrench" : "Iron Blade";
   return { cls, level: 1, xp: 0, equipment: { weapon: starter }, bag: [], runes: {}, uses: {}, highestTier: 1, pityAnc: 0, pityPri: 0, sigils: 0, riftsCleared: 0, bestTimes: {} };
 }
 
 export function newProfile(): Profile {
   return {
-    version: SAVE_VERSION, active: "ashknight", chars: { ashknight: newChar("ashknight"), gloomstalker: newChar("gloomstalker"), stormcaller: newChar("stormcaller") },
+    version: SAVE_VERSION, active: "ashknight", chars: Object.fromEntries(Object.keys(CLASSES).map((c) => [c, newChar(c)])),
     materials: 0, pet: "none", filter: "common", cos: {}, stash: [], season: { n: 1, started: new Date().toISOString().slice(0, 10) }, unlockedPets: ["none", "bat", "slime", "fox"],
     weekly: { week: "", best: 0 }, settings: { mute: false, shake: true, autoTier: false },
   };

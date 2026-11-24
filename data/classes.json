@@ -131,5 +131,49 @@
       "onHurt": 0,
       "color": "#5fb0ff"
     }
+  },
+  "bonewright": {
+    "name": "Bonewright",
+    "role": "Builder / Support",
+    "desc": "Bone engineer. Builds turrets, totems and lanterns, and climbs into a giant Colossus when things go wrong.",
+    "baseHp": 220,
+    "hpPerLevel": 12,
+    "speed": 82,
+    "fists": [
+      5,
+      8
+    ],
+    "skills": [
+      "rivet_shot",
+      "bone_mallet",
+      "bone_turret",
+      "spike_ward",
+      "marrow_mortar",
+      "scrap_burst",
+      "war_totem",
+      "mending_lantern",
+      "recoil_vault",
+      "bone_plating",
+      "overcharge",
+      "ossuary_colossus",
+      "bone_battery"
+    ],
+    "resource": {
+      "id": "marrow",
+      "name": "Marrow",
+      "max": 100,
+      "start": 100,
+      "regen": 11,
+      "decayAfter": 0,
+      "decay": 0,
+      "onHurt": 0,
+      "color": "#e8dcb0"
+    },
+    "loadout": [
+      "rivet_shot",
+      "bone_turret",
+      "recoil_vault",
+      "war_totem"
+    ]
   }
 }

@@ -98,6 +98,17 @@ function drawBow(g: CanvasRenderingContext2D, w: Record<string, any> | undefined
   }
 }
 
+function drawWrench(g: CanvasRenderingContext2D, w: Record<string, any> | undefined, x: number, y: number, flip: boolean, t: number, emit?: Emit) {
+  const d = flip ? -1 : 1, hx = x + d * 6, hy = y - 4;
+  const shaft = w?.blade ?? "#c9bf9f", head = w?.gem ?? "#f2ead3";
+  for (let i = 0; i < 6; i++) px(g, hx + d * Math.floor(i / 2), hy - i, shaft);
+  const tx = hx + d * 3, ty = hy - 7;
+  px(g, tx - 1, ty, head); px(g, tx + 1, ty, head); px(g, tx - 1, ty - 1, head); px(g, tx + 1, ty - 1, head); px(g, tx, ty + 1, head);
+  if (w?.style === "flame" && emit && Math.random() < 0.3) emit(tx, ty - 1, rnd(-3, 3), -20, 0.35, pickC(w.glow));
+  if (w?.style === "crystal" || w?.style === "void") px(g, tx, ty - 1, w.gem);
+  void t;
+}
+
 function drawStaffTop(g: CanvasRenderingContext2D, w: Record<string, any> | undefined, x: number, y: number, flip: boolean, t: number, emit?: Emit) {
   if (!w?.style) return;
   const tx = x + (flip ? -5 : 4), ty = y - 14;
@@ -158,6 +169,7 @@ export function drawHeroCos(g: CanvasRenderingContext2D, bank: SpriteBank, h: He
     blit(g, frames[fr], x, y, flip);
     if (over) blit(g, over, x, y - 6, flip);
     if (h.cls === "gloomstalker") drawBow(g, wc, x, y, h.fx, h.fy, t, emit);
+    else if (h.cls === "bonewright") drawWrench(g, wc, x, y, flip, t, emit);
     else drawStaffTop(g, wc, x, y, flip, t, emit);
   }
   if (!back) { if (cape) blit(g, cape, x, y, flip); drawWings(); }

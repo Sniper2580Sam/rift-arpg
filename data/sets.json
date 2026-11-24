@@ -323,5 +323,86 @@
         }
       }
     }
+  },
+  {
+    "id": "gravewright",
+    "name": "Gravewright's Toolkit",
+    "tag": "construct",
+    "skill": "bone_turret, marrow_mortar, war_totem, mending_lantern",
+    "color": "#3ddc84",
+    "pieces": {
+      "gloves": "Gravewright's Grips",
+      "helm": "Gravewright's Goggles",
+      "chest": "Gravewright's Apron",
+      "belt": "Gravewright's Toolbelt",
+      "pants": "Gravewright's Leggings",
+      "boots": "Gravewright's Treads"
+    },
+    "bonuses": {
+      "2": {
+        "text": "Constructs last 50% longer.",
+        "tag": "construct",
+        "mul": {
+          "duration": 1.5
+        }
+      },
+      "4": {
+        "text": "You can keep 1 more of each construct, and their reach is 30% larger.",
+        "tag": "construct",
+        "add": {
+          "maxCount": 1
+        },
+        "mul": {
+          "range": 1.3,
+          "radius": 1.3
+        }
+      },
+      "6": {
+        "text": "Constructs deal 700% more damage.",
+        "tag": "construct",
+        "mul": {
+          "power": 8
+        }
+      }
+    }
+  },
+  {
+    "id": "colossus_plate",
+    "name": "Colossus Plate",
+    "tag": "colossus",
+    "skill": "ossuary_colossus, bone_plating, scrap_burst",
+    "color": "#3ddc84",
+    "pieces": {
+      "shoulders": "Colossus Pauldrons",
+      "chest": "Colossus Ribcage",
+      "bracers": "Colossus Bracers",
+      "weapon": "Colossus Maul",
+      "offhand": "Colossus Buckler",
+      "amulet": "Colossus Heart"
+    },
+    "bonuses": {
+      "2": {
+        "text": "The Colossus lasts 50% longer.",
+        "tag": "colossus",
+        "mul": {
+          "duration": 1.5
+        }
+      },
+      "4": {
+        "text": "The Colossus cooldown is 50% shorter, and its slams are 30% wider.",
+        "tag": "colossus",
+        "mul": {
+          "cooldown": 0.5,
+          "slamRadius": 1.3
+        }
+      },
+      "6": {
+        "text": "Colossus slams deal 700% more damage.",
+        "tag": "colossus",
+        "mul": {
+          "power": 8
+        }
+      }
+    }
   }
 ]

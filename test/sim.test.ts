@@ -76,6 +76,7 @@ for (const tier of [1, 10]) {
 run({ seed: 1, players: [setup(0)] }, "T1 fresh knight");
 run({ seed: 2, players: [setup(0, "gloomstalker")] }, "T1 fresh stalker");
 run({ seed: 4, players: [setup(0, "stormcaller")] }, "T1 fresh mage");
+run({ seed: 7, players: [setup(0, "bonewright")] }, "T1 fresh bonewright");
 const kit = (lvl: number, rar: "rare" | "legendary", seed = 42): Holder["equipment"] => {
   const r = makeRng(seed), eq: Holder["equipment"] = {};
   for (const sl of ["weapon", "offhand", "helm", "shoulders", "chest", "bracers", "gloves", "belt", "pants", "boots", "amulet", "ring1", "ring2"] as EquipSlot[])
@@ -84,6 +85,18 @@ const kit = (lvl: number, rar: "rare" | "legendary", seed = 42): Holder["equipme
 };
 run({ seed: 3, tier: 5, players: [setup(0, "ashknight", 20, kit(20, "rare"), { cleave: "searing" })] }, "T5 lvl20 rare kit knight");
 run({ seed: 4, tier: 10, players: [setup(0, "ashknight", 30, kit(30, "legendary"))] }, "T10 lvl30 legendary kit knight");
+{ // Bonewright at level 20: turrets, totem and the Colossus in the loadout
+  const ps = setup(0, "bonewright", 20, kit(20, "rare"));
+  ps.loadout = ["rivet_shot", "bone_turret", "mending_lantern", "ossuary_colossus"];
+  run({ seed: 3, tier: 5, players: [ps] }, "T5 lvl20 rare kit bonewright");
+}
+{ // the Colossus: cast it, then the primary slams and damage taken drops
+  const ps = setup(0, "bonewright", 12); ps.loadout = ["rivet_shot", "bone_turret", "war_totem", "ossuary_colossus"];
+  const s = createSim({ seed: 9, players: [ps] }); const p = s.players[0];
+  step(s, { 0: { ...NO_INPUT, act: 8 } });
+  let slams = 0; for (let t = 0; t < 60; t++) { step(s, { 0: { ...NO_INPUT, act: 1, ax: p.x + 10, ay: p.y } }); slams += s.events.filter((e) => e.type === "slam").length; }
+  if (!((p.colossusT ?? 0) > 0) || slams < 2) { console.log("FAIL colossus", p.colossusT, slams); proc.exit(1); } else console.log(`colossus ok: ${slams} slams in 2 s`);
+}
 run({ seed: 5, tier: 3, players: [setup(0, "ashknight", 15, kit(15, "rare")), setup(1, "gloomstalker", 8, kit(8, "rare", 9))] }, "T3 duo (15 + 8, level sync)");
 run({ seed: 6, tier: 3, kind: "chase", players: [setup(0, "ashknight", 25, kit(25, "legendary"))] }, "Chase boss lvl25 legendary kit", 400);
 
@@ -91,7 +104,7 @@ run({ seed: 6, tier: 3, kind: "chase", players: [setup(0, "ashknight", 25, kit(2
 for (const l of [...LEGENDARIES, ...MYTHICS]) {
   const it = mintItem(makeRng(5), l.id, { rarity: l.mythic ? "mythic" : "legendary", slot: l.slot });
   it.legendary = l.id;
-  const cls = ["projectile", "pierce", "cold", "aoe"].includes(l.tag) ? "gloomstalker" : "ashknight";
+  const cls = ["construct", "colossus"].includes(l.tag) ? "bonewright" : ["projectile", "pierce", "cold", "aoe"].includes(l.tag) ? "gloomstalker" : "ashknight";
   const s = createSim({ seed: 77, players: [setup(0, cls, 12, { [l.slot === "ring" ? "ring1" : l.slot]: it })] });
   for (let t = 0; t < 30 * 20; t++) step(s, { 0: bot(s, 0, t) });
 }
@@ -99,8 +112,8 @@ for (const st of SETS) {
   const eq: Holder["equipment"] = {}; const r = makeRng(3);
   for (const sl of Object.keys(st.pieces) as SlotType[]) { const it = mintItem(r, sl, { rarity: "set", slot: sl }); it.set = st.id; eq[sl === "ring" ? "ring1" : (sl as EquipSlot)] = it; }
   const stt = computeStats(eq, { cls: "ashknight", level: 12 });
-  const s = createSim({ seed: 78, players: [setup(0, "ashknight", 12, eq), setup(1, "gloomstalker", 12, eq)] });
-  for (let t = 0; t < 30 * 20; t++) step(s, { 0: bot(s, 0, t), 1: bot(s, 1, t) });
+  const s = createSim({ seed: 78, players: [setup(0, "ashknight", 12, eq), setup(1, "gloomstalker", 12, eq), setup(2, "bonewright", 12, eq)] });
+  for (let t = 0; t < 30 * 20; t++) step(s, { 0: bot(s, 0, t), 1: bot(s, 1, t), 2: bot(s, 2, t) });
   console.log(`  set ${st.name}: ${stt.setCounts[st.id]} pieces, ${stt.mods.length} mods, kills in 20s ${s.rift.kills}`);
 }
 console.log("all legendaries, mythics and sets ran", Object.keys(CLASSES).length, "classes");

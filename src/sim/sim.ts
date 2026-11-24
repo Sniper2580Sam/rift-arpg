@@ -38,6 +38,8 @@ export interface Player extends Holder {
   stats: Stats; sk: Record<string, ResolvedSkill>; uses: Num; connected: boolean;
   /** class resource (Embers / Focus / Mana) and seconds since the last hit dealt or taken */
   res: number; combatT: number;
+  /** Bonewright Colossus form: seconds left, and the skill that made it */
+  colossusT?: number; colossusSkill?: string;
 }
 
 export type EnemyKind = "ghoul" | "archer" | "brute" | "guardian" | "king" | "pylon";
@@ -59,7 +61,8 @@ export interface Projectile {
   pid: number; skill: string; mult: number; dmg: number; tags: string[]; pierce: boolean; life: number; hit: number[];
   returning: boolean; kb: number; dead: boolean; trailT: number; cold: boolean; fire: boolean;
 }
-export interface Summon { id: number; pid: number; skill: string; x: number; y: number; px: number; py: number; r: number; life: number; atkT: number; fx: number; dead: boolean; ox: number; oy: number; size: number; kind: string }
+export interface Summon { id: number; pid: number; skill: string; x: number; y: number; px: number; py: number; r: number; life: number; atkT: number; fx: number; dead: boolean; ox: number; oy: number; size: number; kind: string;
+  /** constructs (Bonewright): stationary; 1 turret, 2 mortar, 3 totem, 4 lantern, 5 battery turret */ build?: number; boostT?: number; boostPct?: number }
 export interface Hazard { id: number; pid: number; skill: string; x: number; y: number; r: number; mult: number; life: number; max: number; tickT: number; tags: string[]; slowPct: number; slowT: number; dead: boolean; kind: string }
 export interface Zone { id: number; x: number; y: number; r: number; delay: number; life: number; dmg: number; kind: "blast" | "pool"; tickT: number; dead: boolean }
 export interface Loot { id: number; x: number; y: number; item: Item; age: number; owner: number }
@@ -348,6 +351,7 @@ function updatePlayer(s: SimState, p: Player, inp: PlayerInput) {
   }
   if (p.buff.t > 0) p.buff.t -= DT;
   if (p.cheatT > 0) p.cheatT -= DT;
+  if ((p.colossusT ?? 0) > 0) { p.colossusT! -= DT; if (p.colossusT! <= 0 || p.dead) { p.colossusT = 0; s.events.push({ type: "cast", pid: p.pid, skill: "colossus_end", x: p.x, y: p.y }); } }
   if (p.dead) {
     p.deadT -= DT;
     if (p.deadT <= 0) {
@@ -406,7 +410,9 @@ function cast(s: SimState, p: Player, id: string, inp: PlayerInput, mx: number, 
   if (sk.p.cost) p.res -= skillCost(p, id);
   if (sk.p.gen) gainRes(p, sk.p.gen);
   p.uses[id] = (p.uses[id] ?? 0) + 1;
+  if ((p.colossusT ?? 0) > 0 && id === p.skills[0] && p.colossusSkill && p.sk[p.colossusSkill]) { colossusSlam(s, p, p.sk[p.colossusSkill]); return; }
   switch (sk.kind) {
+    case "build": castBuild(s, p, sk, inp); break;
     case "melee": castMelee(s, p, sk); break;
     case "projectile": castProjectile(s, p, sk); break;
     case "dash": {
@@ -432,7 +438,7 @@ function cast(s: SimState, p: Player, id: string, inp: PlayerInput, mx: number, 
       const d = len(tx - p.x, ty - p.y);
       if (d > sk.p.castRange) { tx = p.x + ((tx - p.x) / d) * sk.p.castRange; ty = p.y + ((ty - p.y) / d) * sk.p.castRange; }
       if (isWall(s.map, tx, ty)) { tx = p.x; ty = p.y; }
-      s.hazards.push({ id: s.nextId++, pid: p.pid, skill: id, x: tx, y: ty, r: sk.p.radius, mult: sk.p.dps, life: sk.p.duration, max: sk.p.duration, tickT: 0, tags: sk.tags, slowPct: sk.p.slowPct ?? 0, slowT: sk.p.slowT ?? 0.6, dead: false, kind: sk.tags.includes("fire") ? "fire" : "frost" });
+      s.hazards.push({ id: s.nextId++, pid: p.pid, skill: id, x: tx, y: ty, r: sk.p.radius, mult: sk.p.dps, life: sk.p.duration, max: sk.p.duration, tickT: 0, tags: sk.tags, slowPct: sk.p.slowPct ?? 0, slowT: sk.p.slowT ?? 0.6, dead: false, kind: sk.tags.includes("fire") ? "fire" : sk.tags.includes("construct") && !sk.tags.includes("cold") ? "bone" : "frost" });
       s.events.push({ type: "cast", pid: p.pid, skill: id, x: tx, y: ty, r: sk.p.radius });
       break;
     }
@@ -460,6 +466,7 @@ function castMelee(s: SimState, p: Player, sk: ResolvedSkill) {
     hits++;
   }
   if (sk.p.healPerHit && hits) heal(p, p.stats.maxHp * sk.p.healPerHit * hits);
+  if (sk.p.repair && hits) for (const m of s.summons) if (m.build && m.pid === p.pid && !m.dead && len(m.x - p.x, m.y - p.y) < 160) m.life += sk.p.repair * Math.min(3, hits);
   if (sk.p.genPerHit && hits) gainRes(p, Math.min(sk.p.genMax ?? 999, sk.p.genPerHit * hits));
   s.events.push({ type: "swing", pid: p.pid, x: p.x, y: p.y, fx: p.fx, fy: p.fy, ring, range: rng, hits, arcCos: sk.p.arcCos });
   if (sk.p.wave) {
@@ -484,6 +491,16 @@ function castProjectile(s: SimState, p: Player, sk: ResolvedSkill) {
 function castShout(s: SimState, p: Player, sk: ResolvedSkill) {
   const P = sk.p;
   if (P.resGain) gainRes(p, P.resGain);
+  if (P.colossus) {
+    p.colossusT = P.duration; p.colossusSkill = sk.id; p.swingT = 0;
+    if (P.arrival) explosion(s, p.x, p.y, (P.slamRadius ?? 46) * 1.3, 0, P.arrival, p, sk);
+    if (P.partyHeal) for (const q of s.players) if (q !== p && !q.dead && len(q.x - p.x, q.y - p.y) < 140) { heal(q, q.stats.maxHp * P.partyHeal); q.buff = { ...q.buff, armorPct: Math.max(q.buff.t > 0 ? q.buff.armorPct : 0, 60), t: Math.max(q.buff.t, 6) }; }
+  }
+  if (P.boostBuilds) for (const m of s.summons) {
+    if (!m.build || m.pid !== p.pid || m.dead) continue;
+    m.life += P.boostBuilds; m.boostT = P.duration; m.boostPct = P.boostPct ?? 50;
+    if (P.buildBlast) explosion(s, m.x, m.y, 40, 0, P.buildBlast, p, sk);
+  }
   for (const q of s.players) {
     if (q.dead || len(q.x - p.x, q.y - p.y) > P.radius * 1.5) continue;
     if (P.selfOnly && q !== p) continue;
@@ -532,6 +549,115 @@ function castSummon(s: SimState, p: Player, sk: ResolvedSkill) {
     s.summons.push(m);
   }
   s.events.push({ type: "cast", pid: p.pid, skill: sk.id, x: p.x, y: p.y });
+}
+
+// ------------------------------------------------------------------ Bonewright constructs
+const BUILD_KIND = ["", "turret", "mortar", "totem", "lantern", "turret"];
+function castBuild(s: SimState, p: Player, sk: ResolvedSkill, inp: PlayerInput) {
+  const P = sk.p, n = Math.max(1, Math.round(P.count ?? 1));
+  let tx = p.x, ty = p.y;
+  if ((P.castRange ?? 0) > 0) {
+    tx = inp.ax; ty = inp.ay;
+    const d = len(tx - p.x, ty - p.y);
+    if (d > P.castRange) { tx = p.x + ((tx - p.x) / d) * P.castRange; ty = p.y + ((ty - p.y) / d) * P.castRange; }
+    if (isWall(s.map, tx, ty)) { tx = p.x; ty = p.y; }
+  }
+  // the battery rings you; other constructs cluster at the aim point
+  const ring = P.build === 5 ? 34 : n > 1 ? 14 : 0;
+  for (let i = 0; i < n; i++) {
+    const dir = DIR_TABLE[Math.floor((i * 32) / n) % 32];
+    let x = tx + dir[0] * ring, y = ty + dir[1] * ring;
+    if (isWall(s.map, x, y)) { x = tx; y = ty; }
+    const m: Summon = { id: s.nextId++, pid: p.pid, skill: sk.id, x, y, px: x, py: y, r: 5, life: P.duration, atkT: 0.2 + i * 0.05, fx: 1, dead: false, ox: 0, oy: 0, size: 1, kind: BUILD_KIND[P.build] ?? "turret", build: P.build };
+    s.summons.push(m);
+  }
+  // keep at most maxCount (+ extra from count) of this skill: the oldest fall apart
+  const cap = Math.max(1, Math.round((P.maxCount ?? 1) + n - 1));
+  const mine = s.summons.filter((m) => !m.dead && m.pid === p.pid && m.skill === sk.id);
+  for (let i = 0; i < mine.length - cap; i++) mine[i].dead = true;
+  s.events.push({ type: "cast", pid: p.pid, skill: sk.id, x: tx, y: ty, r: P.radius });
+}
+
+function updateBuild(s: SimState, m: Summon, p: Player, sk: ResolvedSkill) {
+  const P = sk.p;
+  const boost = (m.boostT ?? 0) > 0 ? 1 + (m.boostPct ?? 50) / 100 : 1;
+  if ((m.boostT ?? 0) > 0) m.boostT! -= DT;
+  m.atkT -= DT * boost;
+  const rad = P.radius ?? 80;
+  // auras: buffs, healing and enemy debuffs around the construct
+  if (P.dmgPct || P.armorPct || P.cdrPct) for (const q of s.players) {
+    if (q.dead || len(q.x - m.x, q.y - m.y) > rad) continue;
+    q.buff = {
+      armorPct: Math.max(q.buff.t > 0 ? q.buff.armorPct : 0, P.armorPct ?? 0),
+      dmgPct: Math.max(q.buff.t > 0 ? q.buff.dmgPct : 0, P.dmgPct ?? 0),
+      cdrPct: Math.max(q.buff.t > 0 ? q.buff.cdrPct : 0, P.cdrPct ?? 0),
+      t: Math.max(q.buff.t, 0.3),
+    };
+  }
+  if (P.healPerSec || P.resPerSec) for (const q of s.players) {
+    if (q.dead || len(q.x - m.x, q.y - m.y) > rad) continue;
+    if (P.healPerSec) heal(q, q.stats.maxHp * P.healPerSec * DT);
+    if (P.resPerSec) gainRes(q, P.resPerSec * DT);
+  }
+  if (P.vulnAura || P.tauntAura) for (const e of s.enemies) {
+    if (e.dead || len(e.x - m.x, e.y - m.y) > rad + e.r) continue;
+    if (P.vulnAura) { e.vulnT = Math.max(e.vulnT, 0.5); e.vulnPct = Math.max(e.vulnPct, P.vulnAura); }
+    if (P.tauntAura && e.kind !== "guardian" && e.kind !== "king") { e.tauntT = Math.max(e.tauntT, 0.5); e.tauntBy = p.pid; e.aggro = true; }
+  }
+  if (m.build !== 1 && m.build !== 2 && m.build !== 5) return;
+  if (m.atkT > 0) return;
+  // shooters: nearest enemy in range
+  let target: Enemy | null = null, best = P.range ?? 170;
+  for (const e of s.enemies) {
+    if (e.dead || e.kind === "pylon") continue;
+    const d = len(e.x - m.x, e.y - m.y);
+    if (d < best) { best = d; target = e; }
+  }
+  if (!target) { m.atkT = 0.1; return; }
+  m.atkT = P.attackInterval;
+  m.fx = target.x >= m.x ? 1 : -1;
+  const shots = Math.max(1, Math.round(P.shots ?? 1));
+  if (m.build === 2) {
+    for (let i = 0; i < shots; i++) {
+      const d = DIR_TABLE[int(s.rng, 0, 31)], j = i === 0 ? 0 : range(s.rng, 10, 26);
+      shell(s, target.x + d[0] * j, target.y + d[1] * j, P.radius ?? 30, P.damage, p, sk);
+    }
+    s.events.push({ type: "cast", pid: p.pid, skill: "mortar_fire", x: m.x, y: m.y });
+    return;
+  }
+  const [dx, dy] = norm(target.x - m.x, target.y - m.y);
+  const sp = P.speed ?? 280;
+  for (let i = 0; i < shots; i++) {
+    const [vx, vy] = rotFine(dx, dy, (i - (shots - 1) / 2) * 10);
+    s.projectiles.push(mkProj(s, 0, "bolt", m.x + vx * 5, m.y - 4 + vy * 5, vx * sp, vy * sp, 3, p.pid, sk.id, P.damage, 0, sk.tags, (P.pierce ?? 0) > 0, ((P.range ?? 170) + 30) / sp, 15));
+  }
+}
+
+/** A mortar shell landing: like an explosion, but carries the skill's on-hit effects (burn, slow). */
+function shell(s: SimState, x: number, y: number, r: number, mult: number, p: Player, sk: ResolvedSkill) {
+  s.events.push({ type: "explosion", x, y, r, cold: sk.tags.includes("cold") && !sk.tags.includes("fire") });
+  for (const e of s.enemies) {
+    if (e.dead || len(e.x - x, e.y - y) > r + e.r) continue;
+    const [kx, ky] = norm(e.x - x, e.y - y);
+    hitEnemy(s, e, mult, p, sk, { kb: 40, kx, ky, direct: true });
+  }
+}
+
+function colossusSlam(s: SimState, p: Player, sk: ResolvedSkill) {
+  const P = sk.p;
+  p.swingT = (P.slamInterval ?? 0.55) * atkMult(p);
+  const r = P.slamRadius ?? 46;
+  // centred a little in front of you, so you can aim it
+  const cx = p.x + p.fx * r * 0.35, cy = p.y + p.fy * r * 0.35;
+  let hits = 0;
+  for (const e of s.enemies) {
+    if (e.dead || len(e.x - cx, e.y - cy) > r + e.r) continue;
+    const [kx, ky] = norm(e.x - cx, e.y - cy);
+    hitEnemy(s, e, P.slamDamage, p, sk, { kb: P.knockback ?? 70, kx, ky, direct: true });
+    hits++;
+  }
+  gainRes(p, 6);
+  s.events.push({ type: "slam", x: cx, y: cy, r, big: hits > 2 });
 }
 
 function updateDash(s: SimState, p: Player) {
@@ -706,6 +832,7 @@ function damagePlayer(s: SimState, p: Player, raw: number) {
   const armor = st.armor * (1 + (p.buff.t > 0 ? p.buff.armorPct : 0) / 100);
   let dmg = raw * (1 - armor / (armor + 150 * levelPower(Math.max(1, s.rift.tier * 1.5)))) * st.takenMult;
   if (p.buff.t > 0 && st.flags.buffDR) dmg *= 1 - st.flags.buffDR;
+  if ((p.colossusT ?? 0) > 0 && p.colossusSkill) dmg *= 1 - Math.min(90, p.sk[p.colossusSkill]?.p.takenPct ?? 0) / 100;
   dmg = Math.max(1, Math.round(dmg));
   p.hp -= dmg;
   p.combatT = 0; if (CLASSES[p.cls].resource.onHurt || st.flags.resOnHurt) gainRes(p, CLASSES[p.cls].resource.onHurt + (st.flags.resOnHurt ?? 0));
@@ -1019,6 +1146,7 @@ function updateSummons(s: SimState) {
       if (sk.p.burst) explosion(s, m.x, m.y, 38, 0, sk.p.burst, p, sk);
       continue;
     }
+    if (m.build) { updateBuild(s, m, p, sk); continue; }
     let target: Enemy | null = null, best = 150;
     for (const e of s.enemies) {
       if (e.dead || (!e.aggro && len(e.x - p.x, e.y - p.y) > 200)) continue;
