@@ -137,3 +137,10 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Each cleared wave raises the difficulty level by 1, or by 2 or 3 for a clear under 20 s or under 10 s. Per level: enemy HP ×1.06, damage ×1.04, a bigger wave (up to 70), and every 4 levels harder pack types (Bone Hounds and so on). Every 5th wave an elite brute leads, and a boon is offered. A wave that drags past 60 s lets the next one in anyway.
 - The party shares 3 lives (+1 per extra player). When they're gone, everyone stands up and a chest drops: 2 items + 1 per 3 waves (max 16), with 1 guaranteed legendary/set per 5 waves and a Bone Sigil chance from wave 15. Normal drops during the run are ×0.35. Best wave is saved per character.
 - Untuned: bots die around wave 5–6, but they stand still. Watch how far real play gets.
+
+## Hideout, shop and cosmetic unlocks (2026-11-24)
+- Home is a walkable hideout (sim kind "hideout"). Stations open menu tabs (Blacksmith/Stash → Gear, Rift Board → Play, Shrine → Skills, Wardrobe → Looks, Shop, Decorate). Portals start Rift, Endless and the Ossuary King.
+- Co-op: in a direct room the host's hideout is a shared sim, so joining puts guests in it and portals take the whole party. Only the host opens portals and decorates, and only when alone (decorating changes the room).
+- Themes: Old Crypt and Ruined Camp free (basic), Gilded Throne Hall and Astral Sanctum premium (bigger rooms, marble or starfield floors, carpets, braziers, aurora, motes). Up to 40 decorations, 8 free and 8 premium.
+- Every premium item has a shop key (cos:/theme:/decor:/fx:). The Shop tab lists them at price 0; "buy" records ownership in profile.owned. Items worn before this change were grandfathered in.
+- Cosmetics: colours (dyes) are free and recolour the base armour. Earned armour: Riftbreaker (clear tier 10), Kingslayer (slay the Ossuary King), Vanguard (Endless wave 20). Each class has one premium class-only armour. Everything else is premium.

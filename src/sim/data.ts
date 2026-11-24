@@ -3,6 +3,7 @@ import classesJson from "../../data/classes.json";
 import enemiesJson from "../../data/enemies.json";
 import riftJson from "../../data/rift.json";
 import vfxJson from "../../data/vfx.json";
+import hideoutJson from "../../data/hideout.json";
 import mapsJson from "../../data/maps.json";
 import affixesJson from "../../data/affixes.json";
 import itemsJson from "../../data/items.json";
@@ -48,7 +49,7 @@ export function tierJump(time: number): number {
   for (const [secs, n] of (RIFT as any).tierJumps as [number, number][]) if (time < secs) return n;
   return 1;
 }
-export interface MapTheme { floor: string[]; speck: string[]; wallTop: string; wallFace: string; wallLight: string; wallLine: string; void: string; deco: string }
+export interface MapTheme { floor: string[]; speck: string[]; wallTop: string; wallFace: string; wallLight: string; wallLine: string; void: string; deco: string; pattern?: string }
 export interface MapDef {
   id: string; name: string; layout: "cave" | "linear" | "open" | "rooms" | "ring" | "arena"; w: number; h: number; weight: number; desc: string; egg?: boolean;
   packMult?: number; dropMult?: number; legendaryWeightMult?: number; density?: [number, number]; enemyCap?: number; theme: MapTheme;
@@ -70,13 +71,55 @@ export const BOONS = boonsJson as unknown as BoonDef[];
 export const BOON = Object.fromEntries(BOONS.map((b) => [b.id, b])) as Record<string, BoonDef>;
 export const PETS = petsJson as unknown as { id: string; name: string; desc?: string }[];
 /** Visual-only cosmetics. Each entry carries its own colours; the client draws them. */
-export type CosKind = "armor" | "wings" | "weapon" | "petSkin";
+export type CosKind = "armor" | "wings" | "weapon" | "petSkin" | "dye";
 export interface Cosmetic { id: string; name: string; [k: string]: string | number }
 export const COSMETICS = cosmeticsJson as unknown as Record<CosKind, Cosmetic[]>;
-export const COS_KINDS: CosKind[] = ["armor", "wings", "weapon", "petSkin"];
+export const COS_KINDS: CosKind[] = ["armor", "wings", "weapon", "petSkin", "dye"];
+
+// ------------------------------------------------------------------ ownership (shop, earnables)
+/** What the unlock rules need from a profile: owned premium keys and per-character progress. */
+export interface UnlockCtx { owned?: string[]; chars: Record<string, { highestTier: number; bestWave?: number; kings?: number }> }
+export interface Earn { tier?: number; wave?: number; king?: number }
+export const earnText = (e: Earn) => e.tier ? `Clear tier ${e.tier}` : e.wave ? `Reach Endless wave ${e.wave}` : e.king ? "Slay the Ossuary King" : "";
+export function earned(p: UnlockCtx, e: Earn): boolean {
+  const cs = Object.values(p.chars ?? {});
+  if (e.tier && !cs.some((c) => c.highestTier > e.tier!)) return false;
+  if (e.wave && !cs.some((c) => (c.bestWave ?? 0) >= e.wave!)) return false;
+  if (e.king && !cs.some((c) => (c.kings ?? 0) >= e.king!)) return false;
+  return true;
+}
+/** Every premium thing has a shop key: "cos:armor:gilded", "fx:cleave:voidfire", "theme:gilded", "decor:statue". */
+export type Access = { ok: true } | { ok: false; why: "premium" | "earn" | "class"; text: string };
+export function cosAccess(p: UnlockCtx, kind: CosKind, id: string, cls?: string): Access {
+  const c = COSMETICS[kind]?.find((x) => x.id === id) as unknown as { unlock?: string; earn?: Earn; cls?: string } | undefined;
+  if (!c) return { ok: false, why: "premium", text: "unknown" };
+  if (c.cls && cls && c.cls !== cls) return { ok: false, why: "class", text: `${CLASSES[c.cls]?.name ?? c.cls} only` };
+  if (c.unlock === "free") return { ok: true };
+  if (c.unlock === "earn") return earned(p, c.earn ?? {}) ? { ok: true } : { ok: false, why: "earn", text: earnText(c.earn ?? {}) };
+  return (p.owned ?? []).includes(`cos:${kind}:${id}`) ? { ok: true } : { ok: false, why: "premium", text: "Premium · in the Shop" };
+}
+export const ownsKey = (p: UnlockCtx, key: string) => (p.owned ?? []).includes(key);
+/** All premium shop keys, with a display name and section. Prices are 0 in the test build. */
+export function shopCatalogue(): { key: string; section: string; name: string; desc: string; price: number; cls?: string }[] {
+  const out: { key: string; section: string; name: string; desc: string; price: number; cls?: string }[] = [];
+  const sec: Record<string, string> = { armor: "Armour", wings: "Wings", weapon: "Weapons", petSkin: "Pet skins", dye: "Dyes" };
+  for (const k of COS_KINDS) for (const c of COSMETICS[k]) if ((c as any).unlock === "premium") out.push({ key: `cos:${k}:${c.id}`, section: sec[k], name: String(c.name), desc: String(c.desc ?? ""), price: 0, cls: (c as any).cls });
+  for (const t of HIDEOUT.themes) if (t.premium) out.push({ key: `theme:${t.id}`, section: "Hideout themes", name: t.name, desc: t.desc, price: 0 });
+  for (const d of HIDEOUT.decor) if (d.premium) out.push({ key: `decor:${d.id}`, section: "Hideout decor", name: d.name, desc: "", price: 0 });
+  for (const [skill, styles] of Object.entries(VFX.perSkill)) for (const st of styles) out.push({ key: `fx:${skill}:${st}`, section: "Skill effects", name: `${VFX.styles[st].name} ${SKILL[skill]?.name ?? skill}`, desc: "", price: 0, cls: Object.keys(CLASSES).find((c) => CLASSES[c].skills.includes(skill)) });
+  return out;
+}
 export type CosChoice = Partial<Record<CosKind, string>> & { fx?: Record<string, string> };
 /** Premium skill effects: a style re-colours one skill's projectiles, casts, blasts and trails. Visual only. */
 export interface VfxStyle { name: string; main: string; accent: string; core: string; trail: string }
+export interface HideoutTheme { id: string; name: string; premium: boolean; w: number; h: number; shape: "rect" | "rough" | "hall" | "round"; desc: string; pattern?: string; carpet?: string; trim?: string; light?: string; rune?: string; motes?: string[]; map: MapTheme }
+export interface HideoutSpot { id: string; name: string; fx: number; fy: number; tab?: string; desc?: string; kind?: string; color?: string; glow?: string }
+/** A player's hideout: theme and placed decorations (tile coordinates). Visual only. */
+export interface HideoutLayout { theme: string; decor: { id: string; x: number; y: number }[] }
+export const HIDEOUT = hideoutJson as unknown as { maxDecor: number; stations: HideoutSpot[]; portals: HideoutSpot[]; themes: HideoutTheme[]; decor: { id: string; name: string; premium: boolean }[] };
+export const hideoutTheme = (id?: string) => HIDEOUT.themes.find((t) => t.id === id) ?? HIDEOUT.themes[0];
+/** Where a station or portal sits in a theme's room, in tiles. */
+export const spotTile = (th: HideoutTheme, s: HideoutSpot): [number, number] => [Math.round(s.fx * (th.w - 1)), Math.round(s.fy * (th.h - 1))];
 export const VFX = vfxJson as { styles: Record<string, VfxStyle>; perSkill: Record<string, string[]> };
 
 export const RARITY_ORDER: Rarity[] = ["common", "magic", "rare", "legendary", "set", "mythic"];

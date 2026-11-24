@@ -1,5 +1,5 @@
 // Local profile for OFFLINE_TEST builds (live builds keep this on the backend). Versioned save schema with migrations.
-import { AFFIX, CLASSES, CosChoice, EquipSlot, RIFT, Rarity, xpForLevel } from "../sim/data";
+import { AFFIX, CLASSES, CosChoice, EquipSlot, HideoutLayout, RIFT, Rarity, xpForLevel } from "../sim/data";
 import { Holder, Item, mintItem } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import type { PlayerSetup, SimState } from "../sim/sim";
@@ -16,7 +16,7 @@ export interface CharSave {
   equipment: Holder["equipment"]; bag: Item[];
   runes: Record<string, string>; uses: Record<string, number>;
   loadout?: string[];
-  highestTier: number; bestWave?: number; pityAnc: number; pityPri: number; sigils: number;
+  highestTier: number; bestWave?: number; kings?: number; pityAnc: number; pityPri: number; sigils: number;
   riftsCleared: number; bestTimes: Record<string, number>;
   /** arsenal: saved builds (equipped item ids, skill bar, runes) */
   builds?: (Build | null)[];
@@ -27,6 +27,10 @@ export const BUILD_SLOTS = 5;
 export interface Profile {
   version: number; active: string; chars: Record<string, CharSave>;
   materials: number; pet: string; filter: Rarity; cos: CosChoice;
+  /** premium things this account owns (shop keys like "cos:armor:gilded"); free in the test build */
+  owned?: string[];
+  /** hideout theme and placed decorations */
+  hideout?: HideoutLayout;
   /** Rift Shards (account-wide, like materials) */
   shards?: number;
   /** storage shared by every character */
@@ -81,6 +85,12 @@ export function migrate(raw: any): Profile | null {
       for (const it of [...Object.values(c.equipment), ...c.bag]) if (it) { delete (it as any).plus; delete (it as any).charges; }
     }
     for (const it of p.stash ?? []) { delete (it as any).plus; delete (it as any).charges; }
+    // cosmetics were all free before the shop: whatever you were wearing stays yours
+    if (!p.owned) {
+      p.owned = [];
+      for (const [k, v] of Object.entries(p.cos ?? {})) if (typeof v === "string" && v !== "default" && v !== "none") p.owned.push(`cos:${k}:${v}`);
+      for (const [sk, st] of Object.entries(p.cos?.fx ?? {})) p.owned.push(`fx:${sk}:${st}`);
+    }
     return p;
   }
   return null;

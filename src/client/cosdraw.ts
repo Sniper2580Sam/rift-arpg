@@ -138,8 +138,10 @@ function drawStaffTop(g: CanvasRenderingContext2D, w: Record<string, any> | unde
 
 /** The whole hero: wings, cape, weapon, body, armour overlay, halo and aura, layered by facing. */
 export function drawHeroCos(g: CanvasRenderingContext2D, bank: SpriteBank, h: HeroView, x: number, y: number, t: number, emit?: Emit) {
-  const cos = h.cos ?? {};
-  const frames = bank.heroSkin(h.cls, cos.armor, cos.weapon);
+  // class-only armour worn by another class (after a class switch) falls back to the base outfit
+  const cos0 = h.cos ?? {}, ca = cosOf("armor", cos0.armor);
+  const cos = ca?.cls && ca.cls !== h.cls ? { ...cos0, armor: undefined } : cos0;
+  const frames = bank.heroSkin(h.cls, cos.armor, cos.weapon, cos.dye);
   const fr = h.moving ? 1 + (Math.floor(h.walk / 7) % 2) : 0;
   const flip = h.fx < 0, back = h.fy > -0.6;
   const a = cosOf("armor", cos.armor), wc = cosOf("weapon", cos.weapon), wg = cosOf("wings", cos.wings);

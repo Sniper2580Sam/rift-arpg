@@ -105,6 +105,22 @@ export function genOpen(r: Rng, w: number, h: number, ts: number): TileMap {
   return { w, h, ts, tiles: t };
 }
 
+/** Hideout room: plain box, rough cellar, columned hall or round sanctum. */
+export function genHideout(r: Rng, w: number, h: number, ts: number, shape: string): TileMap {
+  const t = new Array(w * h).fill(1);
+  const cx = (w - 1) / 2, cy = (h - 1) / 2;
+  for (let y = 2; y < h - 2; y++) for (let x = 2; x < w - 2; x++) {
+    let open = true;
+    if (shape === "round") open = Math.hypot((x - cx) / (cx - 1.5), (y - cy) / (cy - 1.5)) <= 1;
+    else if (shape === "hall" || shape === "rect") open = !((x < 4 || x > w - 5) && (y < 4 || y > h - 5)) || shape === "rect";
+    if (open) t[y * w + x] = 0;
+  }
+  if (shape === "rough") erode(r, t, w, h, 0.35);
+  if (shape === "hall") for (const fx of [0.3, 0.7]) for (const fy of [0.4, 0.62]) { const x = Math.round(fx * (w - 1)), y = Math.round(fy * (h - 1)); t[y * w + x] = 1; }
+  keepLargest(t, w, h);
+  return { w, h, ts, tiles: t };
+}
+
 /** Ring: a wide loop around a bottomless central pit, with a few side caves off the outer wall. */
 export function genRing(r: Rng, w: number, h: number, ts: number): TileMap {
   const t = new Array(w * h).fill(1);

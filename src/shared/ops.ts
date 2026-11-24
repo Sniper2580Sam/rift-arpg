@@ -1,6 +1,6 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
-import { ITEMS, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, LOADOUT_SIZE, SKILL, validLoadout, VFX } from "../sim/data";
+import { ITEMS, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
 import { Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
@@ -19,6 +19,8 @@ export type HubOp =
   | { t: "buildDelete"; idx: number }
   | { t: "slotUp"; slot: EquipSlot }
   | { t: "slotCrit"; slot: EquipSlot }
+  | { t: "buy"; key: string }
+  | { t: "hideout"; theme?: string; place?: { id: string; x: number; y: number }; remove?: number }
   | { t: "newSeason" }
   | { t: "reset" };
 
@@ -96,19 +98,48 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       if (op.k.startsWith("fx.")) {
         // premium skill effects: free in this build; "default" clears it
         const skill = op.k.slice(3);
-        if (op.v !== "default" && !(VFX.perSkill[skill] ?? []).includes(op.v)) return false;
+        if (op.v !== "default" && (!(VFX.perSkill[skill] ?? []).includes(op.v) || !ownsKey(p, `fx:${skill}:${op.v}`))) return false;
         const fx = { ...(p.cos?.fx ?? {}) };
         if (op.v === "default") delete fx[skill]; else fx[skill] = op.v;
         p.cos = { ...(p.cos ?? {}), fx }; return true;
       }
       if (op.k.startsWith("cos.")) {
-        // cosmetics: every one is free in this build (no store yet), so any catalogue id is valid
+        // cosmetics: free ones, earned ones, and premium ones you own (the shop is free in the test build)
         const kind = op.k.slice(4) as CosKind;
         if (!COS_KINDS.includes(kind) || !COSMETICS[kind].some((x) => x.id === op.v)) return false;
+        if (!cosAccess(p, kind, op.v, c.cls).ok) return false;
         p.cos = { ...(p.cos ?? {}), [kind]: op.v }; return true;
       }
       if (SETTINGS.has(op.k)) { (p.settings as any)[op.k] = !!op.v; return true; }
       return false;
+    case "buy": {
+      // price 0 in the test build: buying just records ownership
+      if (typeof op.key !== "string" || !shopCatalogue().some((x) => x.key === op.key)) return false;
+      p.owned ??= [];
+      if (!p.owned.includes(op.key)) p.owned.push(op.key);
+      return true;
+    }
+    case "hideout": {
+      const h = p.hideout ?? { theme: HIDEOUT.themes[0].id, decor: [] };
+      if (op.theme !== undefined) {
+        const th = HIDEOUT.themes.find((t) => t.id === op.theme);
+        if (!th || (th.premium && !ownsKey(p, `theme:${th.id}`))) return false;
+        // decorations outside the new room's size are dropped
+        p.hideout = { theme: th.id, decor: h.decor.filter((d) => d.x < th.w - 1 && d.y < th.h - 1) }; return true;
+      }
+      if (op.place) {
+        const d = HIDEOUT.decor.find((x) => x.id === op.place!.id);
+        const x = op.place.x | 0, y = op.place.y | 0;
+        if (!d || (d.premium && !ownsKey(p, `decor:${d.id}`)) || h.decor.length >= HIDEOUT.maxDecor || x < 1 || y < 1 || x > 62 || y > 62) return false;
+        if (h.decor.some((o) => o.x === x && o.y === y)) return false;
+        p.hideout = { theme: h.theme, decor: [...h.decor, { id: d.id, x, y }] }; return true;
+      }
+      if (op.remove !== undefined) {
+        if (!h.decor[op.remove]) return false;
+        p.hideout = { theme: h.theme, decor: h.decor.filter((_, i) => i !== op.remove) }; return true;
+      }
+      return false;
+    }
     case "stash": {
       const it = c.bag[op.bagIndex];
       p.stash ??= [];

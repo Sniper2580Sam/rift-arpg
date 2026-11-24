@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { CLASSES, ENEMIES, MAP, MODIFIER, RIFT, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { CLASSES, ENEMIES, HIDEOUT, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, endlessLivesLeft } from "../sim/sim";
@@ -10,6 +10,7 @@ import { queue as cloudQueue, startCloud } from "./cloud";
 import { driveQueue, startDrive } from "./gdrive";
 import { HubOp, applyHubOp } from "../shared/ops";
 import { RARITY_COLOR, Sprite, buildSprites, renderMap } from "./sprites";
+import { allSpots, decorIcon, drawDecor, drawPortal, drawStation, drawThemeAir, drawThemeFloor, spotPos } from "./hideout";
 import { UI, fmtTime, modsLine } from "./ui";
 import { Online, onlineAvailable, signIn, signOut } from "./net";
 import { Direct } from "./direct";
@@ -67,6 +68,9 @@ let gotAncestral = false, gotPrimal = false, gotSigil = 0, startLevel = 1;
 let completeInfo: { inTime: boolean; time: number } | null = null;
 let run: { kind: RunKind; tier: number; weekly: boolean; seed: number } | null = null;
 let leaveArmed = 0;
+// hideout: the station or portal you're standing at, whether the full menu is open over it, and decorating
+let hideNear: HideoutSpot | null = null, menuOpen = false, decorating = false, menuStamp = "";
+const inHideout = () => !!sim && run?.kind === "hideout";
 let screen: "hub" | "results" | "rift" = "hub";
 let runIds = new Set<string>(), scrappedIds: string[] = [];
 
@@ -96,6 +100,11 @@ type RunOpts = { tier: number; seed: number | null; kind: RunKind; weekly?: bool
 type RunInfo = { kind: RunKind; tier: number; weekly: boolean; seed: number };
 function startRun(o: RunOpts) {
   unlockAudio();
+  if (inHideout() && o.kind !== "hideout") {
+    if (coop?.role === "guest") { ui.toast("Only the host can open a portal.", "#ffd23f"); return; }
+    if (online?.direct && online.lobby && !online.lobby.host) { ui.toast("Only the host can open a portal.", "#ffd23f"); return; }
+    leaveHideout();
+  }
   if (online && !online.direct) return startLiveRun(o);
   if (online?.direct && online.lobby) { if (online.lobby.host) startDirectRun(o); return; }
   const c = char(profile);
@@ -104,7 +113,7 @@ function startRun(o: RunOpts) {
   if (o.kind === "chase") { if (c.sigils <= 0) return; c.sigils--; saveProfile(profile); }
   const T = RIFT.tiers;
   const cfg: SimConfig = {
-    seed, kind: o.kind, tier: o.tier, players: [setupFor(profile, ME)],
+    seed, kind: o.kind, tier: o.tier, players: [setupFor(profile, ME)], hideout: o.kind === "hideout" ? profile.hideout : undefined,
     mods: o.kind !== "rift" ? [] : rollModifiers(seed, o.tier),
     pity: { [ME]: { ancestral: c.pityAnc >= T.ancestralPity, primal: c.pityPri >= T.primalPity } },
   };
@@ -117,7 +126,9 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   run = info;
   const seed = info.seed;
   const md = sim.rift.map ? MAP[sim.rift.map] : undefined;
-  mapCanvas = renderMap(sim.map.tiles, sim.map.w, sim.map.h, sim.map.ts, seed, md?.theme);
+  const hth = sim.rift.kind === "hideout" ? hideoutTheme(sim.rift.hideout?.theme) : undefined;
+  mapCanvas = renderMap(sim.map.tiles, sim.map.w, sim.map.h, sim.map.ts, seed, hth ? { ...hth.map, pattern: hth.pattern } : md?.theme);
+  menuOpen = false; decorating = false; hideNear = null;
   miniCanvas = document.createElement("canvas");
   miniCanvas.width = sim.map.w; miniCanvas.height = sim.map.h;
   const m = miniCanvas.getContext("2d")!;
@@ -131,14 +142,127 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   ui.hide();
   riftButtons();
   const party = sim.players.length > 1 ? ` · party of ${sim.players.length}` : "";
-  if (info.kind === "endless") showBanner("ENDLESS", `Tier ${info.tier} start · ${RIFT.endless.lives} lives · clear waves fast to climb faster`, "#ff8a5a", 3.5);
+  if (info.kind === "hideout") { const host = sim.players.find((q) => q.pid === 0); showBanner(host && host.pid !== ME ? `${host.name}'s hideout` : "Your hideout", "Walk to a station or portal", "#c9b8ff", 2.2); }
+  else if (info.kind === "endless") showBanner("ENDLESS", `Tier ${info.tier} start · ${RIFT.endless.lives} lives · clear waves fast to climb faster`, "#ff8a5a", 3.5);
   else if (info.kind === "chase") showBanner(RIFT.chase.name, "Three phases. Dodge the fire, break the pylons.", "#ff3b6b", 3.5);
   else if (md?.id === "goodluck") showBanner(`GOOD LUCK ×${sim.rift.density}`, `Somebody left the gate open. Tier ${info.tier} · code ${seed.toString(36).toUpperCase()}${party}`, "#ff5a6a", 5);
   else if (md?.egg) showBanner(md.name.toUpperCase(), `${md.desc} Tier ${info.tier} · code ${seed.toString(36).toUpperCase()}${party}`, "#ffd75a", 5);
   else showBanner(info.weekly ? "WEEKLY RIFT" : md?.name ?? RIFT.name, `Tier ${info.tier} · code ${seed.toString(36).toUpperCase()} · ${modsLine(sim.rift.mods)}${party}`, "#c9b8ff", 3.5);
 }
 
+function hideoutButtons() {
+  const root = document.getElementById("ui")!;
+  root.className = "hudbtns";
+  const n = hideNear;
+  const guest = coop?.role === "guest";
+  const act = !n ? "" : n.kind ? `<button id="h-act" class="h-act">${guest ? `${esc(n.name)} · host opens` : `Enter ${esc(n.name)}${n.kind === "chase" ? ` (${char(profile).sigils} sigils)` : n.kind === "rift" || n.kind === "endless" ? ` · T${ui.tier}` : ""}`}</button>` : `<button id="h-act" class="h-act">${esc(n.name)}</button>`;
+  root.innerHTML = `${act}<button id="h-menu">Menu</button>${guest ? `<button id="h-leave">Leave room</button>` : ""}`;
+  const a = document.getElementById("h-act"); if (a) a.onclick = () => useSpot(n!);
+  document.getElementById("h-menu")!.onclick = () => openMenu();
+  const l = document.getElementById("h-leave"); if (l) l.onclick = () => { online?.leave(); endRun(); };
+}
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+function useSpot(n: HideoutSpot) {
+  if (n.kind) {
+    const c = char(profile);
+    if (n.kind === "chase") { if (c.sigils <= 0) { ui.toast("You need a Bone Sigil (they drop from guardians at tier 3+).", "#ffd23f"); return; } startRun({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase" }); }
+    else startRun({ tier: Math.min(Math.max(1, ui.tier), c.highestTier), seed: null, kind: n.kind as RunKind });
+    return;
+  }
+  if (n.tab === "decorate") return startDecorating();
+  openMenu(n.tab);
+}
+/** Decorating: a tray of themes and decorations. Walk to a spot and tap an item to place it on your tile. */
+function startDecorating() {
+  if (!canFreeze() || coop?.role === "guest") { ui.toast("Decorate when nobody else is in your hideout.", "#ffd23f"); return; }
+  decorating = true; hideNear = null;
+  decorTray();
+}
+function decorTray() {
+  if (!decorating || !sim) return;
+  const root = document.getElementById("ui")!;
+  root.className = "decor-tray";
+  const h = profile.hideout ?? { theme: HIDEOUT.themes[0].id, decor: [] };
+  const themes = HIDEOUT.themes.map((t) => {
+    const own = !t.premium || ownsKey(profile, `theme:${t.id}`);
+    return `<button class="dt-theme${t.id === h.theme ? " on" : ""}${t.premium ? " prem" : ""}" data-theme="${t.id}">${t.premium ? "★ " : ""}${esc(t.name)}${own ? "" : " · Shop"}</button>`;
+  }).join("");
+  const items = HIDEOUT.decor.map((d) => {
+    const own = !d.premium || ownsKey(profile, `decor:${d.id}`);
+    const ic = decorIcon(d.id);
+    return `<button class="dt-item${d.premium ? " prem" : ""}${own ? "" : " locked"}" data-decor="${d.id}" title="${esc(d.name)}">${ic ? `<img src="${ic.toDataURL()}" alt="">` : ""}<small>${d.premium ? "★ " : ""}${esc(d.name)}</small></button>`;
+  }).join("");
+  root.innerHTML = `<div class="dt-head"><b>Decorate</b><span class="dim">${h.decor.length}/${HIDEOUT.maxDecor} · walk somewhere, tap an item to place it there</span><button id="dt-remove">Remove nearest</button><button id="dt-done">Done</button></div>
+    <div class="dt-row">${themes}</div><div class="dt-row">${items}</div>`;
+  root.querySelectorAll<HTMLElement>("[data-theme]").forEach((b) => b.onclick = () => {
+    const id = b.dataset.theme!, t = hideoutTheme(id);
+    if (t.premium && !ownsKey(profile, `theme:${id}`)) { decorating = false; openMenu("shop"); return; }
+    if (id === h.theme) return;
+    hubOp({ t: "hideout", theme: id });
+    enterHideout(); decorating = true; decorTray();
+  });
+  root.querySelectorAll<HTMLElement>("[data-decor]").forEach((b) => b.onclick = () => {
+    const id = b.dataset.decor!, d = HIDEOUT.decor.find((x) => x.id === id)!;
+    if (d.premium && !ownsKey(profile, `decor:${id}`)) { decorating = false; openMenu("shop"); return; }
+    const p = me(), m = sim!.map, x = Math.floor(p.x / m.ts), y = Math.floor(p.y / m.ts);
+    if (m.tiles[y * m.w + x] !== 0) { ui.toast("Stand on open floor to place.", "#ffd23f"); return; }
+    if ((profile.hideout?.decor.length ?? 0) >= HIDEOUT.maxDecor) { ui.toast(`Hideout is full (${HIDEOUT.maxDecor}). Remove something first.`, "#ffd23f"); return; }
+    if (profile.hideout?.decor.some((o) => o.x === x && o.y === y)) { ui.toast("Something is already here. Step aside.", "#ffd23f"); return; }
+    hubOp({ t: "hideout", place: { id, x, y } });
+    sim!.rift.hideout = profile.hideout; sfx.pickup();
+    decorTray();
+  });
+  document.getElementById("dt-remove")!.onclick = () => {
+    const p = me(), ts = sim!.map.ts, list = profile.hideout?.decor ?? [];
+    let bi = -1, bd = 28;
+    list.forEach((d, i) => { const dd = Math.hypot((d.x + 0.5) * ts - p.x, (d.y + 0.5) * ts - p.y); if (dd < bd) { bd = dd; bi = i; } });
+    if (bi < 0) { ui.toast("Stand next to a decoration to remove it.", "#ffd23f"); return; }
+    hubOp({ t: "hideout", remove: bi });
+    sim!.rift.hideout = profile.hideout;
+    decorTray();
+  };
+  document.getElementById("dt-done")!.onclick = () => { decorating = false; hideoutButtons(); };
+}
+/** Which station or portal the local hero stands at (checked every frame; buttons redraw only on change). */
+function hideoutTick() {
+  if (!inHideout() || menuOpen || ui.invOpen || decorating) return;
+  const p = me(), th = hideoutTheme(sim!.rift.hideout?.theme);
+  let best: HideoutSpot | null = null, bd = 30;
+  for (const s of allSpots()) { const [x, y] = spotPos(sim!.map, th, s); const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = s; } }
+  if (best !== hideNear) { hideNear = best; hideoutButtons(); }
+}
+function leaveHideout() {
+  if (sim) syncFromSim(profile, sim, ME);
+  sim = null; run = null; coop = null; menuOpen = false; decorating = false; hideNear = null;
+}
+/** Home: your hideout. In a direct room the host's hideout is shared and guests wait for it. */
+function enterHideout() {
+  const apply = (window as any).__applyPendingRemote; if (apply) { (window as any).__applyPendingRemote = null; setTimeout(apply, 0); }
+  if (inHideout() && coop?.role === "guest") { ui.hide(); hideoutButtons(); return; }
+  if (sim) leaveHideout();
+  if (online?.direct && online.lobby?.host) { startDirectRun({ kind: "hideout", tier: 1, seed: null }); return; }
+  const seed = (Math.random() * 0xffffffff) >>> 0;
+  const cfg: SimConfig = { seed, kind: "hideout", tier: 1, players: [setupFor(profile, ME, online?.name)], hideout: profile.hideout, mods: [] };
+  beginRun(cfg, { kind: "hideout", tier: 1, weekly: false, seed });
+}
+function openMenu(tab?: string) {
+  if (tab) ui.tab = tab as any;
+  menuOpen = true; menuStamp = JSON.stringify([char(profile), profile.cos, profile.pet, profile.hideout]);
+  if (sim) pause();
+  showMenu();
+}
+function closeMenu() {
+  menuOpen = false;
+  ui.hide();
+  // the hero in the hideout was built from the old profile: rebuild it if gear, class or looks changed
+  const changed = menuStamp !== JSON.stringify([char(profile), profile.cos, profile.pet, profile.hideout]);
+  if (changed && inHideout() && coop?.role !== "guest") { enterHideout(); return; }
+  resume();
+}
+function refreshMenu() { if (menuOpen) showMenu(); else if (!sim && mode === "hub") goHub(); }
+
 function riftButtons() {
+  if (inHideout()) return hideoutButtons();
   const root = document.getElementById("ui")!;
   root.className = "hudbtns";
   root.innerHTML = `${sim?.boonOffers[ME] ? `<button id="b-boon" class="boon-ready">★ Boon${sim.boonPending?.[ME] ? ` ×${sim.boonPending[ME] + 1}` : ""}</button>` : ""}<button id="b-inv">Bag</button><button id="b-leave">Leave</button>`;
@@ -174,6 +298,7 @@ function openRiftInventory() {
 
 function endRun() {
   if (!sim || !run) return;
+  if (run.kind === "hideout") { syncFromSim(profile, sim, ME); saveProfile(profile); finishOnline(); leaveHideout(); goHub(); return; }
   const s = sim, p = me(), c = char(profile), T = RIFT.tiers;
   syncFromSim(profile, s, ME);
   for (const [k, v] of Object.entries(p.uses)) c.uses[k] = (c.uses[k] ?? 0) + v;
@@ -186,7 +311,7 @@ function endRun() {
     c.riftsCleared++;
     if (run.kind === "rift") {
       const up = Math.min(T.max, run.tier + tierJump(completeInfo.time));
-      if (completeInfo.inTime && up > c.highestTier) { const was = c.highestTier; c.highestTier = up; lines.push(up - Math.max(was, run.tier) > 1 ? `Fast clear! Tier ${up} unlocked (+${up - run.tier})` : `Tier ${up} unlocked!`); }
+      if (completeInfo.inTime && up > c.highestTier) { const was = c.highestTier; if (was <= 10 && up > 10) lines.push("Riftbreaker armour unlocked in the Wardrobe"); c.highestTier = up; lines.push(up - Math.max(was, run.tier) > 1 ? `Fast clear! Tier ${up} unlocked (+${up - run.tier})` : `Tier ${up} unlocked!`); }
       const key = String(run.tier);
       if (completeInfo.inTime && (!c.bestTimes[key] || completeInfo.time < c.bestTimes[key])) c.bestTimes[key] = completeInfo.time;
       if (run.tier >= T.ancestralFrom) c.pityAnc = gotAncestral ? 0 : c.pityAnc + 1;
@@ -197,9 +322,10 @@ function endRun() {
         if (completeInfo.inTime && (!profile.weekly.best || completeInfo.time < profile.weekly.best)) { profile.weekly.best = completeInfo.time; lines.push("New weekly best!"); }
       }
     }
+    if (run.kind === "chase") { c.kings = (c.kings ?? 0) + 1; if (c.kings === 1) lines.push("Kingslayer armour unlocked in the Wardrobe"); }
     saveProfile(profile);
     const wave = s.rift.wave ?? 0;
-    if (run.kind === "endless" && wave > (c.bestWave ?? 0)) { c.bestWave = wave; lines.push(`New best: wave ${wave}`); saveProfile(profile); }
+    if (run.kind === "endless" && wave > (c.bestWave ?? 0)) { if ((c.bestWave ?? 0) < 20 && wave >= 20) lines.push("Vanguard armour unlocked in the Wardrobe"); c.bestWave = wave; lines.push(`New best: wave ${wave}`); saveProfile(profile); }
     const title = run.kind === "endless" ? `Endless: wave ${wave}` : run.kind === "chase" ? "The Ossuary King falls" : completeInfo.inTime ? "Rift cleared in time!" : "Guardian slain";
     const sub = run.kind === "endless" ? `Reached difficulty level ${s.rift.level ?? 0} from tier ${run.tier}. The chest grows every ${RIFT.endless.rewards.perWaves} waves.` : completeInfo.inTime ? "Bonus loot for time remaining." : "The timer ran out, so the rewards were smaller.";
     finishOnline();
@@ -241,10 +367,11 @@ function hubOp(op: HubOp) {
   if (online && !online.direct) online.op(op);
   else if (online?.direct) online.pushSetup();
 }
-function goHub() {
-  mode = "hub"; screen = "hub";
-  const apply = (window as any).__applyPendingRemote; if (apply) { (window as any).__applyPendingRemote = null; setTimeout(apply, 0); }
+function goHub() { enterHideout(); }
+function showMenu() {
+  if (!sim) { mode = "hub"; screen = "hub"; }
   ui.showHub(profile, {
+    close: sim ? closeMenu : undefined,
     enter: startRun,
     invCmd: (cmd) => hubOp({ t: "inv", cmd }),
     setClass: (cls) => hubOp({ t: "setClass", cls }),
@@ -253,11 +380,11 @@ function goHub() {
     reroll: (target, idx, choice) => hubOp({ t: "reroll", target, idx, choice }),
     setting: (k, v) => hubOp({ t: "setting", k, v }),
     op: hubOp,
-    newSeason: () => { hubOp({ t: "newSeason" }); goHub(); },
-    reset: () => { hubOp({ t: "reset" }); goHub(); },
+    newSeason: () => { hubOp({ t: "newSeason" }); menuOpen = false; goHub(); },
+    reset: () => { hubOp({ t: "reset" }); menuOpen = false; goHub(); },
     rerollOptions: online && !online.direct ? (target, idx) => (online as Online).rerollOptions(target, idx) : undefined,
     coop: !online ? undefined : online.direct
-      ? { name: online.name, lobby: online.lobby, direct: true, connecting: online.connecting, host: () => (online as Direct).host(), join: (code) => (online as Direct).join(code), leave: () => online!.leave(), setName: (n: string) => { (online as Direct).setName(n); goHub(); } }
+      ? { name: online.name, lobby: online.lobby, direct: true, connecting: online.connecting, host: () => (online as Direct).host(), join: (code) => (online as Direct).join(code), leave: () => online!.leave(), setName: (n: string) => { (online as Direct).setName(n); refreshMenu(); } }
       : { name: online.name, lobby: online.lobby, host: () => online!.host(), join: (code) => online!.join(code), leave: () => online!.leave(), signOut: () => { signOut(); location.reload(); } },
   });
 }
@@ -433,6 +560,7 @@ function frame(now: number) {
     if (steps === 4) acc = 0;
     updateFx(dt);
     if (sim) render(Math.min(1, acc / DT), dt);
+    hideoutTick();
   } else {
     drawHubBackdrop(now / 1000);
   }
@@ -481,11 +609,13 @@ function render(alpha: number, dt: number) {
   const sx = Math.round(camX + (Math.random() - 0.5) * shake * 2), sy = Math.round(camY + (Math.random() - 0.5) * shake * 2);
   const g = wctx;
   g.imageSmoothingEnabled = false;
-  g.fillStyle = (sim?.rift.map && MAP[sim.rift.map]?.theme.void) || "#0e0a14"; g.fillRect(0, 0, W, H);
+  g.fillStyle = (sim?.rift.kind === "hideout" ? hideoutTheme(sim.rift.hideout?.theme).map.void : sim?.rift.map && MAP[sim.rift.map]?.theme.void) || "#0e0a14"; g.fillRect(0, 0, W, H);
   g.save();
   g.translate(-sx, -sy);
   g.drawImage(mapCanvas!, sx, sy, W, H, sx, sy, W, H);
   const t = performance.now() / 1000;
+  const hth = s.rift.kind === "hideout" ? hideoutTheme(s.rift.hideout?.theme) : undefined;
+  if (hth) drawThemeFloor(g, s.map, hth, t);
   const onScreen = (x: number, y: number, m = 40) => x > sx - m && x < sx + W + m && y > sy - m && y < sy + H + m;
 
   for (const h of s.hazards) {
@@ -573,6 +703,11 @@ function render(alpha: number, dt: number) {
       g.globalAlpha = 1;
     } });
   }
+  if (hth) {
+    for (const d of s.rift.hideout?.decor ?? []) { const x = (d.x + 0.5) * s.map.ts, y = (d.y + 1) * s.map.ts - 2; list.push({ y: d.id === "rug" ? -1e9 : y, f: () => drawDecor(g, d.id, x, y, t) }); }
+    for (const st of HIDEOUT.stations) { const [x, y] = spotPos(s.map, hth, st); list.push({ y, f: () => drawStation(g, st, x, y, t, hideNear === st) }); }
+    for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? `${char(profile).sigils} sigils` : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : `tier ${Math.min(ui.tier, char(profile).highestTier)}`) }); }
+  }
   for (const q of s.players) {
     if (q.dead) continue;
     const qx = lerp(q.px, q.x, alpha), qy = lerp(q.py, q.y, alpha);
@@ -643,6 +778,7 @@ function render(alpha: number, dt: number) {
     g.fillStyle = pa.color; g.fillRect(Math.round(pa.x), Math.round(pa.y), pa.size, pa.size);
   }
   g.globalAlpha = 1;
+  if (hth) drawThemeAir(g, s.map, hth, t);
   g.restore();
   const dark = s.rift.mods.includes("gloom");
   if (!vignette || vignette.width !== W || vignette.height !== H || vignetteDark !== dark) {
@@ -860,6 +996,7 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
   c.fillStyle = "#b8a8d0"; c.font = font(10); { let lv = `Lv ${p.level}${p.boons.length ? " · " + p.boons.join(", ") : ""}`; while (lv.length > 4 && c.measureText(lv).width > lw) lv = lv.slice(0, -2) + "…"; c.fillText(lv, L + 6, T + 48); }
   const r = s.rift;
   const narrow = W < 600;
+  if (r.kind !== "hideout") {
   const bw = narrow ? Math.min(W - 2 * L - 4, 300) : Math.min(320, W - 2 * lw - 80);
   const bx = narrow ? W / 2 - bw / 2 : W / 2 - bw / 2;
   const topY = narrow ? T + 64 : T;
@@ -899,6 +1036,7 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
     for (const l of s.loot) if (l.owner === ME && RARITY_ORDER_IDX(l.item.rarity) >= 2) { c.fillStyle = RARITY_COLOR[l.item.rarity]; c.fillRect(mx + l.x * k - 2, my + l.y * k - 2, 4, 4); }
     for (const q of s.players) { c.fillStyle = q.pid === ME ? "#fff" : "#7dff9a"; c.fillRect(mx + q.x * k - 2, my + q.y * k - 2, 4, 4); }
     c.globalAlpha = 1;
+  }
   }
   // skills
   const skills = p.skills.map((id, slot) => {
@@ -1122,7 +1260,7 @@ function startDirectRun(o: RunOpts) {
   const players = [setupFor(profile, ME, d.name), ...peers.map((pid) => ({ ...d.peerInfo.get(pid)!.setup, pid, name: d.peerInfo.get(pid)!.name }))];
   const pity: SimConfig["pity"] = { [ME]: { ancestral: c.pityAnc >= T.ancestralPity, primal: c.pityPri >= T.primalPity } };
   for (const pid of peers) pity[pid] = d.peerInfo.get(pid)!.pity;
-  const cfg: SimConfig = { seed, kind: o.kind, tier: o.tier, players, mods: o.kind !== "rift" ? [] : rollModifiers(seed, o.tier), pity };
+  const cfg: SimConfig = { seed, kind: o.kind, tier: o.tier, players, mods: o.kind !== "rift" ? [] : rollModifiers(seed, o.tier), pity, hideout: o.kind === "hideout" ? profile.hideout : undefined };
   coop = newCoop("host", cfg);
   const info: RunInfo = { kind: o.kind, tier: o.tier, weekly: !!o.weekly && peers.length === 0, seed };
   for (const pid of peers) { d.sendR(pid, { t: "start", cfg, info }); coop.live.add(pid); coop.remote.set(pid, { inp: NO_INPUT, cmds: [] }); }
@@ -1131,11 +1269,11 @@ function startDirectRun(o: RunOpts) {
 }
 
 function wireOnline(o: Online | Direct) {
-  if (!o.direct) o.onProfile = (p) => { profile = p; setMuted(profile.settings.mute); if (screen === "hub" && mode === "hub") goHub(); };
+  if (!o.direct) o.onProfile = (p) => { profile = p; setMuted(profile.settings.mute); refreshMenu(); };
   o.onLobby = () => {
     ME = o.lobby ? o.lobby.pid : 0;
     if (!o.direct && pendingStart && !pendingStart.sent && o.lobby?.host) { pendingStart.sent = true; o.send({ t: "runStart", kind: pendingStart.kind, tier: pendingStart.tier }); }
-    if (screen === "hub" && mode === "hub") goHub();
+    refreshMenu();
   };
   o.onServer = (m) => {
     switch (m.t) {
@@ -1148,6 +1286,8 @@ function wireOnline(o: Online | Direct) {
     }
   };
   o.onPeerOpen = (pid) => {
+    // a friend joined while the host is home alone: share the hideout with them
+    if (!coop && inHideout() && o.direct && o.lobby?.host) { if (menuOpen) { menuOpen = false; ui.hide(); } enterHideout(); return; }
     if (coop?.role !== "host" || !sim) return;
     const info = o.peerInfo.get(pid);
     if (!info || coop.live.has(pid) || coop.joining.has(pid)) return;
@@ -1170,7 +1310,7 @@ function wireOnline(o: Online | Direct) {
       return;
     }
     if (pid !== 0) return;
-    if (m.t === "start" && !sim) { coop = newCoop("guest", m.cfg); beginRun(m.cfg, m.info); return; }
+    if (m.t === "start" && (!sim || inHideout())) { if (sim) leaveHideout(); coop = newCoop("guest", m.cfg); beginRun(m.cfg, m.info); return; }
     if (m.t === "snap") {
       const s = restoreSim(m.cfg, m.state);
       if (!sim || !coop) { coop = newCoop("guest", m.cfg); beginRun(m.cfg, m.info, s); }
@@ -1231,14 +1371,14 @@ else {
   setOnSaved((p) => { cloudQueue(p); driveQueue(p); });
   let pendingRemote: Profile | null = null;
   const useRemote = (p: Profile) => {
-    if (mode !== "hub" || screen !== "hub") { pendingRemote = p; return; }
+    if (!(inHideout() && !coop) || menuOpen) { pendingRemote = p; return; }
     profile = p; setMuted(profile.settings.mute);
     try { localStorage.setItem("rift-arpg-save", JSON.stringify(p)); } catch { /* ignore */ }
     ui.toast("Save restored from your account", "#7dff9a");
     goHub();
   };
   startCloud(() => profile, useRemote);
-  startDrive(() => profile, (p) => { useRemote(p); }, () => { if (mode === "hub" && screen === "hub") ui.refreshDrive?.(); });
+  startDrive(() => profile, (p) => { useRemote(p); }, () => { if (menuOpen || mode === "hub") ui.refreshDrive?.(); });
   (window as any).__applyPendingRemote = () => { if (pendingRemote) { const p = pendingRemote; pendingRemote = null; useRemote(p); } };
 }
 requestAnimationFrame(frame);

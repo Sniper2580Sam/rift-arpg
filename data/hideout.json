@@ -1,0 +1,296 @@
+{
+ "maxDecor": 40,
+ "stations": [
+  {
+   "id": "blacksmith",
+   "name": "Blacksmith",
+   "tab": "gear",
+   "fx": 0.16,
+   "fy": 0.22,
+   "desc": "Gear, rerolls and slot upgrades"
+  },
+  {
+   "id": "stash",
+   "name": "Stash",
+   "tab": "gear",
+   "fx": 0.32,
+   "fy": 0.2,
+   "desc": "Storage and arsenal"
+  },
+  {
+   "id": "board",
+   "name": "Rift Board",
+   "tab": "play",
+   "fx": 0.5,
+   "fy": 0.18,
+   "desc": "Tier, rift codes, weekly, co-op room"
+  },
+  {
+   "id": "shrine",
+   "name": "Skill Shrine",
+   "tab": "skills",
+   "fx": 0.68,
+   "fy": 0.2,
+   "desc": "Skills and runes"
+  },
+  {
+   "id": "wardrobe",
+   "name": "Wardrobe",
+   "tab": "looks",
+   "fx": 0.84,
+   "fy": 0.22,
+   "desc": "Cosmetics and skill effects"
+  },
+  {
+   "id": "shop",
+   "name": "Shop",
+   "tab": "shop",
+   "fx": 0.9,
+   "fy": 0.52,
+   "desc": "Premium cosmetics (free in the test build)"
+  },
+  {
+   "id": "decorate",
+   "name": "Decorate",
+   "tab": "decorate",
+   "fx": 0.1,
+   "fy": 0.52,
+   "desc": "Place decorations and change the theme"
+  }
+ ],
+ "portals": [
+  {
+   "id": "rift",
+   "name": "Rift",
+   "kind": "rift",
+   "fx": 0.25,
+   "fy": 0.8,
+   "color": "#8a5cff",
+   "glow": "#c9b8ff"
+  },
+  {
+   "id": "endless",
+   "name": "Endless",
+   "kind": "endless",
+   "fx": 0.5,
+   "fy": 0.84,
+   "color": "#ff6a3a",
+   "glow": "#ffb08a"
+  },
+  {
+   "id": "king",
+   "name": "Ossuary King",
+   "kind": "chase",
+   "fx": 0.75,
+   "fy": 0.8,
+   "color": "#ff2a5a",
+   "glow": "#ff9ab0"
+  }
+ ],
+ "themes": [
+  {
+   "id": "crypt",
+   "name": "Old Crypt",
+   "premium": false,
+   "w": 28,
+   "h": 20,
+   "shape": "rect",
+   "desc": "Bare stone and a few cobwebs.",
+   "map": {
+    "floor": [
+     "#2a2630",
+     "#2d2934",
+     "#28242d"
+    ],
+    "speck": [
+     "#36313e",
+     "#211e26"
+    ],
+    "wallTop": "#17141c",
+    "wallFace": "#433c4e",
+    "wallLight": "#544b60",
+    "wallLine": "#2b2633",
+    "void": "#0b0a0e",
+    "deco": "bones"
+   }
+  },
+  {
+   "id": "camp",
+   "name": "Ruined Camp",
+   "premium": false,
+   "w": 28,
+   "h": 20,
+   "shape": "rough",
+   "desc": "Packed dirt in a collapsed cellar.",
+   "map": {
+    "floor": [
+     "#33291f",
+     "#382d22",
+     "#2f261c"
+    ],
+    "speck": [
+     "#44372a",
+     "#271f17"
+    ],
+    "wallTop": "#1a140e",
+    "wallFace": "#56432f",
+    "wallLight": "#6e573e",
+    "wallLine": "#3a2d20",
+    "void": "#0e0b08",
+    "deco": "moss"
+   }
+  },
+  {
+   "id": "gilded",
+   "name": "Gilded Throne Hall",
+   "premium": true,
+   "w": 36,
+   "h": 24,
+   "shape": "hall",
+   "desc": "Polished marble, a royal carpet, gold pillars and braziers that light the hall. Gold motes drift in the air.",
+   "pattern": "marble",
+   "carpet": "#8c1a2a",
+   "trim": "#e8c050",
+   "light": "#ffcf6a",
+   "motes": [
+    "#ffe9a0",
+    "#ffd23f",
+    "#fff8e0"
+   ],
+   "map": {
+    "floor": [
+     "#d8d0c4",
+     "#cfc6b8",
+     "#e2dbd0"
+    ],
+    "speck": [
+     "#b8ae9e",
+     "#f0ebe2"
+    ],
+    "wallTop": "#2a1f10",
+    "wallFace": "#a8802a",
+    "wallLight": "#ffd76a",
+    "wallLine": "#6a4f14",
+    "void": "#120c05",
+    "deco": "none"
+   }
+  },
+  {
+   "id": "astral",
+   "name": "Astral Sanctum",
+   "premium": true,
+   "w": 36,
+   "h": 26,
+   "shape": "round",
+   "desc": "A floor of night sky, a glowing rune circle that pulses under your feet, floating crystals and a slow aurora.",
+   "pattern": "stars",
+   "rune": "#7ad8ff",
+   "trim": "#b08aff",
+   "light": "#8ab0ff",
+   "motes": [
+    "#bfe8ff",
+    "#d0b8ff",
+    "#ffffff"
+   ],
+   "map": {
+    "floor": [
+     "#141a3a",
+     "#161d40",
+     "#121735"
+    ],
+    "speck": [
+     "#2a3570",
+     "#0c1028"
+    ],
+    "wallTop": "#080a1a",
+    "wallFace": "#3a3a7a",
+    "wallLight": "#8a8aff",
+    "wallLine": "#22225a",
+    "void": "#04050c",
+    "deco": "none"
+   }
+  }
+ ],
+ "decor": [
+  {
+   "id": "barrel",
+   "name": "Barrel",
+   "premium": false
+  },
+  {
+   "id": "crate",
+   "name": "Crates",
+   "premium": false
+  },
+  {
+   "id": "bones",
+   "name": "Bone pile",
+   "premium": false
+  },
+  {
+   "id": "candles",
+   "name": "Candles",
+   "premium": false
+  },
+  {
+   "id": "banner",
+   "name": "Banner",
+   "premium": false
+  },
+  {
+   "id": "rug",
+   "name": "Rug",
+   "premium": false
+  },
+  {
+   "id": "torch",
+   "name": "Torch stand",
+   "premium": false
+  },
+  {
+   "id": "deadtree",
+   "name": "Dead tree",
+   "premium": false
+  },
+  {
+   "id": "statue",
+   "name": "Golden knight statue",
+   "premium": true
+  },
+  {
+   "id": "crystal",
+   "name": "Crystal cluster",
+   "premium": true
+  },
+  {
+   "id": "fountain",
+   "name": "Marble fountain",
+   "premium": true
+  },
+  {
+   "id": "throne",
+   "name": "Throne",
+   "premium": true
+  },
+  {
+   "id": "brazier",
+   "name": "Golden brazier",
+   "premium": true
+  },
+  {
+   "id": "orb",
+   "name": "Astral orb",
+   "premium": true
+  },
+  {
+   "id": "kingskull",
+   "name": "Ossuary King trophy",
+   "premium": true
+  },
+  {
+   "id": "chest",
+   "name": "Treasure chest",
+   "premium": true
+  }
+ ]
+}

@@ -3,7 +3,7 @@ import { AFFIX as AFFIX_DEF } from "../sim/data";
 import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
-import { BOON, CLASSES, COSMETICS, CosKind, VFX, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -87,7 +87,7 @@ function isUpgrade(h: Holder, it: Item, ctx: { cls: string; level: number }): bo
   return effectiveDps(b) > effectiveDps(a) * 1.02;
 }
 
-type Tab = "play" | "gear" | "skills" | "looks" | "settings";
+type Tab = "play" | "gear" | "skills" | "looks" | "shop" | "settings";
 export interface HubHandlers {
   enter: (o: { tier: number; seed: number | null; kind: RunKind; weekly?: boolean }) => void;
   invCmd: (c: InvCmd) => void;
@@ -96,6 +96,8 @@ export interface HubHandlers {
   setSkill: (slot: number, skill: string) => void;
   reroll: (bagOrSlot: { bag?: number; slot?: EquipSlot }, affixIdx: number, choice: Affix | null) => void;
   setting: (k: string, v: any) => void;
+  /** set when the menu is open over the hideout: a button to go back to it */
+  close?: () => void;
   /** any other hub op (storage, arsenal) */
   op?: (op: HubOp) => void;
   newSeason: () => void;
@@ -135,24 +137,26 @@ export class UI {
     this.tier = Math.min(Math.max(1, this.tier), c.highestTier);
     this.root.className = "screen";
     const cd = CLASSES[c.cls];
-    const tabs = (["play", "gear", "skills", "looks", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("");
+    const tabs = (["play", "gear", "skills", "looks", "shop", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("");
     let body = "";
     if (this.tab === "play") body = this.playTab(p, c, H);
     if (this.tab === "gear") body = this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
     if (this.tab === "skills") body = this.skillsTab(c);
     if (this.tab === "looks") body = this.looksTab(p);
+    if (this.tab === "shop") body = this.shopTab(p);
     if (this.tab === "settings") body = this.settingsTab(p);
     this.root.innerHTML = `
       <div class="panel hub">
         <div class="hub-head">
           <div><h1>RIFT ARPG</h1><div class="sub">working title · Season ${p.season.n} · ${H.coop ? "live build" : "test build"}</div></div>
-          <div class="who"><b>${cd.name}</b> · Lv ${c.level}<div class="xpbar"><i style="width:${Math.round(xpProgress(c) * 100)}%"></i></div></div>
+          <div class="who"><b>${cd.name}</b> · Lv ${c.level}<div class="xpbar"><i style="width:${Math.round(xpProgress(c) * 100)}%"></i></div></div>${H.close ? `<button id="hub-close" class="hub-close" aria-label="Back to hideout">✕</button>` : ""}
         </div>
         <nav class="tabs">${tabs}</nav>
         <div class="tab-body">${body}</div>
       </div>`;
     this.root.querySelectorAll<HTMLElement>("[data-tab]").forEach((el) => el.onclick = () => { this.tab = el.dataset.tab as Tab; this.sel = null; this.rerollState = null; this.showHub(p, H); });
     const re = () => this.showHub(p, H);
+    const cl = this.root.querySelector<HTMLElement>("#hub-close"); if (cl) cl.onclick = () => H.close!();
     if (this.tab === "play") this.bindPlay(p, c, H, re);
     if (this.tab === "gear") this.bindGear(p, { equipment: c.equipment, bag: c.bag, materials: p.materials }, H, re, true);
     if (this.tab === "skills") {
@@ -160,7 +164,7 @@ export class UI {
       this.root.querySelectorAll<HTMLElement>("[data-slot]").forEach((el) => el.onclick = () => { this.skSlot = +el.dataset.slot!; re(); });
       this.root.querySelectorAll<HTMLElement>("[data-equip]").forEach((el) => el.onclick = () => { H.setSkill(this.skSlot, el.dataset.equip!); re(); });
     }
-    if (this.tab === "looks") this.bindLooks(p, H, re);
+    if (this.tab === "looks" || this.tab === "shop") this.bindLooks(p, H, re);
     if (this.tab === "settings") { this.bindSettings(p, H, re); this.bindDrive(); }
   }
 
@@ -437,11 +441,37 @@ export class UI {
       const cols = [c.m ?? c.X ?? c.blade ?? c.a, c.d ?? c.x ?? c.wood ?? c.b, c.t1 ?? c.U ?? c.gem ?? c.eye].filter(Boolean);
       return cols.length ? `<i class="sw">${cols.map((x) => `<i style="background:${x}"></i>`).join("")}</i>` : "";
     };
-    const group = (kind: CosKind, title: string, note: string) => `<div class="setting"><b>${title}</b>${note ? ` <span class="dim small">${note}</span>` : ""}
-      <div class="opts">${COSMETICS[kind].map((c, i) => { const on = (cur[kind] ?? COSMETICS[kind][0].id) === c.id; return `<button class="${on ? "on" : ""}" data-cos="${kind}:${c.id}">${swatch(c as any)}${esc(c.name)}</button>`; }).join("")}</div>
-      <div class="dim small">${esc(String((COSMETICS[kind].find((c) => c.id === (cur[kind] ?? COSMETICS[kind][0].id)) as any)?.desc ?? ""))}</div></div>`;
-    return `<div class="look-prev"><canvas id="lookPrev" width="64" height="40"></canvas><div class="dim small">Cosmetics only change how you look. Other players see them in co-op. All of them are free in this test build.</div></div>
-      ${group("armor", "Armour", "")}${group("wings", "Wings", "")}${group("weapon", "Weapon", "")}${group("petSkin", "Pet skin", p.pet === "none" ? "pick a pet in Settings to see it" : "")}${this.fxGroup(p)}`;
+    const cls = char(p).cls;
+    const group = (kind: CosKind, title: string, note: string) => {
+      const list = COSMETICS[kind].filter((c: any) => !c.cls || c.cls === cls);
+      const worn = cur[kind] ?? COSMETICS[kind][0].id;
+      return `<div class="setting"><b>${title}</b>${note ? ` <span class="dim small">${note}</span>` : ""}
+      <div class="opts">${list.map((c: any) => {
+        const a = cosAccess(p, kind, c.id, cls), on = worn === c.id;
+        const tag = c.unlock === "premium" ? "★ " : c.unlock === "earn" ? "◆ " : "";
+        const lock = a.ok ? "" : a.why === "earn" ? ` · 🔒 ${esc(a.text)}` : " · Shop";
+        const kls = [on ? "on" : "", c.unlock === "premium" ? "prem" : c.unlock === "earn" ? "earn" : "", a.ok ? "" : "locked"].join(" ");
+        return `<button class="${kls}" data-cos="${kind}:${c.id}" data-lock="${a.ok ? "" : a.why}">${swatch(c)}${tag}${esc(c.name)}${c.cls ? ` <small class="dim">${esc(CLASSES[c.cls].name)}</small>` : ""}${lock}</button>`;
+      }).join("")}</div>
+      <div class="dim small">${esc(String((COSMETICS[kind].find((c) => c.id === worn) as any)?.desc ?? ""))}</div></div>`;
+    };
+    return `<div class="look-prev"><canvas id="lookPrev" width="64" height="40"></canvas><div class="dim small">Cosmetics only change how you look. Colours are free, ◆ styles are earned by playing, ★ styles come from the Shop (free in this test build).</div></div>
+      ${group("dye", "Colour", (cur.armor && cur.armor !== "default") ? "shows with the base armour" : "")}${group("armor", "Armour", "")}${group("wings", "Wings", "")}${group("weapon", "Weapon", "")}${group("petSkin", "Pet skin", p.pet === "none" ? "pick a pet in Settings to see it" : "")}${this.fxGroup(p)}`;
+  }
+  /** The Shop: every premium cosmetic, theme, decoration and skill effect. Prices are 0 in the test build. */
+  private shopTab(p: Profile) {
+    const cls = char(p).cls;
+    const all = shopCatalogue();
+    const sections: Record<string, typeof all> = {};
+    for (const it of all) (sections[it.section] ??= []).push(it);
+    const card = (it: (typeof all)[number]) => {
+      const own = ownsKey(p, it.key);
+      const other = it.cls && it.cls !== cls ? ` <small class="dim">${esc(CLASSES[it.cls]?.name ?? it.cls)}</small>` : "";
+      return `<div class="shop-item${own ? " owned" : ""}"><div><b>★ ${esc(it.name)}</b>${other}${it.desc ? `<div class="dim small">${esc(it.desc)}</div>` : ""}</div>
+        ${own ? `<span class="owned-tag">Owned</span>` : `<button data-buy="${esc(it.key)}">Get · ${it.price ? it.price : "Free"}</button>`}</div>`;
+    };
+    return `<div class="dim small">Premium items are cosmetic only. Prices are 0 in this test build, so tap Get to own one. Owned items show up in the Wardrobe and the Decorate tray.</div>
+      ${Object.entries(sections).map(([name, items]) => `<div class="setting"><b>${esc(name)}</b> <span class="dim small">${items.filter((x) => ownsKey(p, x.key)).length}/${items.length} owned</span><div class="shop-list">${items.map(card).join("")}</div></div>`).join("")}`;
   }
   /** Premium skill effects: two styles per skill, equipped skills first. */
   private fxGroup(p: Profile) {
@@ -451,13 +481,21 @@ export class UI {
     const sw = (st: { main: string; accent: string; core: string }) => `<i class="sw"><i style="background:${st.main}"></i><i style="background:${st.accent}"></i><i style="background:${st.core}"></i></i>`;
     const row = (id: string) => `<div class="fx-row"><span class="${eq.includes(id) ? "" : "dim"}">${esc(SKILL[id].name)}</span><span class="opts">
       <button class="${!cur[id] ? "on" : ""}" data-fx="${id}:default">Default</button>
-      ${VFX.perSkill[id].map((sid) => { const st = VFX.styles[sid]; return `<button class="${cur[id] === sid ? "on" : ""}" data-fx="${id}:${sid}">${sw(st)}${esc(st.name)}</button>`; }).join("")}</span></div>`;
-    return `<div class="setting"><b>Skill effects</b> <span class="dim small">premium · free in this test build</span>
+      ${VFX.perSkill[id].map((sid) => { const st = VFX.styles[sid], own = ownsKey(p, `fx:${id}:${sid}`); return `<button class="${cur[id] === sid ? "on" : ""} prem${own ? "" : " locked"}" data-fx="${id}:${sid}" data-lock="${own ? "" : "premium"}">${sw(st)}★ ${esc(st.name)}${own ? "" : " · Shop"}</button>`; }).join("")}</span></div>`;
+    return `<div class="setting"><b>Skill effects</b> <span class="dim small">★ premium · from the Shop</span>
       <div class="dim small">Re-colours a skill's projectiles, casts, blasts and trails. Your party sees them too.</div>${ids.map(row).join("")}</div>`;
   }
   private bindLooks(p: Profile, H: HubHandlers, re: () => void) {
-    this.root.querySelectorAll<HTMLElement>("[data-cos]").forEach((el) => el.onclick = () => { const [k, v] = el.dataset.cos!.split(":"); H.setting("cos." + k, v); re(); });
-    this.root.querySelectorAll<HTMLElement>("[data-fx]").forEach((el) => el.onclick = () => { const [k, v] = el.dataset.fx!.split(":"); H.setting("fx." + k, v); re(); });
+    // locked premium goes to the Shop; locked earnable just says how to earn it
+    const locked = (el: HTMLElement) => {
+      const l = el.dataset.lock;
+      if (l === "premium") { this.tab = "shop"; re(); return true; }
+      if (l === "earn") { this.toast(`Earn it: ${el.textContent!.split("🔒 ")[1] ?? "keep playing"}`, "#ffd23f"); return true; }
+      return false;
+    };
+    this.root.querySelectorAll<HTMLElement>("[data-cos]").forEach((el) => el.onclick = () => { if (locked(el)) return; const [k, v] = el.dataset.cos!.split(":"); H.setting("cos." + k, v); re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-fx]").forEach((el) => el.onclick = () => { if (locked(el)) return; const [k, v] = el.dataset.fx!.split(":"); H.setting("fx." + k, v); re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-buy]").forEach((el) => el.onclick = () => { H.op?.({ t: "buy", key: el.dataset.buy! }); this.toast("Added to your collection", "#7dff9a"); re(); });
     const cv = this.root.querySelector<HTMLCanvasElement>("#lookPrev");
     if (!cv) return;
     const g = cv.getContext("2d")!; g.imageSmoothingEnabled = false;

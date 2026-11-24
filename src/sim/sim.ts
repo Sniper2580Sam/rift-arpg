@@ -1,8 +1,8 @@
 // Pure deterministic simulation for 1–4 players. No DOM, no Math.random, no wall-clock time.
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
-import { BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , MAP, MAPS, MapDef, ITEMS } from "./data";
+import { BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , MAP, MAPS, MapDef, ITEMS, HideoutLayout, hideoutTheme } from "./data";
 import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, equipTarget, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue, shardValue } from "./items";
-import { TileMap, flowField, genArena, genCave, genLinear, genOpen, genRing, genRooms, moveWithWalls } from "./map";
+import { TileMap, flowField, genArena, genCave, genHideout, genLinear, genOpen, genRing, genRooms, moveWithWalls } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
 import { DIR_TABLE, len, norm, rotFine } from "./vec";
 
@@ -93,11 +93,13 @@ export type SimEvent =
   | { type: "waveStart"; wave: number; count: number; boss: boolean } | { type: "waveClear"; wave: number; secs: number; jump: number; cleared: boolean } | { type: "endlessOver"; wave: number; time: number }
   | { type: "equipChanged"; pid: number } | { type: "ambush"; x: number; y: number; n: number };
 
-export type RunKind = "rift" | "chase" | "endless";
+export type RunKind = "rift" | "chase" | "endless" | "hideout";
 export interface RiftState {
   kind: RunKind; tier: number; mods: string[];
   /** Endless mode: wave number, difficulty level (rises faster on quick clears), when the next wave comes (0 = a wave is up) and when the current one started */
   wave?: number; level?: number; waveAt?: number; waveStart?: number;
+  /** hideout runs: the room being visited (rendered by everyone in it) */
+  hideout?: HideoutLayout;
   /** which map (data/maps.json) and, for the Good Luck map, its density multiplier */
   map?: string; density?: number;
   time: number; limit: number; progress: number; need: number;
@@ -107,6 +109,8 @@ export interface RiftState {
 }
 export interface SimConfig {
   seed: number; kind?: RunKind; tier?: number; mods?: string[]; players: PlayerSetup[];
+  /** hideout runs: the host's room (theme + decorations) */
+  hideout?: HideoutLayout;
   /** force a map (tests); otherwise it's picked from the seed */
   map?: string;
   mint?: "local" | "external"; pity?: Record<number, { ancestral?: boolean; primal?: boolean }>;
@@ -150,8 +154,10 @@ export function createSim(cfg: SimConfig): SimState {
   const kind = cfg.kind ?? "rift";
   const tier = Math.max(1, cfg.tier ?? 1);
   const rng = makeRng(cfg.seed);
-  const md = kind === "chase" ? undefined : kind === "endless" ? MAP.endless : MAP[cfg.map ?? ""] ?? pickMap(cfg.seed);
-  const map = !md ? genArena(rng, 44, 44, RIFT.tileSize)
+  const hth = kind === "hideout" ? hideoutTheme(cfg.hideout?.theme) : undefined;
+  const md = kind === "chase" || kind === "hideout" ? undefined : kind === "endless" ? MAP.endless : MAP[cfg.map ?? ""] ?? pickMap(cfg.seed);
+  const map = hth ? genHideout(rng, hth.w, hth.h, RIFT.tileSize, hth.shape)
+    : !md ? genArena(rng, 44, 44, RIFT.tileSize)
     : md.layout === "arena" ? genArena(rng, md.w, md.h, RIFT.tileSize)
     : md.layout === "linear" ? genLinear(rng, md.w, md.h, RIFT.tileSize)
     : md.layout === "open" ? genOpen(rng, md.w, md.h, RIFT.tileSize)
@@ -164,6 +170,7 @@ export function createSim(cfg: SimConfig): SimState {
   for (let i = 0; i < map.tiles.length; i++) if (map.tiles[i] === 0 && openness(map, i) >= 8) floors.push(i);
   let startX: number, startY: number;
   if (kind === "chase") { startX = (map.w / 2) * ts; startY = (map.h / 2 + 10) * ts; }
+  else if (kind === "hideout") { startX = (map.w / 2) * ts; startY = Math.round(map.h * 0.62) * ts; }
   else if (kind === "endless") { startX = (map.w / 2) * ts; startY = (map.h / 2) * ts; }
   else { const st = floors[Math.floor(next(rng) * floors.length)]; startX = (st % map.w) * ts + ts / 2; startY = Math.floor(st / map.w) * ts + ts / 2; }
   const mods = kind !== "rift" ? [] : cfg.mods ?? rollModifiers(cfg.seed, tier);
@@ -172,13 +179,14 @@ export function createSim(cfg: SimConfig): SimState {
     players: [], enemies: [], projectiles: [], summons: [], hazards: [], zones: [], loot: [], pending: [],
     nextId: 1, itemCounter: 0, startX, startY,
     rift: {
-      kind, tier, mods, map: md?.id, density, time: 0, limit: kind === "chase" ? RIFT.chase.timeLimit : kind === "endless" ? 1e9 : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier) * Math.max(1, density / 5)),
+      kind, tier, mods, map: md?.id, density, time: 0, limit: kind === "chase" ? RIFT.chase.timeLimit : kind === "endless" || kind === "hideout" ? 1e9 : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier) * Math.max(1, density / 5)),
       guardianSpawned: false, guardianId: 0, done: false, doneAt: 0, kills: 0, timeUpSent: false, boonIdx: 0, nextWave: RIFT.waves.first,
     },
     boonOffers: {}, boonPending: {}, pity: cfg.pity ?? {}, events: [], _flows: [], _flowTick: -999,
   };
   for (const ps of cfg.players) addPlayer(s, ps);
   const n = Math.max(1, s.players.length);
+  if (kind === "hideout") { Object.assign(s.rift, { need: 1e9, nextWave: undefined, hideout: cfg.hideout }); return s; }
   if (kind === "endless") {
     Object.assign(s.rift, { wave: 0, level: 0, waveAt: RIFT.endless.firstDelay, waveStart: 0, need: 1e9, nextWave: undefined });
     return s;
@@ -1420,6 +1428,7 @@ function updateRift(s: SimState) {
   if (r.done) return;
   r.time += DT;
   if (!r.timeUpSent && r.time >= r.limit) { r.timeUpSent = true; s.events.push({ type: "timeUp" }); }
+  if (r.kind === "hideout") return;
   if (r.kind === "endless") { updateEndless(s); return; }
   if (r.kind === "rift" && !r.guardianSpawned && r.nextWave !== undefined && r.time >= r.nextWave) ambush(s);
   // boons: pick 1 of 3 at progress thresholds (lost at the end of the run)

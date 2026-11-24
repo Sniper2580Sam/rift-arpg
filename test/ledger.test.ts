@@ -59,11 +59,33 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   applySave(p, "ashknight", { ...rep, highestTier: 2 }, m, { ...run, tier: 1, completed: true, inTime: true });
   check("tier unlock after a timed clear", p.chars.ashknight.highestTier === 2);
 }
-{ // cosmetics: catalogue ids only
+{ // cosmetics: free colours, earned styles, premium only after the (free) shop
   const p = newProfile();
-  check("cosmetic set", applyHubOp(p, { t: "setting", k: "cos.wings", v: "ember" }) === true && p.cos.wings === "ember");
+  check("free dye set", applyHubOp(p, { t: "setting", k: "cos.dye", v: "crimson" }) === true && p.cos.dye === "crimson");
+  check("premium refused before buying", applyHubOp(p, { t: "setting", k: "cos.wings", v: "ember" }) === false);
+  check("shop buy records ownership", applyHubOp(p, { t: "buy", key: "cos:wings:ember" }) === true && p.owned!.includes("cos:wings:ember"));
+  check("cosmetic set after buying", applyHubOp(p, { t: "setting", k: "cos.wings", v: "ember" }) === true && p.cos.wings === "ember");
+  check("unknown shop key refused", applyHubOp(p, { t: "buy", key: "cos:wings:golden_dragon" }) === false);
   check("unknown cosmetic refused", applyHubOp(p, { t: "setting", k: "cos.wings", v: "golden_dragon" }) === false && p.cos.wings === "ember");
   check("unknown cosmetic kind refused", applyHubOp(p, { t: "setting", k: "cos.hat", v: "default" }) === false);
+  check("earned armour locked at first", applyHubOp(p, { t: "setting", k: "cos.armor", v: "riftbreaker" }) === false);
+  char(p).highestTier = 11;
+  check("earned armour after tier 10", applyHubOp(p, { t: "setting", k: "cos.armor", v: "riftbreaker" }) === true);
+  applyHubOp(p, { t: "buy", key: "cos:armor:nightveil" });
+  check("class armour refused for another class", char(p).cls === "gloomstalker" || applyHubOp(p, { t: "setting", k: "cos.armor", v: "nightveil" }) === false);
+  check("premium skill effect needs owning", applyHubOp(p, { t: "setting", k: "fx.cleave", v: "voidfire" }) === false);
+}
+{ // hideout: themes and decorations
+  const p = newProfile();
+  check("premium theme refused before buying", applyHubOp(p, { t: "hideout", theme: "gilded" }) === false);
+  check("free theme", applyHubOp(p, { t: "hideout", theme: "camp" }) === true && p.hideout!.theme === "camp");
+  check("place free decor", applyHubOp(p, { t: "hideout", place: { id: "barrel", x: 5, y: 5 } }) === true && p.hideout!.decor.length === 1);
+  check("no two on one tile", applyHubOp(p, { t: "hideout", place: { id: "crate", x: 5, y: 5 } }) === false);
+  check("premium decor needs owning", applyHubOp(p, { t: "hideout", place: { id: "statue", x: 6, y: 5 } }) === false);
+  applyHubOp(p, { t: "buy", key: "decor:statue" }); applyHubOp(p, { t: "buy", key: "theme:gilded" });
+  check("premium decor after buying", applyHubOp(p, { t: "hideout", place: { id: "statue", x: 6, y: 5 } }) === true);
+  check("premium theme after buying", applyHubOp(p, { t: "hideout", theme: "gilded" }) === true && p.hideout!.decor.length === 2);
+  check("remove decor", applyHubOp(p, { t: "hideout", remove: 0 }) === true && p.hideout!.decor.length === 1 && p.hideout!.decor[0].id === "statue");
 }
 { // hub "scrap common+magic" really empties them from the character's bag
   const p = newProfile(); const c = p.chars.ashknight; const r = makeRng(3);

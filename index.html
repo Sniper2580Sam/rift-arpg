@@ -110,6 +110,13 @@
   #ui.screen { padding-top:calc(16px + env(safe-area-inset-top,0px)); padding-bottom:calc(16px + env(safe-area-inset-bottom,0px)); }
   @media (max-width:600px) { .doll { grid-template-columns:repeat(5,1fr); } .bag { grid-template-columns:repeat(6,1fr); } .runes { grid-template-columns:1fr 1fr; } .classes { grid-template-columns:1fr; } .tab { font-size:13px; } }
   @media (max-width:520px) { h1 { font-size:30px; } .skills { grid-template-columns:1fr; } .bag { grid-template-columns:repeat(6,1fr); } }
+#ui.decor-tray{position:fixed;left:0;right:0;top:0;padding:calc(6px + env(safe-area-inset-top,0px)) 8px 6px;background:#140c1cdd;border-bottom:2px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.dt-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}.dt-head b{color:#ffd23f;font-size:15px}.dt-head button{padding:4px 8px;font-size:12px}
+.dt-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}.dt-row button{flex:none;padding:4px 6px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.dt-row img{width:32px;height:32px;image-rendering:pixelated;object-fit:contain}.dt-row button.on{border-color:#ffd23f;background:#3a2a1a}
+.dt-row button.prem{border-color:#c9a23a;color:#ffe9a8}.dt-row button.locked{opacity:.6}
+.opts button.prem{border-color:#8a6a2a;color:#ffe9a8}.opts button.earn{border-color:#3a7a8a;color:#bfefff}.opts button.locked{opacity:.55}
+.shop-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}.shop-item{display:flex;align-items:center;justify-content:space-between;gap:8px;border:2px solid #6a5020;background:linear-gradient(90deg,#2a1d10,#1b1424);padding:8px}.shop-item b{color:#ffd23f}.shop-item.owned{border-color:var(--line);background:#1b1424}.shop-item button{flex:none;font-size:12px;padding:5px 10px;background:#5a3d10;border-color:#ffd23f}.owned-tag{color:#7dff9a;font-size:12px;flex:none}
 .fx-row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:6px 0}.fx-row>span:first-child{min-width:96px}
 </style>
 </head>

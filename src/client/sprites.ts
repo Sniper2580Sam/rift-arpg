@@ -496,7 +496,7 @@ const PET_KEYS: Record<string, (c: Record<string, string>) => Record<string, str
   slime: (c) => ({ L: c.a, l: c.b }),
   fox: (c) => ({ F: c.a, f: c.b }),
 };
-const cosOf = (kind: "armor" | "wings" | "weapon" | "petSkin", id: string | undefined) => COSMETICS[kind].find((x) => x.id === id) as Record<string, any> | undefined;
+const cosOf = (kind: "armor" | "wings" | "weapon" | "petSkin" | "dye", id: string | undefined) => COSMETICS[kind].find((x) => x.id === id) as Record<string, any> | undefined;
 
 const HOUND = [
   [
@@ -528,7 +528,7 @@ export interface SpriteBank {
   ghoul: Sprite[]; hound: Sprite[]; archer: Sprite[]; brute: Sprite[]; guardian: Sprite[]; imp: Sprite[];
   icon: (slot: Slot, rarity: Rarity) => Sprite;
   /** hero frames in an armour + weapon skin */
-  heroSkin: (cls: string, armor?: string, weapon?: string) => Sprite[];
+  heroSkin: (cls: string, armor?: string, weapon?: string, dye?: string) => Sprite[];
   /** wing pair frames (up, down), or null for none */
   wings: (id?: string) => Sprite[] | null;
   pet: (pet: string, skin?: string) => Sprite[] | null;
@@ -558,9 +558,10 @@ export function buildSprites(): SpriteBank {
     brute: BRUTE.map((r) => make(r)),
     guardian: [make(GUARDIAN)],
     imp: IMP.map((r) => make(r)),
-    heroSkin(cls, armor, weapon) {
-      return cached(`h:${cls}:${armor}:${weapon}`, () => {
-        const a = cosOf("armor", armor), w = cosOf("weapon", weapon);
+    heroSkin(cls, armor, weapon, dye) {
+      return cached(`h:${cls}:${armor}:${weapon}:${dye}`, () => {
+        // a dye recolours the base outfit; premium and earned armour keep their own colours
+        const w = cosOf("weapon", weapon), a = cosOf("armor", armor)?.m ? cosOf("armor", armor) : cosOf("dye", dye);
         const pal = { ...BASE, ...(a?.m ? (HERO_KEYS[cls] ?? HERO_KEYS.ashknight)(a) : {}), ...(w?.wood ? { n: w.wood, Z: w.gem } : {}) };
         return heroRows(cls).map((r) => make(r, pal));
       })!;
@@ -613,10 +614,24 @@ export function renderMap(tiles: number[], w: number, h: number, ts: number, see
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const px = x * ts, py = y * ts;
     if (at(x, y) === 0) {
+      if (th.pattern === "marble") {
+        // polished checkerboard marble with thin veins
+        g.fillStyle = (x + y) % 2 ? th.floor[0] : th.floor[2]; g.fillRect(px, py, ts, ts);
+        g.fillStyle = th.speck[0]; g.fillRect(px, py, ts, 1); g.fillRect(px, py, 1, ts);
+        g.fillStyle = th.speck[rnd() < 0.5 ? 0 : 1];
+        let vx = px + Math.floor(rnd() * ts), vy = py;
+        for (let i = 0; i < 10; i++) { g.fillRect(vx, vy, 1, 1); vx += rnd() < 0.5 ? 1 : 0; vy += 1 + Math.floor(rnd() * 1.5); if (vx >= px + ts || vy >= py + ts) break; }
+        if (rnd() < 0.15) { g.fillStyle = "rgba(255,255,255,0.35)"; g.fillRect(px + 3, py + 3, 3, 1); }
+      } else if (th.pattern === "stars") {
+        g.fillStyle = th.floor[Math.floor(rnd() * th.floor.length)]; g.fillRect(px, py, ts, ts);
+        for (let i = 0; i < 2; i++) if (rnd() < 0.6) { g.fillStyle = rnd() < 0.2 ? "#ffffff" : rnd() < 0.5 ? "#8ab0ff" : th.speck[0]; g.fillRect(px + Math.floor(rnd() * ts), py + Math.floor(rnd() * ts), 1, 1); }
+        if (rnd() < 0.02) { g.fillStyle = "#e0e8ff"; const cx = px + 8, cy = py + 8; g.fillRect(cx, cy - 2, 1, 5); g.fillRect(cx - 2, cy, 5, 1); }
+      } else {
       g.fillStyle = th.floor[Math.floor(rnd() * th.floor.length)];
       g.fillRect(px, py, ts, ts);
+      }
       // cracks / pebbles / bones
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < (th.pattern ? 0 : 3); i++) {
         g.fillStyle = rnd() < 0.5 ? th.speck[0] : th.speck[1];
         g.fillRect(px + Math.floor(rnd() * 14), py + Math.floor(rnd() * 14), 2, 1);
       }
