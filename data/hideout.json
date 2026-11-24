@@ -63,7 +63,7 @@
    "id": "rift",
    "name": "Rift",
    "kind": "rift",
-   "fx": 0.25,
+   "fx": 0.2,
    "fy": 0.8,
    "color": "#8a5cff",
    "glow": "#c9b8ff"
@@ -72,7 +72,7 @@
    "id": "endless",
    "name": "Endless",
    "kind": "endless",
-   "fx": 0.5,
+   "fx": 0.4,
    "fy": 0.84,
    "color": "#ff6a3a",
    "glow": "#ffb08a"
@@ -81,10 +81,19 @@
    "id": "king",
    "name": "Ossuary King",
    "kind": "chase",
-   "fx": 0.75,
+   "fx": 0.6,
    "fy": 0.8,
    "color": "#ff2a5a",
    "glow": "#ff9ab0"
+  },
+  {
+   "id": "seraph",
+   "name": "Pale Seraph",
+   "kind": "chase",
+   "fx": 0.8,
+   "fy": 0.8,
+   "color": "#bfe8ff",
+   "glow": "#ffffff"
   }
  ],
  "themes": [

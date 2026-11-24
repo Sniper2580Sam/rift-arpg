@@ -2,7 +2,7 @@
 import { CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
-import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, endlessLivesLeft } from "../sim/sim";
+import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
 import { sfx, setMuted, unlockAudio } from "./audio";
 import { Input, KEY_LABELS } from "./input";
 import { Profile, char, isoWeek, loadProfile, saveProfile, setLocalSaves, setOnSaved, setupFor, syncFromSim, weeklySeed } from "./profile";
@@ -64,9 +64,9 @@ let acc = 0, hitstop = 0, shake = 0, flash = 0, flashColor = "#fff", hurtFlash =
 let camX = 0, camY = 0;
 let banner: { text: string; sub: string; color: string; t: number } | null = null;
 let found: Record<string, number> = {}, foundLegs: { name: string; rarity: Rarity; quality?: string }[] = [];
-let gotAncestral = false, gotPrimal = false, gotSigil = 0, startLevel = 1;
+let gotAncestral = false, gotPrimal = false, gotSigil = 0, gotFeather = 0, startLevel = 1;
 let completeInfo: { inTime: boolean; time: number } | null = null;
-let run: { kind: RunKind; tier: number; weekly: boolean; seed: number } | null = null;
+let run: { kind: RunKind; tier: number; weekly: boolean; seed: number; boss?: ChaseBoss } | null = null;
 let leaveArmed = 0;
 // hideout: the station or portal you're standing at, whether the full menu is open over it, and decorating
 let hideNear: HideoutSpot | null = null, menuOpen = false, decorating = false, menuStamp = "";
@@ -96,8 +96,17 @@ const bolts: { x1: number; y1: number; x2: number; y2: number; t: number; fx?: V
 const particles: Particle[] = [], nums: Num[] = [], rings: Ring[] = [], arcs: Arc[] = [], ghosts: Ghost[] = [];
 const me = () => sim!.players.find((p) => p.pid === ME)!;
 
-type RunOpts = { tier: number; seed: number | null; kind: RunKind; weekly?: boolean };
-type RunInfo = { kind: RunKind; tier: number; weekly: boolean; seed: number };
+type RunOpts = { tier: number; seed: number | null; kind: RunKind; weekly?: boolean; boss?: ChaseBoss };
+type RunInfo = { kind: RunKind; tier: number; weekly: boolean; seed: number; boss?: ChaseBoss };
+/** Spend the key a chase run needs: a Bone Sigil for the King, a Pale Feather for the Seraph. */
+function payChase(o: RunOpts): boolean {
+  if (o.kind !== "chase") return true;
+  const c = char(profile);
+  if (o.boss === "seraph") { if ((c.feathers ?? 0) <= 0) return false; c.feathers = (c.feathers ?? 0) - 1; }
+  else { if (c.sigils <= 0) return false; c.sigils--; }
+  saveProfile(profile);
+  return true;
+}
 function startRun(o: RunOpts) {
   unlockAudio();
   if (inHideout() && o.kind !== "hideout") {
@@ -110,14 +119,14 @@ function startRun(o: RunOpts) {
   const c = char(profile);
   let seed = o.seed ?? ((Math.random() * 0xffffffff) >>> 0);
   if (o.weekly) seed = weeklySeed(isoWeek());
-  if (o.kind === "chase") { if (c.sigils <= 0) return; c.sigils--; saveProfile(profile); }
+  if (!payChase(o)) return;
   const T = RIFT.tiers;
   const cfg: SimConfig = {
-    seed, kind: o.kind, tier: o.tier, players: [setupFor(profile, ME)], hideout: o.kind === "hideout" ? profile.hideout : undefined,
+    seed, kind: o.kind, tier: o.tier, boss: o.boss, players: [setupFor(profile, ME)], hideout: o.kind === "hideout" ? profile.hideout : undefined,
     mods: o.kind !== "rift" ? [] : rollModifiers(seed, o.tier),
     pity: { [ME]: { ancestral: c.pityAnc >= T.ancestralPity, primal: c.pityPri >= T.primalPity } },
   };
-  beginRun(cfg, { kind: o.kind, tier: o.tier, weekly: !!o.weekly, seed });
+  beginRun(cfg, { kind: o.kind, tier: o.tier, weekly: !!o.weekly, seed, boss: o.boss });
 }
 
 function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
@@ -136,7 +145,8 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   const p = me();
   camX = p.x - wb.width / 2; camY = p.y - wb.height / 2;
   particles.length = nums.length = rings.length = arcs.length = ghosts.length = 0; pets.clear();
-  found = {}; foundLegs = []; completeInfo = null; acc = 0; hitstop = 0; paused = false; input.enabled = true; // a run started from the menu must not inherit its paused input gotAncestral = gotPrimal = false; gotSigil = 0; startLevel = c.level;
+  found = {}; foundLegs = []; completeInfo = null; acc = 0; hitstop = 0; paused = false; input.enabled = true; // a run started from the menu must not inherit its paused input
+  gotAncestral = gotPrimal = false; gotSigil = 0; gotFeather = 0; startLevel = c.level;
   runIds = new Set([...Object.values(p.equipment).map((it) => it!.id), ...p.bag.map((it) => it.id)]); scrappedIds = [];
   mode = "rift"; screen = "rift";
   ui.hide();
@@ -144,6 +154,7 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   const party = sim.players.length > 1 ? ` · party of ${sim.players.length}` : "";
   if (info.kind === "hideout") { const host = sim.players.find((q) => q.pid === 0); showBanner(host && host.pid !== ME ? `${host.name}'s hideout` : "Your hideout", "Walk to a station or portal", "#c9b8ff", 2.2); }
   else if (info.kind === "endless") showBanner("ENDLESS", `Tier ${info.tier} start · ${RIFT.endless.lives} lives · clear waves fast to climb faster`, "#ff8a5a", 3.5);
+  else if (info.kind === "chase" && sim.rift.boss === "seraph") showBanner(RIFT.seraph.name, "Dodge the shard rings, then survive her Judgement.", "#bfe8ff", 3.5);
   else if (info.kind === "chase") showBanner(RIFT.chase.name, "Three phases. Dodge the fire, break the pylons.", "#ff3b6b", 3.5);
   else if (md?.id === "goodluck") showBanner(`GOOD LUCK ×${sim.rift.density}`, `Somebody left the gate open. Tier ${info.tier} · code ${seed.toString(36).toUpperCase()}${party}`, "#ff5a6a", 5);
   else if (md?.egg) showBanner(md.name.toUpperCase(), `${md.desc} Tier ${info.tier} · code ${seed.toString(36).toUpperCase()}${party}`, "#ffd75a", 5);
@@ -155,7 +166,7 @@ function hideoutButtons() {
   root.className = "hudbtns";
   const n = hideNear;
   const guest = coop?.role === "guest";
-  const act = !n ? "" : n.kind ? `<button id="h-act" class="h-act">${guest ? `${esc(n.name)} · host opens` : `Enter ${esc(n.name)}${n.kind === "chase" ? ` (${char(profile).sigils} sigils)` : n.kind === "rift" || n.kind === "endless" ? ` · T${ui.tier}` : ""}`}</button>` : `<button id="h-act" class="h-act">${esc(n.name)}</button>`;
+  const act = !n ? "" : n.kind ? `<button id="h-act" class="h-act">${guest ? `${esc(n.name)} · host opens` : `Enter ${esc(n.name)}${n.kind === "chase" ? ` (${n.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`})` : n.kind === "rift" || n.kind === "endless" ? ` · T${ui.tier}` : ""}`}</button>` : `<button id="h-act" class="h-act">${esc(n.name)}</button>`;
   root.innerHTML = `${act}<button id="h-menu">Menu</button>${guest ? `<button id="h-leave">Leave room</button>` : ""}`;
   const a = document.getElementById("h-act"); if (a) a.onclick = () => useSpot(n!);
   document.getElementById("h-menu")!.onclick = () => openMenu();
@@ -165,7 +176,8 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 function useSpot(n: HideoutSpot) {
   if (n.kind) {
     const c = char(profile);
-    if (n.kind === "chase") { if (c.sigils <= 0) { ui.toast("You need a Bone Sigil (they drop from guardians at tier 3+).", "#ffd23f"); return; } startRun({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase" }); }
+    if (n.kind === "chase" && n.id === "seraph") { if ((c.feathers ?? 0) <= 0) { ui.toast(`You need a Pale Feather (the King leaves one, and guardians drop them at tier ${RIFT.seraph.featherFrom}+).`, "#bfe8ff"); return; } startRun({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase", boss: "seraph" }); }
+    else if (n.kind === "chase") { if (c.sigils <= 0) { ui.toast("You need a Bone Sigil (they drop from guardians at tier 3+).", "#ffd23f"); return; } startRun({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase" }); }
     else startRun({ tier: Math.min(Math.max(1, ui.tier), c.highestTier), seed: null, kind: n.kind as RunKind });
     return;
   }
@@ -309,6 +321,7 @@ function endRun() {
   const newRunes = CLASSES[c.cls].skills.flatMap((id) => SKILL[id].runes.filter((r) => r.uses > (c.uses[id] ?? 0) - (p.uses[id] ?? 0) && r.uses <= (c.uses[id] ?? 0)).map((r) => `${SKILL[id].name}: ${r.name}`));
   if (newRunes.length) lines.push(`New runes: ${newRunes.join(", ")}`);
   if (gotSigil) lines.push(`Bone Sigil found (${c.sigils} owned). The Ossuary King awaits.`);
+  if (gotFeather) lines.push(`Pale Feather found (${c.feathers ?? 0} owned). The Pale Seraph awaits.`);
   if (completeInfo) {
     c.riftsCleared++;
     if (run.kind === "rift") {
@@ -324,11 +337,12 @@ function endRun() {
         if (completeInfo.inTime && (!profile.weekly.best || completeInfo.time < profile.weekly.best)) { profile.weekly.best = completeInfo.time; lines.push("New weekly best!"); }
       }
     }
-    if (run.kind === "chase") { c.kings = (c.kings ?? 0) + 1; if (c.kings === 1) lines.push("Kingslayer armour unlocked in the Wardrobe"); }
+    if (run.kind === "chase" && run.boss === "seraph") { c.seraphs = (c.seraphs ?? 0) + 1; if (c.seraphs === 1) lines.push("Wings of Judgement unlocked in the Wardrobe"); }
+    else if (run.kind === "chase") { c.kings = (c.kings ?? 0) + 1; if (c.kings === 1) lines.push("Kingslayer armour unlocked in the Wardrobe"); }
     saveProfile(profile);
     const wave = s.rift.wave ?? 0;
     if (run.kind === "endless" && wave > (c.bestWave ?? 0)) { if ((c.bestWave ?? 0) < 20 && wave >= 20) lines.push("Vanguard armour unlocked in the Wardrobe"); c.bestWave = wave; lines.push(`New best: wave ${wave}`); saveProfile(profile); }
-    const title = run.kind === "endless" ? `Endless: wave ${wave}` : run.kind === "chase" ? "The Ossuary King falls" : completeInfo.inTime ? "Rift cleared in time!" : "Guardian slain";
+    const title = run.kind === "endless" ? `Endless: wave ${wave}` : run.kind === "chase" ? (run.boss === "seraph" ? "The Pale Seraph falls" : "The Ossuary King falls") : completeInfo.inTime ? "Rift cleared in time!" : "Guardian slain";
     const sub = run.kind === "endless" ? `Reached difficulty level ${s.rift.level ?? 0} from tier ${run.tier}. The chest grows every ${RIFT.endless.rewards.perWaves} waves.` : completeInfo.inTime ? "Bonus loot for time remaining." : "The timer ran out, so the rewards were smaller.";
     finishOnline();
     screen = "results";
@@ -354,7 +368,7 @@ function finishOnline() {
     online.send({ t: "complete", inTime: completeInfo?.inTime, time: completeInfo?.time });
     for (const pid of coop.live) online.sendR(pid, { t: "end" });
   }
-  online.send({ t: "save", report: { equipment: c.equipment, bag: c.bag, scrapped, materials: profile.materials, shards: profile.shards ?? 0, level: c.level, xp: c.xp, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, sigils: c.sigils, uses: c.uses, highestTier: c.highestTier, pityAnc: c.pityAnc, pityPri: c.pityPri, bestTimes: c.bestTimes, riftsCleared: c.riftsCleared }, week: isoWeek(), weeklyBest: run.weekly });
+  online.send({ t: "save", report: { equipment: c.equipment, bag: c.bag, scrapped, materials: profile.materials, shards: profile.shards ?? 0, level: c.level, xp: c.xp, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, sigils: c.sigils, feathers: c.feathers ?? 0, uses: c.uses, highestTier: c.highestTier, pityAnc: c.pityAnc, pityPri: c.pityPri, bestTimes: c.bestTimes, riftsCleared: c.riftsCleared }, week: isoWeek(), weeklyBest: run.weekly });
   if (coop?.role === "host") online.send({ t: "runEnd" });
   else if (coop?.role === "guest" && !hostEnded && online.lobby) online.leave(); // a guest who leaves on their own leaves the party
   hostEnded = false;
@@ -532,11 +546,12 @@ function handleEvent(e: SimEvent) {
       if (!ui.invOpen && !paused) riftButtons();
       break;
     case "sigil": if (mine(e.pid)) { gotSigil++; showBanner("BONE SIGIL", "Opens the Throne of the Ossuary King", "#ff3b6b", 2.5); } break;
+    case "feather": if (mine(e.pid)) { gotFeather++; showBanner("PALE FEATHER", "Opens the Sanctum of the Pale Seraph", "#bfe8ff", 2.5); } break;
     case "riftComplete":
       completeInfo = { inTime: e.inTime, time: e.time };
       sfx.complete();
       if (run?.kind === "endless") showBanner(`WAVE ${sim?.rift.wave ?? 0}`, "Out of lives · grab your chest, then Finish", "#ff8a5a", 4);
-      else showBanner(run?.kind === "chase" ? "KING SLAIN" : e.inTime ? "RIFT CLEARED" : "GUARDIAN SLAIN", `${fmtTime(e.time)} · grab your loot, then Finish`, "#7dff9a", 4);
+      else showBanner(run?.kind === "chase" ? (run.boss === "seraph" ? "SERAPH SLAIN" : "KING SLAIN") : e.inTime ? "RIFT CLEARED" : "GUARDIAN SLAIN", `${fmtTime(e.time)} · grab your loot, then Finish`, "#7dff9a", 4);
       riftButtons();
       syncFromSim(profile, sim!, ME);
       break;
@@ -721,7 +736,7 @@ function render(alpha: number, dt: number) {
   if (hth) {
     for (const d of s.rift.hideout?.decor ?? []) { const x = (d.x + 0.5) * s.map.ts, y = (d.y + 1) * s.map.ts - 2; list.push({ y: d.id === "rug" ? -1e9 : y, f: () => drawDecor(g, d.id, x, y, t) }); }
     for (const st of HIDEOUT.stations) { const [x, y] = spotPos(s.map, hth, st); list.push({ y, f: () => drawStation(g, st, x, y, t, hideNear === st) }); }
-    for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? `${char(profile).sigils} sigils` : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : `tier ${Math.min(ui.tier, char(profile).highestTier)}`) }); }
+    for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : `tier ${Math.min(ui.tier, char(profile).highestTier)}`) }); }
   }
   for (const q of s.players) {
     if (q.dead) continue;
@@ -830,11 +845,11 @@ function telegraphCircle(g: CanvasRenderingContext2D, x: number, y: number, r: n
 
 function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, t: number) {
   const moving = Math.abs(e.x - e.px) + Math.abs(e.y - e.py) > 0.05;
-  const frames = e.kind === "ghoul" ? bank.ghoul : e.kind === "hound" ? bank.hound : e.kind === "hexer" ? bank.hexer : e.kind === "gorehorn" ? bank.gorehorn : e.kind === "shieldbearer" ? bank.shieldbearer : e.kind === "archer" ? bank.archer : e.kind === "brute" ? bank.brute : e.kind === "pylon" ? bank.pylon : e.variant ? bank.guardianOf(e.variant) : bank.guardian;
+  const frames = e.kind === "ghoul" ? bank.ghoul : e.kind === "hound" ? bank.hound : e.kind === "hexer" ? bank.hexer : e.kind === "gorehorn" ? bank.gorehorn : e.kind === "shieldbearer" ? bank.shieldbearer : e.kind === "archer" ? bank.archer : e.kind === "brute" ? bank.brute : e.kind === "pylon" ? bank.pylon : e.variant === "seraph" ? bank.seraph : e.variant ? bank.guardianOf(e.variant) : bank.guardian;
   const fr = frames[moving ? Math.floor(t * 8 + e.id) % frames.length : 0];
   const tgt = sim!.players.find((q) => q.pid === e.target);
   const flip = tgt ? tgt.x < e.x : false;
-  const scale = e.kind === "king" ? 1.4 : e.scale;
+  const scale = e.variant === "seraph" ? 1.25 : e.kind === "king" ? 1.4 : e.scale;
   shadow(g, x, y, e.r);
   let yy = y;
   if (["windup", "slam", "nova", "chargeWind", "fire"].includes(e.state)) yy -= Math.floor(t * 20) % 2;
@@ -847,6 +862,8 @@ function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, 
   // Hexer: its staff glows while casting
   if (e.kind === "hexer" && e.state === "windup" && Math.random() < 0.5) particles.push({ x: x + (Math.random() - 0.5) * 8, y: y - 10, vx: 0, vy: -20, life: 0.3, max: 0.3, color: "#c06aff", size: 1, grav: 0 });
   if (e.kind === "guardian" || e.kind === "king") yy += Math.sin(t * 2) * 1.5 - 2;
+  // the Seraph rises during Judgement
+  if (e.variant === "seraph" && e.state === "tomb") yy -= 10;
   if ((e.kind === "guardian" || e.kind === "king") && e.state === "intro") g.globalAlpha = 1 - Math.max(0, e.t / 2) * 0.7;
   if (e.elite) {
     g.globalAlpha = 0.35 + 0.15 * Math.sin(t * 6);
@@ -856,7 +873,7 @@ function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, 
   }
   if (e.state === "stun" || e.state === "tomb") { g.fillStyle = e.state === "tomb" ? "#ffd23f" : "#9be0ff"; for (let i = 0; i < 3; i++) g.fillRect(Math.round(x + Math.cos(t * 6 + i * 2) * 12), Math.round(yy - fr.h * scale - 2 + Math.sin(t * 6 + i * 2) * 2), 2, 2); }
   drawSprite(g, fr, x, yy, flip, e.flash > 0, scale);
-  if (e.kind === "king") { g.globalAlpha = 0.25; g.fillStyle = "#ff3b6b"; g.fillRect(Math.round(x - fr.w * scale / 2), Math.round(yy - fr.h * scale + 2), Math.round(fr.w * scale), Math.round(fr.h * scale)); }
+  if (e.kind === "king" && e.variant !== "seraph") { g.globalAlpha = 0.25; g.fillStyle = "#ff3b6b"; g.fillRect(Math.round(x - fr.w * scale / 2), Math.round(yy - fr.h * scale + 2), Math.round(fr.w * scale), Math.round(fr.h * scale)); }
   if (e.enraged || e.state === "tomb") { g.globalAlpha = 0.25 + 0.15 * Math.sin(t * 12); drawSprite(g, fr, x, yy, flip, true, scale); }
   if (e.slowT > 0) { g.globalAlpha = 0.3; g.fillStyle = "#9be0ff"; g.fillRect(Math.round(x - e.r), Math.round(yy - fr.h * scale + 2), e.r * 2, Math.round(fr.h * scale)); }
   g.globalAlpha = 1;
@@ -1057,8 +1074,8 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
   c.fillText((left >= 0 ? fmtTime(left) : "+" + fmtTime(-left)) + `  ·  T${r.tier}`, W / 2, topY + 11);
   c.fillStyle = "#1b1424"; c.fillRect(bx, topY + 20, bw, 12);
   if (r.guardianSpawned && gd) {
-    c.fillStyle = gd.enraged ? "#ff3b3b" : gd.kind === "king" ? "#ff3b6b" : "#ffd23f"; c.fillRect(bx, topY + 20, (bw * gd.hp) / gd.maxHp, 12);
-    c.fillStyle = "#140c1c"; c.font = font(10); c.fillText((gd.kind === "king" ? "THE OSSUARY KING" : guardianDef(gd.variant).name.toUpperCase()) + (gd.enraged ? " — ENRAGED" : ""), W / 2, topY + 26);
+    c.fillStyle = gd.enraged ? "#ff3b3b" : gd.variant === "seraph" ? "#bfe8ff" : gd.kind === "king" ? "#ff3b6b" : "#ffd23f"; c.fillRect(bx, topY + 20, (bw * gd.hp) / gd.maxHp, 12);
+    c.fillStyle = "#140c1c"; c.font = font(10); c.fillText((gd.variant === "seraph" ? "THE PALE SERAPH" : gd.kind === "king" ? "THE OSSUARY KING" : guardianDef(gd.variant).name.toUpperCase()) + (gd.enraged ? " — ENRAGED" : ""), W / 2, topY + 26);
   } else {
     c.fillStyle = r.done ? "#7dff9a" : "#8a5cff"; c.fillRect(bx, topY + 20, (bw * r.progress) / r.need, 12);
     for (const at of RIFT.boonsAt) { c.fillStyle = "#ffd23f"; c.fillRect(bx + (bw * at) / 100, topY + 20, 1, 12); }
@@ -1271,7 +1288,7 @@ function startLiveRun(o: RunOpts) {
   pendingStart = { ...o };
   if (!o2.lobby) { o2.host(); return; } // solo in the live build is a room of one: the server still mints every item
   pendingStart.sent = true;
-  o2.send({ t: "runStart", kind: o.kind, tier: o.tier });
+  o2.send({ t: "runStart", kind: o.kind, tier: o.tier, boss: o.boss });
 }
 function onRunOk(m: any) {
   const o = pendingStart; pendingStart = null;
@@ -1284,9 +1301,9 @@ function onRunOk(m: any) {
   const players = [setupFor(profile, ME, online.name), ...peers.map((pid) => ({ ...online!.peerInfo.get(pid)!.setup, pid }))];
   const pity: SimConfig["pity"] = { [ME]: { ancestral: c.pityAnc >= T.ancestralPity, primal: c.pityPri >= T.primalPity } };
   for (const pid of peers) pity[pid] = online.peerInfo.get(pid)!.pity;
-  const cfg: SimConfig = { seed, kind: m.kind, tier: m.tier, players, mods: m.kind !== "rift" ? [] : rollModifiers(seed, m.tier), mint: "external", pity };
+  const cfg: SimConfig = { seed, kind: m.kind, tier: m.tier, boss: o.boss, players, mods: m.kind !== "rift" ? [] : rollModifiers(seed, m.tier), mint: "external", pity };
   coop = newCoop("host", cfg);
-  const info: RunInfo = { kind: m.kind, tier: m.tier, weekly: !!o.weekly && peers.length === 0, seed };
+  const info: RunInfo = { kind: m.kind, tier: m.tier, weekly: !!o.weekly && peers.length === 0, seed, boss: o.boss };
   for (const pid of peers) { online.sendR(pid, { t: "start", cfg, info }); coop.live.add(pid); coop.remote.set(pid, { inp: NO_INPUT, cmds: [] }); }
   beginRun(cfg, info);
 }
@@ -1295,16 +1312,16 @@ function onRunOk(m: any) {
 function startDirectRun(o: RunOpts) {
   const d = online as Direct;
   const c = char(profile), T = RIFT.tiers;
-  if (o.kind === "chase") { if (c.sigils <= 0) return; c.sigils--; saveProfile(profile); }
+  if (!payChase(o)) return;
   let seed = o.seed ?? ((Math.random() * 0xffffffff) >>> 0);
   const peers = d.openPeers().filter((pid) => d.peerInfo.has(pid));
   if (o.weekly && !peers.length) seed = weeklySeed(isoWeek());
   const players = [setupFor(profile, ME, d.name), ...peers.map((pid) => ({ ...d.peerInfo.get(pid)!.setup, pid, name: d.peerInfo.get(pid)!.name }))];
   const pity: SimConfig["pity"] = { [ME]: { ancestral: c.pityAnc >= T.ancestralPity, primal: c.pityPri >= T.primalPity } };
   for (const pid of peers) pity[pid] = d.peerInfo.get(pid)!.pity;
-  const cfg: SimConfig = { seed, kind: o.kind, tier: o.tier, players, mods: o.kind !== "rift" ? [] : rollModifiers(seed, o.tier), pity, hideout: o.kind === "hideout" ? profile.hideout : undefined };
+  const cfg: SimConfig = { seed, kind: o.kind, tier: o.tier, boss: o.boss, players, mods: o.kind !== "rift" ? [] : rollModifiers(seed, o.tier), pity, hideout: o.kind === "hideout" ? profile.hideout : undefined };
   coop = newCoop("host", cfg);
-  const info: RunInfo = { kind: o.kind, tier: o.tier, weekly: !!o.weekly && peers.length === 0, seed };
+  const info: RunInfo = { kind: o.kind, tier: o.tier, weekly: !!o.weekly && peers.length === 0, seed, boss: o.boss };
   for (const pid of peers) { d.sendR(pid, { t: "start", cfg, info }); coop.live.add(pid); coop.remote.set(pid, { inp: NO_INPUT, cmds: [] }); }
   d.setRunning(true);
   beginRun(cfg, info);
@@ -1314,7 +1331,7 @@ function wireOnline(o: Online | Direct) {
   if (!o.direct) o.onProfile = (p) => { profile = p; setMuted(profile.settings.mute); refreshMenu(); };
   o.onLobby = () => {
     ME = o.lobby ? o.lobby.pid : 0;
-    if (!o.direct && pendingStart && !pendingStart.sent && o.lobby?.host) { pendingStart.sent = true; o.send({ t: "runStart", kind: pendingStart.kind, tier: pendingStart.tier }); }
+    if (!o.direct && pendingStart && !pendingStart.sent && o.lobby?.host) { pendingStart.sent = true; o.send({ t: "runStart", kind: pendingStart.kind, tier: pendingStart.tier, boss: pendingStart.boss }); }
     refreshMenu();
   };
   o.onServer = (m) => {

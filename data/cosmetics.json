@@ -314,6 +314,20 @@
    "unlock": "premium"
   },
   {
+   "id": "judgement",
+   "name": "Wings of Judgement",
+   "desc": "Earned by slaying the Pale Seraph. Frost-white feathers and a pale halo.",
+   "shape": "feather",
+   "X": "#e6eef8",
+   "x": "#a9b8d0",
+   "U": "#7ad8ff",
+   "halo": "#bfe8ff",
+   "unlock": "earn",
+   "earn": {
+    "seraph": 1
+   }
+  },
+  {
    "id": "ember",
    "name": "Phoenix wings",
    "desc": "Wings of living flame that shed embers.",

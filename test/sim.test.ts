@@ -11,7 +11,7 @@ function setup(pid: number, cls = "ashknight", level = 1, equipment: Holder["equ
 function bot(s: SimState, pid: number, t: number): PlayerInput {
   const p = s.players.find((q) => q.pid === pid)!;
   let target: { x: number; y: number } | null = null, best = 1e9;
-  for (const e of s.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < best) { best = d; target = e; } }
+  for (const e of s.enemies) { if (e.dead || (e.kind === "king" && e.state === "tomb" && s.enemies.some((o) => o.kind === "pylon" && !o.dead))) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < best) { best = d; target = e; } }
   for (const l of s.loot) { if (l.owner !== pid) continue; const d = Math.hypot(l.x - p.x, l.y - p.y); if (d < 80 && d < best) { best = d; target = l; } }
   if (!target) return NO_INPUT;
   const dx = target.x - p.x, dy = target.y - p.y, d = Math.hypot(dx, dy) || 1;
@@ -23,7 +23,7 @@ function bot(s: SimState, pid: number, t: number): PlayerInput {
   if (d > 120 && d < 200 && t % 60 === 0) act |= 4;
   return { mx: near ? 0 : dx / d, my: near ? 0 : dy / d, ax: target.x, ay: target.y, act };
 }
-function run(cfg: { seed: number; tier?: number; players: PlayerSetup[]; kind?: "rift" | "chase" }, label: string, maxSec = 900) {
+function run(cfg: { seed: number; tier?: number; players: PlayerSetup[]; kind?: "rift" | "chase"; boss?: "king" | "seraph" }, label: string, maxSec = 900) {
   const s = createSim({ ...cfg, mods: cfg.kind === "chase" ? [] : ["fortified", "hasted"] });
   let gdmg = 0, deathsAtG = 0, deaths = 0, guardianAt = -1, legs = 0, drops = 0, lastX = 0, lastY = 0, stuck = 0, boons = 0, lvls = 0;
   for (let t = 0; t < maxSec * 30; t++) {
@@ -127,6 +127,24 @@ for (const gd of GUARDIANS) {
 }
 run({ seed: 5, tier: 3, players: [setup(0, "ashknight", 15, kit(15, "rare")), setup(1, "gloomstalker", 8, kit(8, "rare", 9))] }, "T3 duo (15 + 8, level sync)");
 run({ seed: 6, tier: 3, kind: "chase", players: [setup(0, "ashknight", 25, kit(25, "legendary"))] }, "Chase boss lvl25 legendary kit", 400);
+{ // the King leaves a Pale Feather
+  const s = run({ seed: 6, tier: 3, kind: "chase", players: [setup(0, "ashknight", 30, kit(30, "legendary"))] }, "King (feather check)", 600);
+  if (!s.rift.done || s.players[0].feathers !== 1) { console.error("FAIL king feather", s.players[0].feathers); proc.exit(1); }
+}
+// the Pale Seraph: beatable by both a melee and a ranged hero, goes through Judgement, and drops two ancestral items
+for (const cls of ["ashknight", "gloomstalker"]) {
+  const s = createSim({ seed: 12, tier: 6, kind: "chase", boss: "seraph", players: [setup(0, cls, 30, kit(30, "legendary"))], mods: [] });
+  const states = new Set<string>(); let deaths = 0, anc = 0;
+  for (let t = 0; t < 30 * 360 && !s.rift.done; t++) {
+    step(s, { 0: bot(s, 0, t) });
+    if (s.boonOffers[0]) step(s, { 0: { ...NO_INPUT, cmds: [{ type: "boon", id: s.boonOffers[0][0] }] } });
+    const b = s.enemies.find((e) => e.kind === "king"); if (b) states.add(b.state);
+    for (const e of s.events) if (e.type === "playerDeath") deaths++;
+  }
+  for (const it of [...s.loot.map((l) => l.item), ...s.players[0].bag]) if (it.quality) anc++;
+  console.log(`seraph vs ${cls}: killed=${s.rift.done} in ${s.rift.time.toFixed(0)}s deaths=${deaths} states=${[...states].join(",")} ancestral=${anc}`);
+  if (!s.rift.done || !states.has("tomb") || !states.has("spiral") || !states.has("blink") || anc < 2) { console.error("SERAPH FAIL", cls); proc.exit(1); }
+}
 
 // 4) every legendary/mythic/set bonus runs
 for (const l of [...LEGENDARIES, ...MYTHICS]) {

@@ -80,14 +80,15 @@ export const COS_KINDS: CosKind[] = ["armor", "wings", "weapon", "petSkin", "dye
 
 // ------------------------------------------------------------------ ownership (shop, earnables)
 /** What the unlock rules need from a profile: owned premium keys and per-character progress. */
-export interface UnlockCtx { owned?: string[]; chars: Record<string, { highestTier: number; bestWave?: number; kings?: number }> }
-export interface Earn { tier?: number; wave?: number; king?: number }
-export const earnText = (e: Earn) => e.tier ? `Clear tier ${e.tier}` : e.wave ? `Reach Endless wave ${e.wave}` : e.king ? "Slay the Ossuary King" : "";
+export interface UnlockCtx { owned?: string[]; chars: Record<string, { highestTier: number; bestWave?: number; kings?: number; seraphs?: number }> }
+export interface Earn { tier?: number; wave?: number; king?: number; seraph?: number }
+export const earnText = (e: Earn) => e.tier ? `Clear tier ${e.tier}` : e.wave ? `Reach Endless wave ${e.wave}` : e.king ? "Slay the Ossuary King" : e.seraph ? "Slay the Pale Seraph" : "";
 export function earned(p: UnlockCtx, e: Earn): boolean {
   const cs = Object.values(p.chars ?? {});
   if (e.tier && !cs.some((c) => c.highestTier > e.tier!)) return false;
   if (e.wave && !cs.some((c) => (c.bestWave ?? 0) >= e.wave!)) return false;
   if (e.king && !cs.some((c) => (c.kings ?? 0) >= e.king!)) return false;
+  if (e.seraph && !cs.some((c) => (c.seraphs ?? 0) >= e.seraph!)) return false;
   return true;
 }
 /** Every premium thing has a shop key: "cos:armor:gilded", "fx:cleave:voidfire", "theme:gilded", "decor:statue". */

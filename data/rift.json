@@ -185,6 +185,19 @@
     50,
     75
   ],
+  "seraph": {
+    "name": "Sanctum of the Pale Seraph",
+    "hpMult": 1.15,
+    "timeLimit": 360,
+    "items": 5,
+    "ancestral": 2,
+    "mythicChance": 0.1,
+    "featherFrom": 8,
+    "featherChance": 0.12,
+    "kite": 120,
+    "judgement": 9,
+    "fallStun": 5
+  },
   "chase": {
     "name": "Throne of the Ossuary King",
     "mythicChance": 0.06,

@@ -11,7 +11,7 @@ export interface RunMember {
   pending: Map<string, Item>; // minted for this player, not yet saved into their profile
   forced: number; usedAnc: boolean; usedPri: boolean; drops: number; mythic: boolean;
 }
-export interface RunInfo { kind: "rift" | "chase" | "endless"; tier: number; completed: boolean; inTime: boolean; time: number }
+export interface RunInfo { kind: "rift" | "chase" | "endless"; boss?: "king" | "seraph"; tier: number; completed: boolean; inTime: boolean; time: number }
 
 const MAX_DROPS = 500;
 
@@ -27,14 +27,15 @@ export function sanitizeOpts(run: RunInfo, m: RunMember, o: MintOpts, rng: Rng, 
     legendaryWeightMult: Math.max(1, Math.min(6, o.legendaryWeightMult ?? 1)),
   };
   if (o.rarity) {
-    // forced rarities only come from guardian / king rewards: at most two per player per run, after completion
-    if (!run.completed || m.forced >= 2) return out;
+    // forced rarities only come from guardian / chase rewards: at most two per player per run (three for the Seraph), after completion
+    if (!run.completed || m.forced >= (run.boss === "seraph" ? 3 : 2)) return out;
     m.forced++;
     if (o.rarity === "mythic") {
-      if (run.kind !== "chase" || m.mythic || next(rng) >= RIFT.chase.mythicChance) out.rarity = "legendary";
+      if (run.kind !== "chase" || m.mythic || next(rng) >= (run.boss === "seraph" ? RIFT.seraph.mythicChance : RIFT.chase.mythicChance)) out.rarity = "legendary";
       else { out.rarity = "mythic"; m.mythic = true; }
     } else if (o.rarity === "legendary" || o.rarity === "set") out.rarity = o.rarity;
-    if (o.forceAncestral && m.pity.ancestral && !m.usedAnc) { out.forceAncestral = true; m.usedAnc = true; }
+    if (o.forceAncestral && run.kind === "chase" && run.boss === "seraph") out.forceAncestral = true; // the Seraph's first two items are always ancestral
+    else if (o.forceAncestral && m.pity.ancestral && !m.usedAnc) { out.forceAncestral = true; m.usedAnc = true; }
     if (o.forcePrimal && m.pity.primal && !m.usedPri) { out.forcePrimal = true; m.usedPri = true; }
   }
   return out;
@@ -53,7 +54,7 @@ const same = (a: Item, b: Item) => JSON.stringify({ ...a, locked: undefined }) =
 
 export interface SaveReport {
   equipment: CharSave["equipment"]; bag: Item[]; scrapped: string[]; materials: number; shards?: number;
-  level: number; xp: number; sigils: number; uses: Record<string, number>; paragon?: number; pxp?: number;
+  level: number; xp: number; sigils: number; feathers?: number; uses: Record<string, number>; paragon?: number; pxp?: number;
   highestTier: number; pityAnc: number; pityPri: number; bestTimes: Record<string, number>; riftsCleared: number;
   weeklyBest?: number;
 }
@@ -101,6 +102,7 @@ export function applySave(p: Profile, cls: string, rep: SaveReport, m: RunMember
   const lvl = Math.max(c.level, Math.min(L, rep.level | 0, c.level + 6));
   if (lvl !== c.level || rep.xp !== c.xp) { c.level = lvl; c.xp = Math.max(0, rep.xp | 0); }
   c.sigils = Math.max(0, Math.min(rep.sigils | 0, c.sigils + 2));
+  if (rep.feathers !== undefined) c.feathers = Math.max(0, Math.min(rep.feathers | 0, (c.feathers ?? 0) + 2));
   if (c.level >= L && rep.paragon !== undefined) { c.paragon = Math.max(c.paragon ?? 0, Math.min(rep.paragon | 0, (c.paragon ?? 0) + 5)); c.pxp = Math.max(0, rep.pxp ?? 0); }
   for (const [k, v] of Object.entries(rep.uses ?? {})) c.uses[k] = Math.max(c.uses[k] ?? 0, Math.min(v | 0, (c.uses[k] ?? 0) + 5000));
   if (run?.completed && run.inTime && run.kind === "rift") {

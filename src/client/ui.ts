@@ -89,7 +89,7 @@ function isUpgrade(h: Holder, it: Item, ctx: { cls: string; level: number }): bo
 
 type Tab = "play" | "gear" | "skills" | "looks" | "shop" | "settings";
 export interface HubHandlers {
-  enter: (o: { tier: number; seed: number | null; kind: RunKind; weekly?: boolean }) => void;
+  enter: (o: { tier: number; seed: number | null; kind: RunKind; weekly?: boolean; boss?: "king" | "seraph" }) => void;
   invCmd: (c: InvCmd) => void;
   setClass: (cls: string) => void;
   setRune: (skill: string, rune: string) => void;
@@ -194,6 +194,8 @@ export class UI {
       <div class="dim small">Waves keep coming and get stronger, and faster quickly when you clear them fast. The party shares ${RIFT.endless.lives} lives. Loot comes at the end, more the further you get.</div>
       <button id="chase" class="chase" ${c.sigils > 0 ? "" : "disabled"}>Challenge the Ossuary King (uses 1 Bone Sigil · you have ${c.sigils})</button>
       <div class="dim small">Bone Sigils drop from guardians at tier ${T.sigilFrom}+. The King is a 3-phase fight with a ${Math.round(RIFT.chase.mythicChance * 100)}% mythic chance.</div>
+      <button id="seraph" class="chase" ${(c.feathers ?? 0) > 0 ? "" : "disabled"}>Challenge the Pale Seraph (uses 1 Pale Feather · you have ${c.feathers ?? 0})</button>
+      <div class="dim small">Every King kill leaves a Pale Feather, and guardians drop them at tier ${RIFT.seraph.featherFrom}+. Two guaranteed ancestral items and a ${Math.round(RIFT.seraph.mythicChance * 100)}% mythic chance.</div>
       <div class="help">
         <b>Desktop:</b> WASD move · skills on LMB, RMB (or E), Space (or Q) and R (or F) · I bag · M mute<br>
         <b>Touch:</b> left thumb moves · four skill buttons on the right · aiming is automatic (bosses and elites first)
@@ -234,7 +236,7 @@ export class UI {
       b("#co-out", () => co.signOut?.());
       const nm = this.root.querySelector<HTMLInputElement>("#co-name");
       if (nm && co.setName) nm.onchange = () => co.setName!(nm.value);
-      if (co.lobby && !co.lobby.host) for (const id of ["#enter", "#weekly", "#chase"]) { const el = this.root.querySelector<HTMLButtonElement>(id); if (el) el.disabled = true; }
+      if (co.lobby && !co.lobby.host) for (const id of ["#enter", "#weekly", "#chase", "#seraph"]) { const el = this.root.querySelector<HTMLButtonElement>(id); if (el) el.disabled = true; }
     }
     this.root.querySelectorAll<HTMLElement>("[data-cls]").forEach((el) => el.onclick = () => { H.setClass(el.dataset.cls!); this.tier = char(p).highestTier; re(); });
     $("#t-down").onclick = () => { this.tier = Math.max(1, this.tier - 1); re(); };
@@ -247,6 +249,7 @@ export class UI {
     $("#weekly").onclick = () => H.enter({ tier: WEEKLY_TIER, seed: null, kind: "rift", weekly: true });
     $("#endless").onclick = () => H.enter({ tier: this.tier, seed: null, kind: "endless" });
     $("#chase").onclick = () => H.enter({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase" });
+    $("#seraph").onclick = () => H.enter({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase", boss: "seraph" });
   }
 
   // ---------------------------------------------------------------- gear

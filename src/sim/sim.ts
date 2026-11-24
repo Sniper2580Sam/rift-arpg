@@ -21,6 +21,8 @@ export type HostCmd =
 export interface PlayerSetup {
   pid: number; name: string; cls: string; level: number; xp: number;
   equipment: Holder["equipment"]; bag: Item[]; materials: number; sigils: number;
+  /** Pale Feathers: open the Sanctum of the Pale Seraph */
+  feathers?: number;
   shards?: number; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"];
   runes: Record<string, string>; pet: string; filter: Rarity;
   loadout?: string[];
@@ -32,7 +34,7 @@ export interface PlayerSetup {
 
 export interface Buff { armorPct: number; dmgPct: number; cdrPct: number; t: number }
 export interface Player extends Holder {
-  pid: number; name: string; cls: string; level: number; xp: number; sigils: number;
+  pid: number; name: string; cls: string; level: number; xp: number; sigils: number; feathers: number;
   runes: Record<string, string>; pet: string; filter: Rarity; cos: CosChoice;
   x: number; y: number; px: number; py: number; r: number; hp: number; fx: number; fy: number; moving: boolean; walk: number;
   skills: string[]; cds: Num; charges: Num; chargeT: Num; swingT: number; swingCount: number;
@@ -101,13 +103,17 @@ export type SimEvent =
   | { type: "riftComplete"; inTime: boolean; time: number }
   | { type: "levelUp"; pid: number; level: number }
   | { type: "boonOffer"; pid: number } | { type: "boonTaken"; pid: number; id: string }
-  | { type: "sigil"; pid: number } | { type: "teleport"; x: number; y: number } | { type: "chain"; x1: number; y1: number; x2: number; y2: number; pid?: number; skill?: string }
+  | { type: "sigil"; pid: number } | { type: "feather"; pid: number } | { type: "teleport"; x: number; y: number } | { type: "chain"; x1: number; y1: number; x2: number; y2: number; pid?: number; skill?: string }
   | { type: "waveStart"; wave: number; count: number; boss: boolean } | { type: "waveClear"; wave: number; secs: number; jump: number; cleared: boolean } | { type: "endlessOver"; wave: number; time: number }
   | { type: "equipChanged"; pid: number } | { type: "ambush"; x: number; y: number; n: number };
 
 export type RunKind = "rift" | "chase" | "endless" | "hideout";
+/** chase runs: which boss waits at the end */
+export type ChaseBoss = "king" | "seraph";
 export interface RiftState {
   kind: RunKind; tier: number; mods: string[];
+  /** chase runs: the boss (default the Ossuary King) */
+  boss?: ChaseBoss;
   /** Endless mode: wave number, difficulty level (rises faster on quick clears), when the next wave comes (0 = a wave is up) and when the current one started */
   wave?: number; level?: number; waveAt?: number; waveStart?: number;
   /** hideout runs: the room being visited (rendered by everyone in it) */
@@ -121,6 +127,8 @@ export interface RiftState {
 }
 export interface SimConfig {
   seed: number; kind?: RunKind; tier?: number; mods?: string[]; players: PlayerSetup[];
+  /** chase runs: which boss (default the Ossuary King) */
+  boss?: ChaseBoss;
   /** hideout runs: the host's room (theme + decorations) */
   hideout?: HideoutLayout;
   /** force a map (tests); otherwise it's picked from the seed */
@@ -191,7 +199,7 @@ export function createSim(cfg: SimConfig): SimState {
     players: [], enemies: [], projectiles: [], summons: [], hazards: [], zones: [], loot: [], pending: [],
     nextId: 1, itemCounter: 0, startX, startY,
     rift: {
-      kind, tier, mods, map: md?.id, density, time: 0, limit: kind === "chase" ? RIFT.chase.timeLimit : kind === "endless" || kind === "hideout" ? 1e9 : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier) * Math.max(1, density / 5)),
+      kind, tier, mods, map: md?.id, density, time: 0, limit: kind === "chase" ? (cfg.boss === "seraph" ? RIFT.seraph.timeLimit : RIFT.chase.timeLimit) : kind === "endless" || kind === "hideout" ? 1e9 : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier) * Math.max(1, density / 5)),
       guardianSpawned: false, guardianId: 0, done: false, doneAt: 0, kills: 0, timeUpSent: false, boonIdx: 0, nextWave: RIFT.waves.first,
     },
     boonOffers: {}, boonPending: {}, pity: cfg.pity ?? {}, events: [], _flows: [], _flowTick: -999,
@@ -206,6 +214,7 @@ export function createSim(cfg: SimConfig): SimState {
   if (kind === "chase") {
     const k = spawnEnemy(s, "king", (map.w / 2) * ts, (map.h / 2 - 4) * ts, n);
     k.aggro = true; k.state = "intro"; k.t = 2.5;
+    if (cfg.boss === "seraph") { s.rift.boss = "seraph"; k.variant = "seraph"; k.hp = k.maxHp = Math.round(k.maxHp * RIFT.seraph.hpMult); }
     s.rift.guardianSpawned = true; s.rift.guardianId = k.id; s.rift.progress = s.rift.need;
     return s;
   }
@@ -254,7 +263,7 @@ export function addPlayer(s: SimState, ps: PlayerSetup): Player {
   const cls = ps.cls;
   const p: Player = {
     paragon: ps.paragon ?? 0, pxp: ps.pxp ?? 0, pAlloc: { ...(ps.pAlloc ?? {}) },
-    pid: ps.pid, name: ps.name, cls, level: ps.level, xp: ps.xp, sigils: ps.sigils, runes: { ...ps.runes }, pet: ps.pet, filter: ps.filter, cos: { ...ps.cos },
+    pid: ps.pid, name: ps.name, cls, level: ps.level, xp: ps.xp, sigils: ps.sigils, feathers: ps.feathers ?? 0, runes: { ...ps.runes }, pet: ps.pet, filter: ps.filter, cos: { ...ps.cos },
     equipment: clone(ps.equipment), bag: clone(ps.bag), materials: ps.materials, shards: ps.shards ?? 0, slotPlus: { ...(ps.slotPlus ?? {}) }, slotCrit: { ...(ps.slotCrit ?? {}) },
     x: s.startX + (s.players.length % 2) * 12 - 6, y: s.startY + Math.floor(s.players.length / 2) * 12, px: 0, py: 0, r: 5, hp: 1, fx: 1, fy: 0, moving: false, walk: 0,
     skills: [], cds: {}, charges: {}, chargeT: {}, swingT: 0, swingCount: 0,
@@ -1007,7 +1016,7 @@ function updateEnemies(s: SimState) {
       case "hexer": aiHexer(s, e, def, tgt, dist, dx, dy, spd); break;
       case "gorehorn": aiGorehorn(s, e, def, tgt, dist, dx, dy, spd); break;
       case "shieldbearer": aiShield(s, e, def, tgt, dist, dx, dy, spd); break;
-      case "king": aiKing(s, e, def, tgt, dist, dx, dy, spd); break;
+      case "king": if (e.variant === "seraph") aiSeraph(s, e, def, tgt, dist, dx, dy, spd); else aiKing(s, e, def, tgt, dist, dx, dy, spd); break;
       case "pylon": break;
     }
   }
@@ -1368,6 +1377,39 @@ function aiKing(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: number, d
   bossCommon(s, e, def, p, dist, dx, dy, spd, pat, ["brute", "archer", "ghoul", "archer"]);
 }
 
+/** Second chase boss: a ranged duellist. Dodge shard rings, hold the choir, then survive her Judgement to ground her. */
+function aiSeraph(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: number, dx: number, dy: number, spd: number) {
+  if (!e.enraged && e.age >= def.enrageAfter!) { e.enraged = true; s.events.push({ type: "enrage" }); }
+  const frac = e.hp / e.maxHp, S = RIFT.seraph;
+  if (e.phase === 1 && frac < 0.66) { e.phase = 2; e.pattern = 0; s.events.push({ type: "phase", n: 2, text: "The Seraph calls her choir" }); }
+  if (e.phase === 2 && frac < 0.33) {
+    // Judgement: she rises out of reach and rains fire; outlast it and she falls, stunned
+    e.phase = 3; e.state = "tomb"; e.t = S.judgement;
+    for (const o of s.enemies) if (o.noProgress && !o.dead) { o.dead = true; s.events.push({ type: "kill", x: o.x, y: o.y, kind: o.kind, elite: o.elite }); }
+    s.events.push({ type: "phase", n: 3, text: "JUDGEMENT. Keep moving!" });
+    return;
+  }
+  if (e.state === "tomb") {
+    const dmg = def.damage * e.dmgMult;
+    if (s.tick % 27 === 0) {
+      for (const q of s.players) if (!q.dead) s.zones.push({ id: s.nextId++, x: q.x, y: q.y, r: 24, delay: 1.0, life: 0, dmg: dmg * 1.3, kind: "blast", tickT: 0, dead: false });
+    }
+    if (s.tick % 45 === 0) {
+      const off = Math.floor(s.tick / 45) % 4;
+      for (let i = off; i < 32; i += 4) { const [cx, cy] = DIR_TABLE[i]; s.projectiles.push(mkProj(s, 1, "bone", e.x, e.y, cx * def.novaSpeed! * 0.7, cy * def.novaSpeed! * 0.7, 4, -1, "", 0, dmg * 0.7, [], false, 3.5, 0)); }
+    }
+    if (e.t <= 0) { e.state = "stun"; e.t = S.fallStun; s.events.push({ type: "phase", n: 4, text: "The Seraph falls! Strike now!" }); s.events.push({ type: "slam", x: e.x, y: e.y, r: 40, big: true }); }
+    return;
+  }
+  // she keeps her distance between attacks
+  if (e.state === "idle" && dist < S.kite && e.t > 0.2) {
+    const [nx, ny] = norm(dx, dy);
+    moveWithWalls(s.map, e, -nx * spd * DT, -ny * spd * DT);
+  }
+  const pat = e.phase === 1 ? ["spiral", "blink", "fire", "spiral", "nova"] : e.phase === 2 ? ["raise", "spiral", "blink", "fire", "nova", "spiral"] : ["spiral", "blink", "fire", "nova", "blink"];
+  bossCommon(s, e, def, p, dist, dx, dy, spd, pat, ["shieldbearer", "hexer", "archer", "hexer"]);
+}
+
 // ------------------------------------------------------------------ summons, projectiles, hazards, zones, loot
 function updateSummons(s: SimState) {
   for (const m of s.summons) {
@@ -1697,6 +1739,18 @@ function completeRift(s: SimState, g: Enemy) {
   const gr = RIFT.guardianRewards;
   for (const p of s.players) {
     const pity = s.pity[p.pid] ?? {};
+    if (r.kind === "chase" && r.boss === "seraph") {
+      // the Seraph: more items, the first two always ancestral, and a better mythic chance
+      const S = RIFT.seraph, n = S.items + (inTime ? 2 : 0);
+      let anc = 0;
+      for (let i = 0; i < n; i++) {
+        const d = DIR_TABLE[Math.floor((i * 32) / n) % 32];
+        const mythic = i === 0 && chance(s.rng, S.mythicChance);
+        const a = !mythic && anc < S.ancestral; if (a) anc++; // a mythic is a bonus: the two ancestral items still come
+        dropFor(s, p, g.x + d[0] * 26, g.y + d[1] * 26, mythic ? { rarity: "mythic" } : a ? { rarity: chance(s.rng, 0.5) ? "legendary" : "set", forceAncestral: true } : { legendaryWeightMult: 8 });
+      }
+      continue;
+    }
     if (r.kind === "chase") {
       const n = RIFT.chase.items + (inTime ? 2 : 0);
       for (let i = 0; i < n; i++) {
@@ -1704,6 +1758,8 @@ function completeRift(s: SimState, g: Enemy) {
         const mythic = i === 0 && chance(s.rng, RIFT.chase.mythicChance);
         dropFor(s, p, g.x + d[0] * 26, g.y + d[1] * 26, mythic ? { rarity: "mythic" } : i < 2 ? { rarity: chance(s.rng, 0.5) ? "legendary" : "set" } : { legendaryWeightMult: 6 });
       }
+      // every King kill leaves a Pale Feather: the way to the Seraph
+      p.feathers++; s.events.push({ type: "feather", pid: p.pid });
       continue;
     }
     const n = gr.baseItems + (inTime ? gr.inTimeItems + Math.floor(left / 60) * gr.itemsPerMinuteLeft : 0);
@@ -1716,6 +1772,7 @@ function completeRift(s: SimState, g: Enemy) {
       dropFor(s, p, x, y, extra);
     }
     if (r.tier >= RIFT.tiers.sigilFrom && chance(s.rng, RIFT.tiers.sigilChance)) { p.sigils++; s.events.push({ type: "sigil", pid: p.pid }); }
+    if (r.tier >= RIFT.seraph.featherFrom && chance(s.rng, RIFT.seraph.featherChance)) { p.feathers++; s.events.push({ type: "feather", pid: p.pid }); }
   }
   for (const e of s.enemies) if (!e.dead) { e.dead = true; s.events.push({ type: "kill", x: e.x, y: e.y, kind: e.kind, elite: e.elite }); }
   s.events.push({ type: "riftComplete", inTime, time: r.time });

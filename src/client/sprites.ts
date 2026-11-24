@@ -247,6 +247,33 @@ const SHIELDBEARER = [
     "...kk.kk...",
   ],
 ];
+// the Pale Seraph (second chase boss): haloed, winged, pale robes with gold trim
+const SERAPH = [
+  "..........kyyyyyyyk..........",
+  ".........y.........y.........",
+  "..........kyyyyyyyk..........",
+  "............kwwwk............",
+  "..kk.......kwwwwwk.......kk..",
+  ".kwwk.....kwZkwkZwk.....kwwk.",
+  ".kwWwk....kwwwwwwwk....kwWwk.",
+  "kwwWWwk....kwwkwwk....kwWWwwk",
+  "kwWWswwk...kkwwwkk...kwwsWWwk",
+  "kwWsWWwwkkkysssssykkkwwWWsWwk",
+  "kwWsWWWwwkssyssysskwwWWWsWwk.",
+  ".kwsWWWwksssyysyysskwWWWswk..",
+  ".kwWsWWwksssssyssssskwWWsWwk.",
+  "..kwsWWksssssssssssskWWswk...",
+  "..kwWsWksWssssyssssWskWsWk...",
+  "...kwsksWsssssssssWsskswk....",
+  "...kwWkssWssssssssWssskWk....",
+  "....kwksssWsssssssWsssskk....",
+  ".....kksssWsssyssWsssssk.....",
+  "......kssssWssssWssssssk.....",
+  "......kssssWssssWsssssk......",
+  ".....kssssssWssWssssssk......",
+  ".....kyyyyyyyyyyyyyyyyk......",
+  "......kkkkkkkkkkkkkkkk.......",
+];
 const GUARDIAN = [
   "......y..y..y..y.......",
   "......yk.yk.yk.yk......",
@@ -618,6 +645,7 @@ export interface SpriteBank {
   hero: Sprite[]; ranger: Sprite[]; mage: Sprite[]; wright: Sprite[]; colossus: Sprite[]; raven: Sprite[]; pets: Record<string, Sprite[]>; pylon: Sprite[];
   ghoul: Sprite[]; hound: Sprite[]; archer: Sprite[]; brute: Sprite[]; guardian: Sprite[]; imp: Sprite[];
   hexer: Sprite[]; gorehorn: Sprite[]; shieldbearer: Sprite[];
+  seraph: Sprite[];
   /** a guardian recoloured for its variant (data/guardians.json pal) */
   guardianOf: (id: string) => Sprite[];
   icon: (slot: Slot, rarity: Rarity) => Sprite;
@@ -651,6 +679,7 @@ export function buildSprites(): SpriteBank {
     archer: ARCHER.map((r) => make(r)),
     brute: BRUTE.map((r) => make(r)),
     guardian: [make(GUARDIAN)],
+    seraph: [make(SERAPH, { ...BASE, s: "#e6eef8", W: "#a9b8d0", w: "#ffffff", Z: "#7ad8ff" })],
     hexer: HEXER.map((r) => make(r, { ...BASE, V: "#3a2a4a", v: "#5a3f73", e: "#c06aff", y: "#c06aff" })),
     gorehorn: GOREHORN.map((r) => make(r, { ...BASE, P: "#7a4a3a", p: "#4a2a22", e: "#ff8a1f" })),
     shieldbearer: SHIELDBEARER.map((r) => make(r)),

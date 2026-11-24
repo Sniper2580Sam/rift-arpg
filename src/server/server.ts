@@ -169,8 +169,10 @@ wss.on("connection", (ws) => {
         const ch = char(p);
         const kind = m.kind === "chase" ? "chase" : m.kind === "endless" ? "endless" : "rift";
         let tier = Math.max(1, Math.min(m.tier | 0, ch.highestTier));
-        if (kind === "chase") { if (ch.sigils <= 0) return tx(c, { t: "runFail", reason: "No Bone Sigil." }); ch.sigils--; putProfile(c.name, p); tier = Math.max(3, ch.highestTier); }
-        r.run = { kind, tier, completed: false, inTime: false, time: 0, members: new Map() };
+        const boss = kind === "chase" && m.boss === "seraph" ? "seraph" : "king";
+        if (kind === "chase" && boss === "seraph") { if ((ch.feathers ?? 0) <= 0) return tx(c, { t: "runFail", reason: "No Pale Feather." }); ch.feathers = (ch.feathers ?? 0) - 1; putProfile(c.name, p); tier = Math.max(3, ch.highestTier); }
+        else if (kind === "chase") { if (ch.sigils <= 0) return tx(c, { t: "runFail", reason: "No Bone Sigil." }); ch.sigils--; putProfile(c.name, p); tier = Math.max(3, ch.highestTier); }
+        r.run = { kind, boss: kind === "chase" ? boss : undefined, tier, completed: false, inTime: false, time: 0, members: new Map() };
         for (const mem of r.members.values()) r.run.members.set(mem.pid!, newMember(mem));
         tx(c, { t: "runOk", tier, kind, profile: getProfile(c.name) });
         broadcastMembers(r);

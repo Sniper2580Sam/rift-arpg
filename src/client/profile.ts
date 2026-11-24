@@ -16,9 +16,9 @@ export interface CharSave {
   equipment: Holder["equipment"]; bag: Item[];
   runes: Record<string, string>; uses: Record<string, number>;
   loadout?: string[];
-  highestTier: number; bestWave?: number; kings?: number;
+  highestTier: number; bestWave?: number; kings?: number; seraphs?: number;
   /** paragon levels after max level, XP toward the next, and points spent per stat */
-  paragon?: number; pxp?: number; pAlloc?: Partial<Record<string, number>>; pityAnc: number; pityPri: number; sigils: number;
+  paragon?: number; pxp?: number; pAlloc?: Partial<Record<string, number>>; pityAnc: number; pityPri: number; sigils: number; feathers?: number;
   riftsCleared: number; bestTimes: Record<string, number>;
   /** arsenal: saved builds (equipped item ids, skill bar, runes) */
   builds?: (Build | null)[];
@@ -134,7 +134,7 @@ export function holderOf(p: Profile): Holder {
 
 export function setupFor(p: Profile, pid = 0, name = "You"): PlayerSetup {
   const c = char(p);
-  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, pAlloc: c.pAlloc ?? {} };
+  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, feathers: c.feathers ?? 0, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, pAlloc: c.pAlloc ?? {} };
 }
 
 /** Pull the player's persistent state back out of a running sim (items picked up, XP, levels). Boons are not kept. */
@@ -144,7 +144,7 @@ export function syncFromSim(p: Profile, s: SimState, pid = 0) {
   const c = char(p);
   c.equipment = JSON.parse(JSON.stringify(me.equipment));
   c.bag = JSON.parse(JSON.stringify(me.bag));
-  c.level = me.level; c.xp = me.xp; c.sigils = me.sigils; c.paragon = me.paragon; c.pxp = me.pxp;
+  c.level = me.level; c.xp = me.xp; c.sigils = me.sigils; c.feathers = me.feathers; c.paragon = me.paragon; c.pxp = me.pxp;
   p.materials = me.materials; p.shards = me.shards ?? p.shards ?? 0;
   saveProfile(p);
 }
