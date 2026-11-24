@@ -414,7 +414,7 @@ function burst(x: number, y: number, n: number, color: string | string[], speed 
   }
 }
 const BLOOD: Record<string, string[]> = {
-  ghoul: ["#6f8f5a", "#4a6640", "#9bc27a"], archer: ["#f2ead3", "#c9bf9f"], brute: ["#9a7aa8", "#6b4f7a", "#4a3456"], guardian: ["#f2ead3", "#ffd23f", "#2b1f3a"],
+  ghoul: ["#6f8f5a", "#4a6640", "#9bc27a"], archer: ["#f2ead3", "#c9bf9f"], brute: ["#9a7aa8", "#6b4f7a", "#4a3456"], guardian: ["#f2ead3", "#ffd23f", "#2b1f3a"], hexer: ["#5a3f73", "#c06aff", "#f2ead3"], gorehorn: ["#7a4a3a", "#f2ead3", "#4a2a22"], shieldbearer: ["#8d93ab", "#f2ead3", "#565b74"],
   king: ["#f2ead3", "#ff3b6b", "#2b1f3a"], hound: ["#f2ead3", "#c9bf9f", "#8a7f66"], pylon: ["#f2ead3", "#ffd23f"],
 };
 /** The premium effect a player picked for a skill, if any. */
@@ -830,7 +830,7 @@ function telegraphCircle(g: CanvasRenderingContext2D, x: number, y: number, r: n
 
 function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, t: number) {
   const moving = Math.abs(e.x - e.px) + Math.abs(e.y - e.py) > 0.05;
-  const frames = e.kind === "ghoul" ? bank.ghoul : e.kind === "hound" ? bank.hound : e.kind === "archer" ? bank.archer : e.kind === "brute" ? bank.brute : e.kind === "pylon" ? bank.pylon : e.variant ? bank.guardianOf(e.variant) : bank.guardian;
+  const frames = e.kind === "ghoul" ? bank.ghoul : e.kind === "hound" ? bank.hound : e.kind === "hexer" ? bank.hexer : e.kind === "gorehorn" ? bank.gorehorn : e.kind === "shieldbearer" ? bank.shieldbearer : e.kind === "archer" ? bank.archer : e.kind === "brute" ? bank.brute : e.kind === "pylon" ? bank.pylon : e.variant ? bank.guardianOf(e.variant) : bank.guardian;
   const fr = frames[moving ? Math.floor(t * 8 + e.id) % frames.length : 0];
   const tgt = sim!.players.find((q) => q.pid === e.target);
   const flip = tgt ? tgt.x < e.x : false;
@@ -838,6 +838,14 @@ function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, 
   shadow(g, x, y, e.r);
   let yy = y;
   if (["windup", "slam", "nova", "chargeWind", "fire"].includes(e.state)) yy -= Math.floor(t * 20) % 2;
+  // Gorehorn: a line shows where it will charge
+  if (e.kind === "gorehorn" && e.state === "windup") {
+    g.globalAlpha = 0.35 + 0.25 * Math.sin(t * 20); g.strokeStyle = "#ff5a3a"; g.lineWidth = 4;
+    const L = (ENEMIES.gorehorn.chargeSpeed ?? 230) * (ENEMIES.gorehorn.chargeTime ?? 0.6);
+    g.beginPath(); g.moveTo(x, y - 3); g.lineTo(x + e.tx * L, y - 3 + e.ty * L); g.stroke(); g.lineWidth = 1; g.globalAlpha = 1;
+  }
+  // Hexer: its staff glows while casting
+  if (e.kind === "hexer" && e.state === "windup" && Math.random() < 0.5) particles.push({ x: x + (Math.random() - 0.5) * 8, y: y - 10, vx: 0, vy: -20, life: 0.3, max: 0.3, color: "#c06aff", size: 1, grav: 0 });
   if (e.kind === "guardian" || e.kind === "king") yy += Math.sin(t * 2) * 1.5 - 2;
   if ((e.kind === "guardian" || e.kind === "king") && e.state === "intro") g.globalAlpha = 1 - Math.max(0, e.t / 2) * 0.7;
   if (e.elite) {
@@ -852,6 +860,13 @@ function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, 
   if (e.enraged || e.state === "tomb") { g.globalAlpha = 0.25 + 0.15 * Math.sin(t * 12); drawSprite(g, fr, x, yy, flip, true, scale); }
   if (e.slowT > 0) { g.globalAlpha = 0.3; g.fillStyle = "#9be0ff"; g.fillRect(Math.round(x - e.r), Math.round(yy - fr.h * scale + 2), e.r * 2, Math.round(fr.h * scale)); }
   g.globalAlpha = 1;
+  if (e.kind === "shieldbearer") {
+    // the tower shield, drawn on the side it faces
+    const sx = Math.round(x + e.tx * 7), sy = Math.round(yy - 7 + e.ty * 4);
+    g.fillStyle = "#140c1c"; g.fillRect(sx - 4, sy - 6, 8, 12);
+    g.fillStyle = e.flash > 0 ? "#fff" : "#8d93ab"; g.fillRect(sx - 3, sy - 5, 6, 10);
+    g.fillStyle = "#ffd23f"; g.fillRect(sx - 1, sy - 3, 2, 6);
+  }
   if (e.shieldT > 0) { g.strokeStyle = "#9be0ff"; g.globalAlpha = 0.7; g.beginPath(); g.arc(x, yy - fr.h * scale / 2, e.r + 5, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1; }
   if (e.burnT > 0 && Math.random() < 0.3) particles.push({ x: x + (Math.random() - 0.5) * e.r * 2, y: yy - Math.random() * fr.h, vx: 0, vy: -25, life: 0.35, max: 0.35, color: Math.random() < 0.5 ? "#ff8a1f" : "#ffd23f", size: 1, grav: 0 });
   if ((e.hp < e.maxHp || e.elite) && e.kind !== "guardian" && e.kind !== "king") {

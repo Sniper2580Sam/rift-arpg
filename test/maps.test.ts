@@ -1,5 +1,5 @@
 // Every map layout generates, is connected, places packs, and a bot can clear it. The Good Luck map runs fast enough.
-import { createSim, step, NO_INPUT, PlayerInput, SimState, pickMap } from "../src/sim/sim";
+import { createSim, step, NO_INPUT, PlayerInput, SimState, pickMap, shieldFactor } from "../src/sim/sim";
 import { MAPS } from "../src/sim/data";
 import { isWallAt, moveWithWalls } from "../src/sim/map";
 const proc = (globalThis as any).process;
@@ -58,6 +58,10 @@ check("eggs are rare", (counts.goodluck ?? 0) < 400 && (counts.goodluck ?? 0) > 
   const e = { x: 24, y: 24, r: 5 };
   for (let i = 0; i < 4; i++) moveWithWalls(m, e, 46, 0);
   check("fast move stops at the wall", !isWallAt(m, e.x, e.y) && e.x < 4 * 16);
+}
+{ // a Shieldbearer blocks hits from the front, not from behind
+  const e: any = { kind: "shieldbearer", x: 100, y: 100, tx: 1, ty: 0, state: "chase" };
+  check("shield blocks from the front", shieldFactor(e, 140, 100) < 0.5 && shieldFactor(e, 60, 100) === 1);
 }
 if (fails) { console.log(`${fails} map checks failed`); proc.exit(1); }
 console.log("maps: all checks passed");

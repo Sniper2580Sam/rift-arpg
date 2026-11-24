@@ -156,6 +156,97 @@ const BRUTE = [
   ],
 ];
 
+// Bone Hexer: hooded caster with a glowing skull staff
+const HEXER = [
+  [
+    "...kkkk....y",
+    "..kVVVVk..ky",
+    ".kVkeekVk.kn",
+    ".kVVkkVVk.kn",
+    "..kVwwVk..kn",
+    ".kVVVVVVkkkn",
+    "kVvVVVVvVk.n",
+    "kVvVVVVvVk.n",
+    ".kVVVVVVk..n",
+    ".kVvVVvVk...",
+    "..kkkkkk....",
+  ],
+  [
+    "...kkkk...y.",
+    "..kVVVVk.ky.",
+    ".kVkeekVk.n.",
+    ".kVVkkVVk.n.",
+    "..kVwwVk..n.",
+    ".kVVVVVVkkn.",
+    "kVvVVVVvVkn.",
+    "kVvVVVVvVkn.",
+    ".kVVVVVVk.n.",
+    "..kVvVvVk...",
+    "..kkkkkk....",
+  ],
+];
+// Gorehorn: low, horned bone beast
+const GOREHORN = [
+  [
+    "w.........w.....",
+    "kw.......wk.....",
+    ".kw.kkkkwk......",
+    "..kwPPPPk.......",
+    ".kPPePPePk..kk..",
+    "kPPPPPPPPPkkPPk.",
+    "kPwkwkPPPPPPPPPk",
+    ".kkkkPPPPPPPPPPk",
+    "....kPPpPPPPpPPk",
+    "....kpPk.kPk.kpk",
+    "....kkk..kk..kk.",
+  ],
+  [
+    "w.........w.....",
+    "kw.......wk.....",
+    ".kw.kkkkwk......",
+    "..kwPPPPk.......",
+    ".kPPePPePk..kk..",
+    "kPPPPPPPPPkkPPk.",
+    "kPwkwkPPPPPPPPPk",
+    ".kkkkPPPPPPPPPPk",
+    "....kPPpPPPPpPPk",
+    ".....kPk.kpPk.k.",
+    ".....kk..kkk....",
+  ],
+];
+// Shieldbearer: armoured skeleton behind a tower shield (shield drawn separately, facing)
+const SHIELDBEARER = [
+  [
+    "...kkkkk...",
+    "..kAAAAAk..",
+    "..kAkekAk..",
+    "..kAAAAAk..",
+    "...kwwwk...",
+    ".kkAAAAAkk.",
+    "kAaAAAAAaAk",
+    "kAkaAAAakAk",
+    "kwkaAAAakwk",
+    "...kaAak...",
+    "...kwkwk...",
+    "..kwk.kwk..",
+    "..kk...kk..",
+  ],
+  [
+    "...kkkkk...",
+    "..kAAAAAk..",
+    "..kAkekAk..",
+    "..kAAAAAk..",
+    "...kwwwk...",
+    ".kkAAAAAkk.",
+    "kAaAAAAAaAk",
+    "kAkaAAAakAk",
+    "kwkaAAAakwk",
+    "...kaAak...",
+    "...kwkwk...",
+    "...kwkwk...",
+    "...kk.kk...",
+  ],
+];
 const GUARDIAN = [
   "......y..y..y..y.......",
   "......yk.yk.yk.yk......",
@@ -526,6 +617,7 @@ const PYLON = ["..kk..", ".kwwk.", ".kwyk.", "kwwwwk", "kwyywk", "kwwwwk", "kWWW
 export interface SpriteBank {
   hero: Sprite[]; ranger: Sprite[]; mage: Sprite[]; wright: Sprite[]; colossus: Sprite[]; raven: Sprite[]; pets: Record<string, Sprite[]>; pylon: Sprite[];
   ghoul: Sprite[]; hound: Sprite[]; archer: Sprite[]; brute: Sprite[]; guardian: Sprite[]; imp: Sprite[];
+  hexer: Sprite[]; gorehorn: Sprite[]; shieldbearer: Sprite[];
   /** a guardian recoloured for its variant (data/guardians.json pal) */
   guardianOf: (id: string) => Sprite[];
   icon: (slot: Slot, rarity: Rarity) => Sprite;
@@ -559,6 +651,9 @@ export function buildSprites(): SpriteBank {
     archer: ARCHER.map((r) => make(r)),
     brute: BRUTE.map((r) => make(r)),
     guardian: [make(GUARDIAN)],
+    hexer: HEXER.map((r) => make(r, { ...BASE, V: "#3a2a4a", v: "#5a3f73", e: "#c06aff", y: "#c06aff" })),
+    gorehorn: GOREHORN.map((r) => make(r, { ...BASE, P: "#7a4a3a", p: "#4a2a22", e: "#ff8a1f" })),
+    shieldbearer: SHIELDBEARER.map((r) => make(r)),
     guardianOf(id) { return cached(`g:${id}`, () => [make(GUARDIAN, { ...BASE, ...guardianDef(id).pal })])!; },
     imp: IMP.map((r) => make(r)),
     heroSkin(cls, armor, weapon, dye) {

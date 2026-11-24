@@ -1,5 +1,34 @@
 {
-  "paragon": { "xpPer": 9000, "xpGrowth": 1.02, "stats": { "power": { "name": "Power", "per": 1, "cap": 50, "text": "+{v}% damage" }, "vitality": { "name": "Vitality", "per": 1, "cap": 50, "text": "+{v}% max life" }, "toughness": { "name": "Toughness", "per": 0.5, "cap": 50, "text": "-{v}% damage taken" }, "haste": { "name": "Haste", "per": 0.5, "cap": 40, "text": "+{v}% cooldown and move speed" } } },
+  "paragon": {
+    "xpPer": 9000,
+    "xpGrowth": 1.02,
+    "stats": {
+      "power": {
+        "name": "Power",
+        "per": 1,
+        "cap": 50,
+        "text": "+{v}% damage"
+      },
+      "vitality": {
+        "name": "Vitality",
+        "per": 1,
+        "cap": 50,
+        "text": "+{v}% max life"
+      },
+      "toughness": {
+        "name": "Toughness",
+        "per": 0.5,
+        "cap": 50,
+        "text": "-{v}% damage taken"
+      },
+      "haste": {
+        "name": "Haste",
+        "per": 0.5,
+        "cap": 40,
+        "text": "+{v}% cooldown and move speed"
+      }
+    }
+  },
   "lifeOnHitCap": 0.04,
   "volleyRepeat": 0.3,
   "name": "The Sunken Ossuary",
@@ -58,6 +87,54 @@
           "hound",
           5,
           8
+        ]
+      ]
+    },
+    {
+      "weight": 16,
+      "minTier": 2,
+      "members": [
+        [
+          "hexer",
+          2,
+          3
+        ],
+        [
+          "ghoul",
+          4,
+          6
+        ]
+      ]
+    },
+    {
+      "weight": 14,
+      "minTier": 3,
+      "members": [
+        [
+          "gorehorn",
+          2,
+          3
+        ],
+        [
+          "hound",
+          2,
+          4
+        ]
+      ]
+    },
+    {
+      "weight": 12,
+      "minTier": 5,
+      "members": [
+        [
+          "shieldbearer",
+          2,
+          3
+        ],
+        [
+          "archer",
+          3,
+          4
         ]
       ]
     }

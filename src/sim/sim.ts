@@ -48,7 +48,7 @@ export interface Player extends Holder {
   colossusT?: number; colossusSkill?: string;
 }
 
-export type EnemyKind = "ghoul" | "archer" | "brute" | "guardian" | "king" | "pylon" | "hound";
+export type EnemyKind = "ghoul" | "archer" | "brute" | "guardian" | "king" | "pylon" | "hound" | "hexer" | "gorehorn" | "shieldbearer";
 export interface Enemy {
   id: number; kind: EnemyKind;
   x: number; y: number; px: number; py: number; r: number;
@@ -801,6 +801,12 @@ function hitEnemy(s: SimState, e: Enemy, mult: number, p: Player | undefined, sk
   if (e.vulnT > 0) dmg *= 1 + e.vulnPct / 100;
   if (e.slowT > 0 && P.slowVuln) dmg *= 1 + P.slowVuln;
   if (e.elite || e.kind === "guardian" || e.kind === "king") dmg *= 1 + st.eliteDmg / 100;
+  if (e.kind === "shieldbearer") {
+    // where the hit came from: against the knock direction if there is one, else from the attacker
+    const sx = o.kx || o.ky ? e.x - (o.kx ?? 0) * 20 : p.x, sy = o.kx || o.ky ? e.y - (o.ky ?? 0) * 20 : p.y;
+    const f = shieldFactor(e, sx, sy);
+    if (f < 1) { dmg *= f; if (s.tick % 4 === 0) s.events.push({ type: "immune", x: e.x + e.tx * 8, y: e.y + e.ty * 8 - 4 }); }
+  }
   const crit = !o.noCrit && chance(s.rng, st.critChance / 100);
   if (crit) dmg *= 1 + st.critDmg / 100;
   const amount = Math.max(1, Math.round(dmg));
@@ -998,6 +1004,9 @@ function updateEnemies(s: SimState) {
       case "brute": aiBrute(s, e, def, tgt, dist, dx, dy, spd); break;
       case "archer": aiArcher(s, e, def, tgt, dist, dx, dy, spd); break;
       case "guardian": aiGuardian(s, e, def, tgt, dist, dx, dy, spd); break;
+      case "hexer": aiHexer(s, e, def, tgt, dist, dx, dy, spd); break;
+      case "gorehorn": aiGorehorn(s, e, def, tgt, dist, dx, dy, spd); break;
+      case "shieldbearer": aiShield(s, e, def, tgt, dist, dx, dy, spd); break;
       case "king": aiKing(s, e, def, tgt, dist, dx, dy, spd); break;
       case "pylon": break;
     }
@@ -1133,6 +1142,60 @@ function aiArcher(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: number,
   else if (dist < 70) { const [nx, ny] = norm(dx, dy); moveWithWalls(s.map, e, -nx * spd * DT, -ny * spd * DT); }
 }
 
+/** Bone Hexer: hangs back and curses the ground under you (a delayed blast you can step out of). */
+function aiHexer(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: number, dx: number, dy: number, spd: number) {
+  if (e.state === "windup") {
+    if (e.t <= 0) {
+      s.zones.push({ id: s.nextId++, x: e.tx, y: e.ty, r: def.blastRadius!, delay: def.blastDelay!, life: 0, dmg: def.damage * e.dmgMult, kind: "blast", tickT: 0, dead: false });
+      e.state = "chase"; e.atkCd = def.attackCooldown;
+    }
+    return;
+  }
+  if (dist < def.attackRange && e.atkCd <= 0) { e.state = "windup"; e.t = def.windup; e.tx = p.x; e.ty = p.y; return; }
+  if (dist > def.attackRange * 0.75) chase(s, e, p, spd, dx, dy, dist);
+  else if (dist < 90) { const [nx, ny] = norm(dx, dy); moveWithWalls(s.map, e, -nx * spd * DT, -ny * spd * DT); }
+}
+
+/** Gorehorn: lowers its head, then charges in a straight line. Hitting a wall stuns it. */
+function aiGorehorn(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: number, dx: number, dy: number, spd: number) {
+  if (e.state === "windup") {
+    if (e.t <= 0) { e.state = "charging"; e.t = def.chargeTime!; e.chargeHit = false; }
+    return;
+  }
+  if (e.state === "charging") {
+    const blocked = moveWithWalls(s.map, e, e.tx * def.chargeSpeed! * DT, e.ty * def.chargeSpeed! * DT);
+    for (const q of s.players) if (!e.chargeHit && !q.dead && len(q.x - e.x, q.y - e.y) < e.r + q.r + 2) { e.chargeHit = true; damagePlayer(s, q, def.damage * e.dmgMult); }
+    if (blocked) { e.state = "stun"; e.t = 1.2; s.events.push({ type: "slam", x: e.x, y: e.y, r: 14, big: false }); }
+    else if (e.t <= 0) { e.state = "chase"; e.atkCd = def.attackCooldown; }
+    return;
+  }
+  if (e.state === "stun") { if (e.t <= 0) { e.state = "chase"; e.atkCd = def.attackCooldown * 0.5; } return; }
+  if (dist < def.attackRange && dist > 30 && e.atkCd <= 0) { const [nx, ny] = norm(dx, dy); e.state = "windup"; e.t = def.windup; e.tx = nx; e.ty = ny; return; }
+  if (dist > e.r + p.r + 2) chase(s, e, p, spd, dx, dy, dist);
+}
+
+/** Shieldbearer: a tower shield faces its target and blocks most damage from the front. Flank it. */
+function aiShield(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: number, dx: number, dy: number, spd: number) {
+  // turn slowly toward the target, so a quick player can get round the side
+  const [nx, ny] = norm(dx, dy), turn = 2.2 * DT;
+  if (e.tx === 0 && e.ty === 0) { e.tx = nx; e.ty = ny; }
+  const [fx, fy] = norm(e.tx + (nx - e.tx) * turn, e.ty + (ny - e.ty) * turn); e.tx = fx; e.ty = fy;
+  if (e.state === "windup") {
+    if (e.t <= 0) {
+      for (const q of s.players) if (!q.dead && len(q.x - e.x, q.y - e.y) <= e.r + q.r + def.attackRange) damagePlayer(s, q, def.damage * e.dmgMult);
+      e.state = "chase"; e.atkCd = def.attackCooldown;
+    }
+    return;
+  }
+  if (dist <= e.r + p.r + def.attackRange && e.atkCd <= 0) { e.state = "windup"; e.t = def.windup; return; }
+  if (dist > e.r + p.r + 2) chase(s, e, p, spd, dx, dy, dist);
+}
+/** How much of a hit from (x, y) a Shieldbearer's shield lets through. */
+export function shieldFactor(e: Enemy, x: number, y: number): number {
+  if (e.kind !== "shieldbearer" || e.state === "stun") return 1;
+  const [nx, ny] = norm(x - e.x, y - e.y);
+  return nx * e.tx + ny * e.ty > 0.35 ? 1 - (ENEMIES.shieldbearer.shieldBlock ?? 0.75) : 1;
+}
 
 function bossCommon(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: number, dx: number, dy: number, spd: number, pattern: string[], adds: EnemyKind[]): void {
   const en = e.enraged;

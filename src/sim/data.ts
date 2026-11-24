@@ -33,6 +33,7 @@ export interface EnemyDef {
   name: string; hp: number; damage: number; speed: number; radius: number; xp: number;
   attackRange: number; attackCooldown: number; windup: number; progress: number; dropChance: number;
   projectileSpeed?: number; slamRadius?: number; enrageAfter?: number; novaSpeed?: number; chargeSpeed?: number;
+  blastRadius?: number; blastDelay?: number; chargeTime?: number; shieldBlock?: number;
 }
 export interface AffixDef { id: string; text: string; min: number; max: number; slots: SlotType[]; flat?: boolean }
 export interface LegendaryDef extends ModDef { id: string; name: string; slot: SlotType; tag: string; text: string; scales?: string[]; pct?: string[]; mythic?: boolean }
