@@ -45,3 +45,10 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - New **Looks** tab: 7 armour skins, 5 wings, 5 weapon skins and 5 pet skins, all drawn in code (palette swaps plus a wing sprite and small glow effects). Other players see them in co-op. They never touch the sim's numbers.
 - One look per account, shared by all classes (like pets). Each armour skin recolours every class in its own way.
 - **All cosmetics are free in this test build.** How they're earned or sold (the brief's cosmetics-only monetisation) is a later slice: a store, season rewards, or achievements. The server already refuses unknown cosmetic ids, so adding ownership later is one check.
+
+## Runes for every skill (Samuel, 2026-11-24)
+- All 40 skills across the 3 classes now have 5 runes, unlocked by using the skill (first one free; later ones at 30/80/160/300 uses for generators and core, 20/50/100/180 for supports, 10/25/50/90 for ultimates).
+- Ashknight and Gloomstalker already use the new system (4 free slots, generator/core/support/ultimate, Embers and Focus). Each has 3–4 options per type, except Gloomstalker core (3).
+- Rune patterns: element swaps (fire, cold, lightning), area or single-target conversions (e.g. Spark "Fork" and Bone Shot "Splinter" become area skills, so the area affix applies), resource builders or cost cuts, and vulnerability or control.
+- Lava pools, rain and storms can now apply a rune's "take more damage" effect.
+- Rune numbers are untuned. A test runs every rune for 12 seconds to check none is broken.

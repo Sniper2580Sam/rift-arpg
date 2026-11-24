@@ -1090,6 +1090,7 @@ function updateHazards(s: SimState) {
       if (e.dead || len(e.x - h.x, e.y - h.y) > h.r + e.r) continue;
       hitEnemy(s, e, h.mult * 0.5, p, sk, { noCrit: true });
       if (h.slowPct) { e.slowT = Math.max(e.slowT, h.slowT || 0.6); e.slowPct = Math.min(90, Math.max(e.slowPct, h.slowPct)); }
+      if (sk.p.vulnOnHit && !e.dead) { e.vulnT = Math.max(e.vulnT, 1); e.vulnPct = Math.max(e.vulnPct, sk.p.vulnOnHit); }
     }
   }
 }

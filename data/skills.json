@@ -7,7 +7,8 @@
     "unlock": 1,
     "tags": [
       "melee",
-      "physical"
+      "physical",
+      "aoe"
     ],
     "desc": "Swing in a wide arc in front of you.",
     "p": {
@@ -985,7 +986,63 @@
       "genPerHit": 14,
       "genMax": 14
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "kindle",
+        "name": "Kindle",
+        "uses": 0,
+        "desc": "Burn deals double damage.",
+        "mul": {
+          "igniteMult": 2
+        }
+      },
+      {
+        "id": "sweep",
+        "name": "Sweeping Flame",
+        "uses": 30,
+        "desc": "Hits everything in front of you for 80% damage. Becomes an area skill.",
+        "set": {
+          "arcCos": 0.2
+        },
+        "mul": {
+          "damage": 0.8
+        },
+        "addTags": [
+          "aoe"
+        ],
+        "removeTags": [
+          "single"
+        ]
+      },
+      {
+        "id": "expose",
+        "name": "Expose",
+        "uses": 80,
+        "desc": "Enemies hit take 15% more damage for 3 seconds.",
+        "set": {
+          "vulnOnHit": 15
+        }
+      },
+      {
+        "id": "stoke",
+        "name": "Stoke",
+        "uses": 160,
+        "desc": "Builds 6 more Embers per hit.",
+        "add": {
+          "genPerHit": 6,
+          "genMax": 6
+        }
+      },
+      {
+        "id": "pyre",
+        "name": "Pyre",
+        "uses": 300,
+        "desc": "Enemies killed explode for 20% of their max life.",
+        "set": {
+          "explodeOnKill": 0.2
+        }
+      }
+    ]
   },
   {
     "id": "shield_bash",
@@ -996,7 +1053,8 @@
     "unlock": 7,
     "tags": [
       "melee",
-      "physical"
+      "physical",
+      "aoe"
     ],
     "desc": "Short bash that staggers enemies.",
     "p": {
@@ -1010,7 +1068,55 @@
       "genPerHit": 12,
       "genMax": 24
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "rampart",
+        "name": "Rampart",
+        "uses": 0,
+        "desc": "Heals 1% of max life per enemy hit.",
+        "set": {
+          "healPerHit": 0.01
+        }
+      },
+      {
+        "id": "tremor",
+        "name": "Tremor",
+        "uses": 30,
+        "desc": "Also sends a fiery shockwave forward for 80% damage.",
+        "set": {
+          "wave": 0.8
+        }
+      },
+      {
+        "id": "crush",
+        "name": "Crush",
+        "uses": 80,
+        "desc": "Slower, but deals 150% damage.",
+        "mul": {
+          "damage": 1.5,
+          "interval": 1.3
+        }
+      },
+      {
+        "id": "daze",
+        "name": "Daze",
+        "uses": 160,
+        "desc": "You deal 30% more damage to slowed enemies with this skill.",
+        "set": {
+          "slowVuln": 0.3
+        }
+      },
+      {
+        "id": "bulwark",
+        "name": "Bulwark",
+        "uses": 300,
+        "desc": "Every 3rd bash hits all around you for 200% damage.",
+        "set": {
+          "ringEvery": 3,
+          "ringMult": 2
+        }
+      }
+    ]
   },
   {
     "id": "whirling_ash",
@@ -1024,7 +1130,7 @@
       "fire",
       "aoe"
     ],
-    "desc": "Hold to spin, hitting everything around you. 4 Embers per spin.",
+    "desc": "Hold to spin, hitting everything around you.",
     "p": {
       "damage": 0.8,
       "cooldown": 0.25,
@@ -1034,7 +1140,64 @@
       "knockback": 20,
       "cost": 4
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "cyclone",
+        "name": "Cyclone",
+        "uses": 0,
+        "desc": "Pulls enemies in towards you.",
+        "set": {
+          "pull": 1
+        }
+      },
+      {
+        "id": "wide",
+        "name": "Ash Storm",
+        "uses": 30,
+        "desc": "40% larger, 85% damage.",
+        "mul": {
+          "radius": 1.4,
+          "damage": 0.85
+        }
+      },
+      {
+        "id": "thrift",
+        "name": "Thrift",
+        "uses": 80,
+        "desc": "Costs half as many Embers, 85% damage.",
+        "mul": {
+          "cost": 0.5,
+          "damage": 0.85
+        }
+      },
+      {
+        "id": "scorch",
+        "name": "Scorch",
+        "uses": 160,
+        "desc": "Sets enemies burning.",
+        "set": {
+          "igniteMult": 0.5
+        }
+      },
+      {
+        "id": "steel",
+        "name": "Steel Tempest",
+        "uses": 300,
+        "desc": "Becomes physical, deals 120% damage and knocks enemies away.",
+        "addTags": [
+          "physical"
+        ],
+        "removeTags": [
+          "fire"
+        ],
+        "mul": {
+          "damage": 1.2
+        },
+        "set": {
+          "knockback": 80
+        }
+      }
+    ]
   },
   {
     "id": "molten_hammer",
@@ -1048,7 +1211,7 @@
       "fire",
       "aoe"
     ],
-    "desc": "Slam the ground in front of you and leave a lava pool. 45 Embers.",
+    "desc": "Slam the ground in front of you and leave a lava pool.",
     "p": {
       "dps": 3.2,
       "cooldown": 0.8,
@@ -1058,7 +1221,61 @@
       "slowPct": 0,
       "cost": 45
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "aftershock",
+        "name": "Aftershock",
+        "uses": 0,
+        "desc": "The pool also slows enemies by 40%.",
+        "set": {
+          "slowPct": 40,
+          "slowT": 0.8
+        }
+      },
+      {
+        "id": "magma",
+        "name": "Magma",
+        "uses": 30,
+        "desc": "The pool lasts twice as long.",
+        "mul": {
+          "duration": 2
+        }
+      },
+      {
+        "id": "throw",
+        "name": "Hurled Hammer",
+        "uses": 80,
+        "desc": "Throw it up to 140 away instead of in front of you.",
+        "set": {
+          "castRange": 140
+        }
+      },
+      {
+        "id": "eruption",
+        "name": "Eruption",
+        "uses": 160,
+        "desc": "50% larger pool, 80% damage.",
+        "mul": {
+          "radius": 1.5,
+          "dps": 0.8
+        }
+      },
+      {
+        "id": "brittle",
+        "name": "Frost Hammer",
+        "uses": 300,
+        "desc": "Becomes cold. Enemies in the pool take 20% more damage.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "fire"
+        ],
+        "set": {
+          "vulnOnHit": 20
+        }
+      }
+    ]
   },
   {
     "id": "iron_skin",
@@ -1078,7 +1295,54 @@
       "armorPct": 200,
       "selfOnly": 1
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "mend",
+        "name": "Mend",
+        "uses": 0,
+        "desc": "Also heals 20% of max life.",
+        "set": {
+          "healPct": 0.2
+        }
+      },
+      {
+        "id": "long",
+        "name": "Bastion",
+        "uses": 20,
+        "desc": "Lasts 7 seconds.",
+        "set": {
+          "duration": 7
+        }
+      },
+      {
+        "id": "stoke",
+        "name": "Ember Heart",
+        "uses": 50,
+        "desc": "Refills",
+        "set": {
+          "resGain": 40
+        }
+      },
+      {
+        "id": "taunt",
+        "name": "Challenge",
+        "uses": 100,
+        "desc": "Taunts enemies near you to attack you.",
+        "set": {
+          "taunt": 3,
+          "radius": 90
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Guard",
+        "uses": 180,
+        "desc": "40% shorter cooldown.",
+        "mul": {
+          "cooldown": 0.6
+        }
+      }
+    ]
   },
   {
     "id": "chain_hook",
@@ -1089,7 +1353,8 @@
     "unlock": 10,
     "tags": [
       "physical",
-      "projectile"
+      "projectile",
+      "single"
     ],
     "desc": "Hook enemies in a line, pull them to you and taunt them.",
     "p": {
@@ -1104,7 +1369,62 @@
       "knockback": -160,
       "tauntOnHit": 3
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "barbed",
+        "name": "Barbed",
+        "uses": 0,
+        "desc": "Deals 250% damage.",
+        "mul": {
+          "damage": 2.5
+        }
+      },
+      {
+        "id": "fan",
+        "name": "Grappling Fan",
+        "uses": 20,
+        "desc": "Throw 3 hooks in a fan.",
+        "add": {
+          "count": 2
+        },
+        "set": {
+          "spreadSteps": 1.5
+        }
+      },
+      {
+        "id": "searing",
+        "name": "Searing Chain",
+        "uses": 50,
+        "desc": "Becomes fire and sets enemies burning.",
+        "addTags": [
+          "fire"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "set": {
+          "igniteMult": 0.8
+        }
+      },
+      {
+        "id": "shackle",
+        "name": "Shackle",
+        "uses": 100,
+        "desc": "Hooked enemies take 25% more damage for 3 seconds.",
+        "set": {
+          "vulnOnHit": 25
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Reel",
+        "uses": 180,
+        "desc": "Half cooldown.",
+        "mul": {
+          "cooldown": 0.5
+        }
+      }
+    ]
   },
   {
     "id": "phoenix_form",
@@ -1125,7 +1445,54 @@
       "healPct": 0.3,
       "selfOnly": 1
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "rebirth",
+        "name": "Rebirth",
+        "uses": 0,
+        "desc": "Heals 60% of your life instead of 30%.",
+        "set": {
+          "healPct": 0.6
+        }
+      },
+      {
+        "id": "blaze",
+        "name": "Blaze",
+        "uses": 10,
+        "desc": "Also reduces your cooldowns by 30%.",
+        "set": {
+          "cdrPct": 30
+        }
+      },
+      {
+        "id": "wings",
+        "name": "Long Flight",
+        "uses": 25,
+        "desc": "Lasts 16 seconds.",
+        "set": {
+          "duration": 16
+        }
+      },
+      {
+        "id": "flare",
+        "name": "Flare",
+        "uses": 50,
+        "desc": "Bursts on cast, hitting enemies around you for 400%.",
+        "set": {
+          "shoutDamage": 4,
+          "radius": 90
+        }
+      },
+      {
+        "id": "kindling",
+        "name": "Kindling",
+        "uses": 90,
+        "desc": "Fills your Embers.",
+        "set": {
+          "resGain": 100
+        }
+      }
+    ]
   },
   {
     "id": "inferno_pillar",
@@ -1148,7 +1515,62 @@
       "slowPct": 30,
       "slowT": 0.6
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "wide",
+        "name": "Firestorm",
+        "uses": 0,
+        "desc": "40% larger.",
+        "mul": {
+          "radius": 1.4
+        }
+      },
+      {
+        "id": "long",
+        "name": "Everburn",
+        "uses": 10,
+        "desc": "Lasts 8 seconds.",
+        "set": {
+          "duration": 8
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Glacial Pillar",
+        "uses": 25,
+        "desc": "Becomes cold and slows by 60%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "fire"
+        ],
+        "set": {
+          "slowPct": 60
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Pyre",
+        "uses": 50,
+        "desc": "35 second cooldown, 75% damage.",
+        "set": {
+          "cooldown": 35
+        },
+        "mul": {
+          "dps": 0.75
+        }
+      },
+      {
+        "id": "melt",
+        "name": "Melt",
+        "uses": 90,
+        "desc": "Enemies inside take 25% more damage from everything.",
+        "set": {
+          "vulnOnHit": 25
+        }
+      }
+    ]
   },
   {
     "id": "bone_shot",
@@ -1176,7 +1598,68 @@
       "knockback": 35,
       "gen": 8
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "marrow",
+        "name": "Marrow",
+        "uses": 0,
+        "desc": "Damage grows 25% for each enemy it passes through.",
+        "set": {
+          "pierceGrow": 0.25
+        }
+      },
+      {
+        "id": "split",
+        "name": "Splinter",
+        "uses": 30,
+        "desc": "Fires 3 shots at 60% damage. Becomes an area skill.",
+        "add": {
+          "count": 2
+        },
+        "set": {
+          "spreadSteps": 1
+        },
+        "mul": {
+          "damage": 0.6
+        },
+        "addTags": [
+          "aoe"
+        ],
+        "removeTags": [
+          "single"
+        ]
+      },
+      {
+        "id": "brittle",
+        "name": "Brittle",
+        "uses": 80,
+        "desc": "Enemies hit take 12% more damage for 3 seconds.",
+        "set": {
+          "vulnOnHit": 12
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Nock",
+        "uses": 160,
+        "desc": "30% faster and builds 3 more Focus.",
+        "mul": {
+          "interval": 0.7
+        },
+        "add": {
+          "gen": 3
+        }
+      },
+      {
+        "id": "boomerang",
+        "name": "Returning Bone",
+        "uses": 300,
+        "desc": "Flies back to you after reaching full range.",
+        "set": {
+          "returns": 1
+        }
+      }
+    ]
   },
   {
     "id": "shadow_knives",
@@ -1203,7 +1686,60 @@
       "knockback": 20,
       "gen": 10
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "fan",
+        "name": "Fan of Knives",
+        "uses": 0,
+        "desc": "Throw 5 knives.",
+        "add": {
+          "count": 2
+        }
+      },
+      {
+        "id": "serrated",
+        "name": "Serrated",
+        "uses": 30,
+        "desc": "Knives make enemies bleed.",
+        "set": {
+          "igniteMult": 0.6
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Frost Knives",
+        "uses": 80,
+        "desc": "Becomes cold and slows by 30%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "set": {
+          "slowPct": 30,
+          "slowT": 1.5
+        }
+      },
+      {
+        "id": "pierce",
+        "name": "Piercing",
+        "uses": 160,
+        "desc": "Knives pierce through enemies.",
+        "set": {
+          "pierce": 1
+        }
+      },
+      {
+        "id": "flurry",
+        "name": "Flurry",
+        "uses": 300,
+        "desc": "Builds 5 more Focus.",
+        "add": {
+          "gen": 5
+        }
+      }
+    ]
   },
   {
     "id": "hex_rain",
@@ -1216,7 +1752,7 @@
       "aoe",
       "projectile"
     ],
-    "desc": "Arrows rain on an area for 2 seconds. 35 Focus.",
+    "desc": "Arrows rain on an area for 2 seconds.",
     "p": {
       "dps": 4.5,
       "cooldown": 0.6,
@@ -1227,7 +1763,60 @@
       "slowT": 0.4,
       "cost": 35
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "downpour",
+        "name": "Downpour",
+        "uses": 0,
+        "desc": "40% larger.",
+        "mul": {
+          "radius": 1.4
+        }
+      },
+      {
+        "id": "linger",
+        "name": "Lingering",
+        "uses": 30,
+        "desc": "Lasts 4 seconds.",
+        "set": {
+          "duration": 4
+        }
+      },
+      {
+        "id": "fire",
+        "name": "Fire Rain",
+        "uses": 80,
+        "desc": "Becomes fire and deals 125% damage.",
+        "addTags": [
+          "fire"
+        ],
+        "mul": {
+          "dps": 1.25
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Sleet",
+        "uses": 160,
+        "desc": "Becomes cold and slows by 60%.",
+        "addTags": [
+          "cold"
+        ],
+        "set": {
+          "slowPct": 60,
+          "slowT": 1
+        }
+      },
+      {
+        "id": "thrift",
+        "name": "Thrift",
+        "uses": 300,
+        "desc": "Costs 40% less Focus.",
+        "mul": {
+          "cost": 0.6
+        }
+      }
+    ]
   },
   {
     "id": "soulpiercer",
@@ -1242,7 +1831,7 @@
       "physical",
       "single"
     ],
-    "desc": "Long piercing shot through every enemy in a line. 30 Focus.",
+    "desc": "Long piercing shot through every enemy in a line.",
     "p": {
       "damage": 3,
       "cooldown": 0.5,
@@ -1255,7 +1844,67 @@
       "knockback": 40,
       "cost": 30
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "reaper",
+        "name": "Reaper",
+        "uses": 0,
+        "desc": "Damage grows 30% for each enemy it passes through.",
+        "set": {
+          "pierceGrow": 0.3
+        }
+      },
+      {
+        "id": "twin",
+        "name": "Twin Shot",
+        "uses": 30,
+        "desc": "Fires 2 shots at 60% damage.",
+        "add": {
+          "count": 1
+        },
+        "set": {
+          "spreadSteps": 0.5
+        },
+        "mul": {
+          "damage": 0.6
+        }
+      },
+      {
+        "id": "mark",
+        "name": "Hunter's Mark",
+        "uses": 80,
+        "desc": "Enemies hit take 20% more damage for 3 seconds.",
+        "set": {
+          "vulnOnHit": 20
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Frost Piercer",
+        "uses": 160,
+        "desc": "Becomes cold and slows by 50%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "set": {
+          "slowPct": 50,
+          "slowT": 2
+        }
+      },
+      {
+        "id": "execute",
+        "name": "Executioner",
+        "uses": 300,
+        "desc": "160% damage, 30% longer cooldown.",
+        "mul": {
+          "damage": 1.6,
+          "cooldown": 1.3
+        }
+      }
+    ]
   },
   {
     "id": "smoke_veil",
@@ -1267,7 +1916,7 @@
     "tags": [
       "defence"
     ],
-    "desc": "Vanish into smoke: take much less damage for 3 seconds and refill 40 Focus.",
+    "desc": "Vanish into smoke: take much less damage for 3 seconds and refill",
     "p": {
       "cooldown": 16,
       "radius": 1,
@@ -1276,7 +1925,54 @@
       "selfOnly": 1,
       "resGain": 40
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "shroud",
+        "name": "Shroud",
+        "uses": 0,
+        "desc": "Lasts 5 seconds.",
+        "set": {
+          "duration": 5
+        }
+      },
+      {
+        "id": "mend",
+        "name": "Mend",
+        "uses": 20,
+        "desc": "Also heals 15% of max life.",
+        "set": {
+          "healPct": 0.15
+        }
+      },
+      {
+        "id": "blind",
+        "name": "Blinding Smoke",
+        "uses": 50,
+        "desc": "Slows enemies around you by 50%.",
+        "set": {
+          "slowAll": 50,
+          "radius": 80
+        }
+      },
+      {
+        "id": "focus",
+        "name": "Deep Focus",
+        "uses": 100,
+        "desc": "Refills",
+        "set": {
+          "resGain": 80
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Vanish",
+        "uses": 180,
+        "desc": "10 second cooldown.",
+        "set": {
+          "cooldown": 10
+        }
+      }
+    ]
   },
   {
     "id": "night_hunt",
@@ -1296,7 +1992,54 @@
       "dmgPct": 25,
       "vulnPct": 35
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "long",
+        "name": "Long Night",
+        "uses": 0,
+        "desc": "Lasts 12 seconds.",
+        "set": {
+          "duration": 12
+        }
+      },
+      {
+        "id": "pack",
+        "name": "Pack Tactics",
+        "uses": 10,
+        "desc": "The party also gets 25% shorter cooldowns.",
+        "set": {
+          "cdrPct": 25
+        }
+      },
+      {
+        "id": "blood",
+        "name": "Blood Moon",
+        "uses": 25,
+        "desc": "Heals the party for 20% of max life.",
+        "set": {
+          "healPct": 0.2
+        }
+      },
+      {
+        "id": "quick",
+        "name": "New Moon",
+        "uses": 50,
+        "desc": "45 second cooldown.",
+        "set": {
+          "cooldown": 45
+        }
+      },
+      {
+        "id": "dread",
+        "name": "Dread",
+        "uses": 90,
+        "desc": "Enemies take 60% more damage, but the party gets no damage bonus.",
+        "set": {
+          "vulnPct": 60,
+          "dmgPct": 0
+        }
+      }
+    ]
   },
   {
     "id": "banshee_wail",
@@ -1317,7 +2060,54 @@
       "shoutDamage": 4,
       "slowAll": 70
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "shriek",
+        "name": "Shriek",
+        "uses": 0,
+        "desc": "Deals 160% damage.",
+        "mul": {
+          "shoutDamage": 1.6
+        }
+      },
+      {
+        "id": "wide",
+        "name": "Echo",
+        "uses": 10,
+        "desc": "40% larger.",
+        "mul": {
+          "radius": 1.4
+        }
+      },
+      {
+        "id": "dirge",
+        "name": "Dirge",
+        "uses": 25,
+        "desc": "Enemies hit take 30% more damage for 6 seconds.",
+        "set": {
+          "vulnPct": 30,
+          "duration": 6
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Wail",
+        "uses": 50,
+        "desc": "30 second cooldown.",
+        "set": {
+          "cooldown": 30
+        }
+      },
+      {
+        "id": "haunt",
+        "name": "Haunting",
+        "uses": 90,
+        "desc": "Refills",
+        "set": {
+          "resGain": 50
+        }
+      }
+    ]
   },
   {
     "id": "spark",
@@ -1347,7 +2137,66 @@
       "chainRange": 70,
       "gen": 8
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "fork",
+        "name": "Fork",
+        "uses": 0,
+        "desc": "Jumps to 4 more enemies instead of 2. Becomes an area skill.",
+        "add": {
+          "chain": 2
+        },
+        "addTags": [
+          "aoe"
+        ],
+        "removeTags": [
+          "single"
+        ]
+      },
+      {
+        "id": "arc",
+        "name": "Steady Arc",
+        "uses": 30,
+        "desc": "Jumps keep 85% of their damage.",
+        "set": {
+          "chainMult": 0.85
+        }
+      },
+      {
+        "id": "static",
+        "name": "Static",
+        "uses": 80,
+        "desc": "Enemies hit take 10% more damage for 3 seconds.",
+        "set": {
+          "vulnOnHit": 10
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Frost Spark",
+        "uses": 160,
+        "desc": "Becomes cold and slows by 30%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "lightning"
+        ],
+        "set": {
+          "slowPct": 30,
+          "slowT": 1
+        }
+      },
+      {
+        "id": "surge",
+        "name": "Surge",
+        "uses": 300,
+        "desc": "Builds 4 more Mana.",
+        "add": {
+          "gen": 4
+        }
+      }
+    ]
   },
   {
     "id": "magic_missile",
@@ -1374,7 +2223,67 @@
       "knockback": 10,
       "gen": 5
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "barrage",
+        "name": "Barrage",
+        "uses": 0,
+        "desc": "Fires 5 missiles at 75% damage.",
+        "add": {
+          "count": 2
+        },
+        "mul": {
+          "damage": 0.75
+        }
+      },
+      {
+        "id": "seeker",
+        "name": "Piercing Missiles",
+        "uses": 30,
+        "desc": "Missiles pierce through enemies.",
+        "set": {
+          "pierce": 1
+        }
+      },
+      {
+        "id": "fire",
+        "name": "Conflagrate",
+        "uses": 80,
+        "desc": "Becomes fire and sets enemies burning.",
+        "addTags": [
+          "fire"
+        ],
+        "removeTags": [
+          "arcane"
+        ],
+        "set": {
+          "igniteMult": 0.5
+        }
+      },
+      {
+        "id": "focus",
+        "name": "Focused",
+        "uses": 160,
+        "desc": "Tight spread and 130% damage.",
+        "set": {
+          "spreadSteps": 0.3
+        },
+        "mul": {
+          "damage": 1.3
+        }
+      },
+      {
+        "id": "split",
+        "name": "Splitting",
+        "uses": 300,
+        "desc": "Each missile jumps to 1 more enemy.",
+        "set": {
+          "chain": 1,
+          "chainMult": 0.7,
+          "chainRange": 70
+        }
+      }
+    ]
   },
   {
     "id": "static_touch",
@@ -1398,7 +2307,65 @@
       "genPerHit": 9,
       "genMax": 18
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "discharge",
+        "name": "Discharge",
+        "uses": 0,
+        "desc": "Hits all around you for 80% damage. Becomes an area skill.",
+        "set": {
+          "arcCos": -0.4
+        },
+        "mul": {
+          "damage": 0.8
+        },
+        "addTags": [
+          "aoe"
+        ],
+        "removeTags": [
+          "single"
+        ]
+      },
+      {
+        "id": "overload",
+        "name": "Overload",
+        "uses": 30,
+        "desc": "Every 3rd touch hits all around you for 250% damage.",
+        "set": {
+          "ringEvery": 3,
+          "ringMult": 2.5
+        }
+      },
+      {
+        "id": "conduct",
+        "name": "Conduct",
+        "uses": 80,
+        "desc": "Jumps to 3 more enemies.",
+        "set": {
+          "chain": 3,
+          "chainMult": 0.7,
+          "chainRange": 80
+        }
+      },
+      {
+        "id": "siphon",
+        "name": "Siphon",
+        "uses": 160,
+        "desc": "Heals 1% of max life per enemy hit.",
+        "set": {
+          "healPerHit": 0.01
+        }
+      },
+      {
+        "id": "magnet",
+        "name": "Magnetise",
+        "uses": 300,
+        "desc": "Pulls enemies in instead of pushing them away.",
+        "set": {
+          "pullOnHit": 1
+        }
+      }
+    ]
   },
   {
     "id": "chain_lightning",
@@ -1412,7 +2379,7 @@
       "lightning",
       "single"
     ],
-    "desc": "Big bolt that jumps to up to 6 enemies. 30 Mana.",
+    "desc": "Big bolt that jumps between up to 6 enemies.",
     "p": {
       "damage": 3.4,
       "cooldown": 0.4,
@@ -1428,7 +2395,68 @@
       "chainRange": 90,
       "cost": 22
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "arc",
+        "name": "Steady Arc",
+        "uses": 0,
+        "desc": "Jumps to 4 enemies but keeps 90% damage per jump.",
+        "set": {
+          "chain": 4,
+          "chainMult": 0.9
+        }
+      },
+      {
+        "id": "storm",
+        "name": "Forked Storm",
+        "uses": 30,
+        "desc": "Fires 3 bolts at 60% damage.",
+        "add": {
+          "count": 2
+        },
+        "set": {
+          "spreadSteps": 1
+        },
+        "mul": {
+          "damage": 0.6
+        }
+      },
+      {
+        "id": "shock",
+        "name": "Shocking",
+        "uses": 80,
+        "desc": "Enemies hit take 15% more damage for 3 seconds.",
+        "set": {
+          "vulnOnHit": 15
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Frost Chain",
+        "uses": 160,
+        "desc": "Becomes cold and slows by 35%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "lightning"
+        ],
+        "set": {
+          "slowPct": 35,
+          "slowT": 1.5
+        }
+      },
+      {
+        "id": "thrift",
+        "name": "Efficient",
+        "uses": 300,
+        "desc": "Costs 40% less Mana, 80% damage.",
+        "mul": {
+          "cost": 0.6,
+          "damage": 0.8
+        }
+      }
+    ]
   },
   {
     "id": "arcane_orb",
@@ -1442,7 +2470,7 @@
       "arcane",
       "aoe"
     ],
-    "desc": "Slow orb that hits everything it passes through. 40 Mana.",
+    "desc": "Slow orb that hits everything it passes through.",
     "p": {
       "damage": 2,
       "cooldown": 0.5,
@@ -1455,7 +2483,67 @@
       "knockback": 30,
       "cost": 35
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "big",
+        "name": "Grand Orb",
+        "uses": 0,
+        "desc": "50% larger, 90% damage.",
+        "mul": {
+          "radius": 1.5,
+          "damage": 0.9
+        }
+      },
+      {
+        "id": "return",
+        "name": "Boomerang",
+        "uses": 30,
+        "desc": "Flies back to you after reaching full range.",
+        "set": {
+          "returns": 1
+        }
+      },
+      {
+        "id": "spiral",
+        "name": "Spiral",
+        "uses": 80,
+        "desc": "Fires 3 orbs at 60% damage.",
+        "add": {
+          "count": 2
+        },
+        "set": {
+          "spreadSteps": 1.5
+        },
+        "mul": {
+          "damage": 0.6
+        }
+      },
+      {
+        "id": "unstable",
+        "name": "Unstable",
+        "uses": 160,
+        "desc": "Enemies killed explode for 15% of their max life.",
+        "set": {
+          "explodeOnKill": 0.15
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Frozen Orb",
+        "uses": 300,
+        "desc": "Becomes cold and slows by 50%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "arcane"
+        ],
+        "set": {
+          "slowPct": 50,
+          "slowT": 1
+        }
+      }
+    ]
   },
   {
     "id": "thunderstorm",
@@ -1468,7 +2556,7 @@
       "lightning",
       "aoe"
     ],
-    "desc": "Lightning strikes an area for 3 seconds. 50 Mana.",
+    "desc": "Lightning strikes an area for 3 seconds.",
     "p": {
       "dps": 5.5,
       "cooldown": 0.6,
@@ -1478,7 +2566,61 @@
       "slowPct": 0,
       "cost": 50
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "wide",
+        "name": "Supercell",
+        "uses": 0,
+        "desc": "50% larger, 80% damage.",
+        "mul": {
+          "radius": 1.5,
+          "dps": 0.8
+        }
+      },
+      {
+        "id": "long",
+        "name": "Long Storm",
+        "uses": 30,
+        "desc": "Lasts 5 seconds.",
+        "set": {
+          "duration": 5
+        }
+      },
+      {
+        "id": "charge",
+        "name": "Charged Air",
+        "uses": 80,
+        "desc": "Enemies inside take 15% more damage from everything.",
+        "set": {
+          "vulnOnHit": 15
+        }
+      },
+      {
+        "id": "blizzard",
+        "name": "Blizzard",
+        "uses": 160,
+        "desc": "Becomes cold and slows by 50%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "lightning"
+        ],
+        "set": {
+          "slowPct": 50,
+          "slowT": 1
+        }
+      },
+      {
+        "id": "thrift",
+        "name": "Efficient",
+        "uses": 300,
+        "desc": "Costs 40% less Mana.",
+        "mul": {
+          "cost": 0.6
+        }
+      }
+    ]
   },
   {
     "id": "disintegrate",
@@ -1492,7 +2634,7 @@
       "single",
       "pierce"
     ],
-    "desc": "Hold to fire a piercing arcane beam. 5 Mana per pulse.",
+    "desc": "Hold to fire a piercing arcane beam.",
     "p": {
       "damage": 0.75,
       "cooldown": 0.12,
@@ -1505,7 +2647,68 @@
       "knockback": 0,
       "cost": 5
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "focus",
+        "name": "Focused Beam",
+        "uses": 0,
+        "desc": "130% damage, but no longer pierces.",
+        "mul": {
+          "damage": 1.3
+        },
+        "set": {
+          "pierce": 0
+        }
+      },
+      {
+        "id": "wide",
+        "name": "Wide Beam",
+        "uses": 30,
+        "desc": "A much wider beam. Becomes an area skill.",
+        "mul": {
+          "radius": 2.5
+        },
+        "addTags": [
+          "aoe"
+        ],
+        "removeTags": [
+          "single"
+        ]
+      },
+      {
+        "id": "melt",
+        "name": "Unravel",
+        "uses": 80,
+        "desc": "Enemies hit take 10% more damage for 3 seconds.",
+        "set": {
+          "vulnOnHit": 10
+        }
+      },
+      {
+        "id": "thrift",
+        "name": "Efficient",
+        "uses": 160,
+        "desc": "Costs 3 Mana per bolt.",
+        "set": {
+          "cost": 3
+        }
+      },
+      {
+        "id": "prism",
+        "name": "Prism",
+        "uses": 300,
+        "desc": "Fires 3 beams at 50% damage.",
+        "add": {
+          "count": 2
+        },
+        "set": {
+          "spreadSteps": 0.8
+        },
+        "mul": {
+          "damage": 0.5
+        }
+      }
+    ]
   },
   {
     "id": "blink",
@@ -1527,7 +2730,53 @@
       "knockback": 0,
       "charges": 1
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "far",
+        "name": "Far Step",
+        "uses": 0,
+        "desc": "Teleport much further.",
+        "set": {
+          "distance": 170
+        }
+      },
+      {
+        "id": "double",
+        "name": "Double Blink",
+        "uses": 20,
+        "desc": "2 charges.",
+        "add": {
+          "charges": 1
+        }
+      },
+      {
+        "id": "shock",
+        "name": "Thunderclap",
+        "uses": 50,
+        "desc": "Blast enemies where you land for 150% damage.",
+        "set": {
+          "endBlast": 1.5
+        }
+      },
+      {
+        "id": "trail",
+        "name": "Storm Trail",
+        "uses": 100,
+        "desc": "Leaves a burning trail that hurts enemies.",
+        "set": {
+          "trail": 0.6
+        }
+      },
+      {
+        "id": "mend",
+        "name": "Recall",
+        "uses": 180,
+        "desc": "Heals 10% of max life.",
+        "set": {
+          "healPct": 0.1
+        }
+      }
+    ]
   },
   {
     "id": "mana_shield",
@@ -1540,7 +2789,7 @@
       "defence",
       "arcane"
     ],
-    "desc": "Take 60% less damage for 6 seconds and restore 30 Mana.",
+    "desc": "Take 60% less damage for 6 seconds and restore",
     "p": {
       "cooldown": 20,
       "radius": 1,
@@ -1549,7 +2798,54 @@
       "selfOnly": 1,
       "resGain": 30
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "long",
+        "name": "Endurance",
+        "uses": 0,
+        "desc": "Lasts 9 seconds.",
+        "set": {
+          "duration": 9
+        }
+      },
+      {
+        "id": "surge",
+        "name": "Mana Surge",
+        "uses": 20,
+        "desc": "Refills",
+        "set": {
+          "resGain": 70
+        }
+      },
+      {
+        "id": "nova",
+        "name": "Arcane Burst",
+        "uses": 50,
+        "desc": "Bursts on cast, hitting enemies around you for 200%.",
+        "set": {
+          "shoutDamage": 2,
+          "radius": 80
+        }
+      },
+      {
+        "id": "power",
+        "name": "Empower",
+        "uses": 100,
+        "desc": "You also deal 20% more damage.",
+        "set": {
+          "dmgPct": 20
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Ward",
+        "uses": 180,
+        "desc": "12 second cooldown.",
+        "set": {
+          "cooldown": 12
+        }
+      }
+    ]
   },
   {
     "id": "static_field",
@@ -1570,7 +2866,54 @@
       "shoutDamage": 1.5,
       "slowAll": 50
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "wide",
+        "name": "Wide Field",
+        "uses": 0,
+        "desc": "40% larger.",
+        "mul": {
+          "radius": 1.4
+        }
+      },
+      {
+        "id": "over",
+        "name": "Overcharge",
+        "uses": 20,
+        "desc": "Deals double damage.",
+        "mul": {
+          "shoutDamage": 2
+        }
+      },
+      {
+        "id": "conduct",
+        "name": "Conductive",
+        "uses": 50,
+        "desc": "Enemies hit take 20% more damage for 6 seconds.",
+        "set": {
+          "vulnPct": 20,
+          "duration": 6
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Field",
+        "uses": 100,
+        "desc": "6 second cooldown.",
+        "set": {
+          "cooldown": 6
+        }
+      },
+      {
+        "id": "mana",
+        "name": "Siphon Field",
+        "uses": 180,
+        "desc": "Refills",
+        "set": {
+          "resGain": 30
+        }
+      }
+    ]
   },
   {
     "id": "storm_avatar",
@@ -1591,7 +2934,54 @@
       "cdrPct": 30,
       "selfOnly": 1
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "long",
+        "name": "Long Storm",
+        "uses": 0,
+        "desc": "Lasts 15 seconds.",
+        "set": {
+          "duration": 15
+        }
+      },
+      {
+        "id": "eye",
+        "name": "Eye of the Storm",
+        "uses": 10,
+        "desc": "You also gain 80% armor.",
+        "set": {
+          "armorPct": 80
+        }
+      },
+      {
+        "id": "surge",
+        "name": "Surge",
+        "uses": 25,
+        "desc": "Fills your Mana.",
+        "set": {
+          "resGain": 150
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Storm",
+        "uses": 50,
+        "desc": "60 second cooldown.",
+        "set": {
+          "cooldown": 60
+        }
+      },
+      {
+        "id": "tempest",
+        "name": "Tempest",
+        "uses": 90,
+        "desc": "Blasts enemies around you for 500% on cast.",
+        "set": {
+          "shoutDamage": 5,
+          "radius": 100
+        }
+      }
+    ]
   },
   {
     "id": "black_hole",
@@ -1613,7 +3003,60 @@
       "pull": 1,
       "knockback": 0
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "wide",
+        "name": "Event Horizon",
+        "uses": 0,
+        "desc": "30% larger.",
+        "mul": {
+          "radius": 1.3
+        }
+      },
+      {
+        "id": "long",
+        "name": "Singularity",
+        "uses": 10,
+        "desc": "Pulses 7 times instead of 4.",
+        "add": {
+          "pulses": 3
+        }
+      },
+      {
+        "id": "crush",
+        "name": "Crush",
+        "uses": 25,
+        "desc": "Enemies hit take 30% more damage for 3 seconds.",
+        "set": {
+          "vulnOnHit": 30
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Collapse",
+        "uses": 50,
+        "desc": "40 second cooldown.",
+        "set": {
+          "cooldown": 40
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Absolute Zero",
+        "uses": 90,
+        "desc": "Becomes cold and slows by 60%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "arcane"
+        ],
+        "set": {
+          "slowPct": 60,
+          "slowT": 2
+        }
+      }
+    ]
   },
   {
     "id": "arcane_torrent",
@@ -1639,6 +3082,69 @@
       "pierce": 1,
       "knockback": 20
     },
-    "runes": []
+    "runes": [
+      {
+        "id": "flood",
+        "name": "Flood",
+        "uses": 0,
+        "desc": "Fires 8 more bolts.",
+        "add": {
+          "count": 8
+        }
+      },
+      {
+        "id": "focus",
+        "name": "Focused Torrent",
+        "uses": 10,
+        "desc": "Narrow cone, 130% damage. Becomes single target.",
+        "set": {
+          "spreadSteps": 0.6
+        },
+        "mul": {
+          "damage": 1.3
+        },
+        "addTags": [
+          "single"
+        ],
+        "removeTags": [
+          "aoe"
+        ]
+      },
+      {
+        "id": "return",
+        "name": "Tidal",
+        "uses": 25,
+        "desc": "Bolts fly back to you after reaching full range.",
+        "set": {
+          "returns": 1
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Torrent",
+        "uses": 50,
+        "desc": "30 second cooldown.",
+        "set": {
+          "cooldown": 30
+        }
+      },
+      {
+        "id": "storm",
+        "name": "Lightning Torrent",
+        "uses": 90,
+        "desc": "Becomes lightning. Each bolt jumps to 1 more enemy.",
+        "addTags": [
+          "lightning"
+        ],
+        "removeTags": [
+          "arcane"
+        ],
+        "set": {
+          "chain": 1,
+          "chainMult": 0.6,
+          "chainRange": 70
+        }
+      }
+    ]
   }
 ]

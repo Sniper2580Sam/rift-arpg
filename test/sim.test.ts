@@ -2,7 +2,7 @@
 import { createSim, step, stateHash, NO_INPUT, PlayerInput, PlayerSetup, SimState } from "../src/sim/sim";
 import { mintItem, computeStats, Holder } from "../src/sim/items";
 import { makeRng } from "../src/sim/rng";
-import { LEGENDARIES, MYTHICS, SETS, CLASSES, SlotType, EquipSlot } from "../src/sim/data";
+import { LEGENDARIES, MYTHICS, SETS, CLASSES, SKILL, SlotType, EquipSlot } from "../src/sim/data";
 const proc = (globalThis as any).process;
 
 function setup(pid: number, cls = "ashknight", level = 1, equipment: Holder["equipment"] = {}, runes: Record<string, string> = {}): PlayerSetup {
@@ -104,3 +104,26 @@ for (const st of SETS) {
   console.log(`  set ${st.name}: ${stt.setCounts[st.id]} pieces, ${stt.mods.length} mods, kills in 20s ${s.rift.kills}`);
 }
 console.log("all legendaries, mythics and sets ran", Object.keys(CLASSES).length, "classes");
+
+// 5) every rune of every skill: equipped in the always-pressed slot, 12 s of play, no NaN and some damage dealt
+{
+  let runs = 0, bad: string[] = [];
+  for (const [cls, cd] of Object.entries(CLASSES)) for (const id of cd.skills) {
+    const runes = SKILL[id].runes;
+    if (runes.length !== 5) bad.push(`${id}: ${runes.length} runes`);
+    let base = 0;
+    for (const r of [{ id: "" }, ...runes]) {
+      const ps = setup(0, cls, 30, kit(30, "rare"), r.id ? { [id]: r.id } : {});
+      ps.loadout = [id, ...cd.loadout.filter((x) => x !== id)];
+      const s = createSim({ seed: 11, players: [ps] });
+      let dmg = 0;
+      for (let t = 0; t < 30 * 12; t++) { step(s, { 0: bot(s, 0, t) }); for (const e of s.events as any[]) if (e.type === "hit" && e.pid === 0) dmg += e.amount; }
+      const p = s.players[0];
+      if (!Number.isFinite(p.hp) || !Number.isFinite(p.res) || !Number.isFinite(dmg) || s.enemies.some((e) => !Number.isFinite(e.hp))) bad.push(`${id}/${r.id}: NaN`);
+      if (!r.id) { base = dmg; continue; }
+      if (proc.env.RUNEDBG) console.log(`  ${id}/${r.id}: ${(dmg / Math.max(1, base)).toFixed(2)}x`);
+      runs++;
+    }
+  }
+  if (bad.length) { console.log("FAIL runes:", bad.join(", ")); proc.exit(1); } else console.log(`all ${runs} runes ran`);
+}
