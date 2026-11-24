@@ -11,7 +11,8 @@
   "name": "Regular",
   "desc": "Clear 50 rifts.",
   "stat": "rifts",
-  "goal": 50
+  "goal": 50,
+  "aether": 200
  },
  {
   "id": "tier5",
@@ -26,7 +27,8 @@
   "desc": "Clear tier 10 in time.",
   "stat": "tier",
   "goal": 10,
-  "reward": "cos:armor:riftbreaker"
+  "reward": "cos:armor:riftbreaker",
+  "aether": 150
  },
  {
   "id": "tier20",
@@ -34,7 +36,8 @@
   "desc": "Clear tier 20 in time.",
   "stat": "tier",
   "goal": 20,
-  "reward": "cos:dye:abyss"
+  "reward": "cos:dye:abyss",
+  "aether": 500
  },
  {
   "id": "kills_1k",
@@ -49,7 +52,8 @@
   "desc": "Slay 10,000 enemies.",
   "stat": "kills",
   "goal": 10000,
-  "reward": "cos:weapon:bloodletter"
+  "reward": "cos:weapon:bloodletter",
+  "aether": 300
  },
  {
   "id": "elites_250",
@@ -65,7 +69,8 @@
   "desc": "Clear a tier 8+ rift in time without dying.",
   "stat": "flawless",
   "goal": 1,
-  "reward": "cos:weapon:wardbreaker"
+  "reward": "cos:weapon:wardbreaker",
+  "aether": 200
  },
  {
   "id": "king",
@@ -80,7 +85,8 @@
   "name": "Regicide",
   "desc": "Slay the Ossuary King 10 times.",
   "stat": "kings",
-  "goal": 10
+  "goal": 10,
+  "aether": 300
  },
  {
   "id": "seraph",
@@ -88,7 +94,8 @@
   "desc": "Slay the Pale Seraph.",
   "stat": "seraphs",
   "goal": 1,
-  "reward": "cos:wings:judgement"
+  "reward": "cos:wings:judgement",
+  "aether": 300
  },
  {
   "id": "wave20",
@@ -103,7 +110,8 @@
   "name": "Unending",
   "desc": "Reach wave 40 in Endless.",
   "stat": "wave",
-  "goal": 40
+  "goal": 40,
+  "aether": 500
  },
  {
   "id": "mythic",
@@ -126,20 +134,23 @@
   "desc": "Reach paragon level 50 on any hero.",
   "stat": "paragon",
   "goal": 50,
-  "reward": "cos:wings:ascendant"
+  "reward": "cos:wings:ascendant",
+  "aether": 500
  },
  {
   "id": "maxed_all",
   "name": "Many Faces",
   "desc": "Get all four heroes to level 30.",
   "stat": "maxed",
-  "goal": 4
+  "goal": 4,
+  "aether": 300
  },
  {
   "id": "full_house",
   "name": "Full House",
   "desc": "Clear a rift in a party of six.",
   "stat": "party6",
-  "goal": 1
+  "goal": 1,
+  "aether": 100
  }
 ]

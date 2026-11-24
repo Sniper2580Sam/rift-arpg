@@ -1,9 +1,10 @@
 // DOM screens: hub (play / gear / skills / settings), inventory with compare + reroll, boon picker, results.
+import { decorIcon } from "./hideout";
 import { AFFIX as AFFIX_DEF } from "../sim/data";
 import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
-import { GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -126,6 +127,8 @@ export class UI {
   skSlot = 0;
   tier = 1;
   private toastT = 0;
+  /** shop preview: looks being tried on (not owned) */
+  tryOn: Partial<Record<CosKind, string>> = {};
   constructor(private bank: SpriteBank) {}
 
   hide() { this.root.innerHTML = ""; this.root.className = ""; this.invOpen = false; }
@@ -143,7 +146,8 @@ export class UI {
     if (this.tab === "gear") body = this.gemsHtml(c) + this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
     if (this.tab === "skills") body = this.skillsTab(c);
     if (this.tab === "looks") body = this.looksTab(p);
-    if (this.tab === "shop") body = this.shopTab(p);
+    if (this.tab === "shop") body = this.shopTab(p, H);
+    if (this.tab !== "shop") this.tryOn = {};
     if (this.tab === "journey") body = this.journeyTab(p);
     if (this.tab === "settings") body = this.settingsTab(p);
     this.root.innerHTML = `
@@ -511,18 +515,34 @@ export class UI {
       <div class="setting"><b>Feats</b> <span class="dim small">${done.size}/${ACHIEVEMENTS.length} done · they count across all heroes and seasons. ◆ rewards unlock in the Wardrobe.</span>
       <div class="feat-list">${[...ACHIEVEMENTS].sort((a, b) => Number(done.has(a.id)) - Number(done.has(b.id))).map(card).join("")}</div></div>`;
   }
-  private shopTab(p: Profile) {
-    const cls = char(p).cls;
+  /** The Shop: every premium cosmetic, theme, decoration and skill effect, bought with Aether. Wearables can be tried on first. */
+  private shopTab(p: Profile, H: HubHandlers) {
+    const cls = char(p).cls, bal = p.aether ?? 0;
     const all = shopCatalogue();
     const sections: Record<string, typeof all> = {};
     for (const it of all) (sections[it.section] ??= []).push(it);
-    const card = (it: (typeof all)[number]) => {
-      const own = ownsKey(p, it.key);
-      const other = it.cls && it.cls !== cls ? ` <small class="dim">${esc(CLASSES[it.cls]?.name ?? it.cls)}</small>` : "";
-      return `<div class="shop-item${own ? " owned" : ""}"><div><b>★ ${esc(it.name)}</b>${other}${it.desc ? `<div class="dim small">${esc(it.desc)}</div>` : ""}</div>
-        ${own ? `<span class="owned-tag">Owned</span>` : `<button data-buy="${esc(it.key)}">Get · ${it.price ? it.price : "Free"}</button>`}</div>`;
+    const sw = (cols: string[]) => `<i class="sw">${cols.map((c) => `<i style="background:${c}"></i>`).join("")}</i>`;
+    const look = (key: string) => {
+      const [k, a, b] = key.split(":");
+      if (k === "decor") { const ic = decorIcon(a); return ic ? `<img class="shop-ic" src="${ic.toDataURL()}" alt="">` : ""; }
+      if (k === "theme") { const t = HIDEOUT.themes.find((x) => x.id === a); return t ? sw([t.map.floor[0], t.map.wallFace, t.carpet ?? t.map.wallTop, t.light ?? t.trim ?? t.map.speck[0]].filter(Boolean) as string[]) : ""; }
+      if (k === "fx") { const st = VFX.styles[b]; return st ? sw([st.main, st.accent, st.core]) : ""; }
+      return "";
     };
-    return `<div class="dim small">Premium items are cosmetic only. Prices are 0 in this test build, so tap Get to own one. Owned items show up in the Wardrobe and the Decorate tray.</div>
+    const card = (it: (typeof all)[number]) => {
+      const own = ownsKey(p, it.key), [k, kind, id] = it.key.split(":");
+      const trying = k === "cos" && this.tryOn[kind as CosKind] === id;
+      const other = it.cls && it.cls !== cls ? ` <small class="dim">${esc(CLASSES[it.cls]?.name ?? it.cls)}</small>` : "";
+      const tryBtn = k === "cos" && !own && (!it.cls || it.cls === cls) ? `<button class="try${trying ? " on" : ""}" data-try="${kind}:${trying ? "" : id}">${trying ? "Trying on" : "Preview"}</button>` : "";
+      return `<div class="shop-item${own ? " owned" : ""}">${look(it.key)}<div class="shop-main"><b>★ ${esc(it.name)}</b>${other}${it.desc ? `<div class="dim small">${esc(it.desc)}</div>` : ""}</div>
+        <span class="shop-btns">${tryBtn}${own ? `<span class="owned-tag">Owned</span>` : `<button data-buy="${esc(it.key)}" data-price="${it.price}" class="${bal >= it.price ? "" : "poor"}">${SHOP.symbol} ${it.price.toLocaleString("en-US")}</button>`}</span></div>`;
+    };
+    const tried = Object.keys(this.tryOn).length;
+    return `<div class="shop-top"><div class="look-prev"><canvas id="lookPrev" width="64" height="40"></canvas><div><b class="aether">${SHOP.symbol} ${bal.toLocaleString("en-US")} ${SHOP.currency}</b>
+        <div class="dim small">${tried ? "Previewing on your hero." : "Tap Preview to try a look on."}</div>${tried ? `<button data-try-clear>Stop preview</button>` : ""}</div></div></div>
+      <div class="dim small">${SHOP.currency} buys looks only, never power. Earn it from feats, the season journey, timed tier ${SHOP.earn.riftFromTier}+ rifts, the Seraph and Endless wave ${SHOP.earn.endlessFromWave}+.</div>
+      <div class="opts">${SHOP.packs.map((pk) => `<button class="pack" data-pack="${pk.id}" ${H.coop ? "disabled" : ""}>Get ${SHOP.symbol} ${pk.amount.toLocaleString("en-US")}</button>`).join("")}</div>
+      <div class="dim small">${H.coop ? `Buying ${SHOP.currency} isn't switched on yet (no payment provider). Earn it by playing.` : "Test build: packs are free. Real purchases come with a payment provider later."}</div>
       ${Object.entries(sections).map(([name, items]) => `<div class="setting"><b>${esc(name)}</b> <span class="dim small">${items.filter((x) => ownsKey(p, x.key)).length}/${items.length} owned</span><div class="shop-list">${items.map(card).join("")}</div></div>`).join("")}`;
   }
   /** Premium skill effects: two styles per skill, equipped skills first. */
@@ -547,11 +567,23 @@ export class UI {
     };
     this.root.querySelectorAll<HTMLElement>("[data-cos]").forEach((el) => el.onclick = () => { if (locked(el)) return; const [k, v] = el.dataset.cos!.split(":"); H.setting("cos." + k, v); re(); });
     this.root.querySelectorAll<HTMLElement>("[data-fx]").forEach((el) => el.onclick = () => { if (locked(el)) return; const [k, v] = el.dataset.fx!.split(":"); H.setting("fx." + k, v); re(); });
-    this.root.querySelectorAll<HTMLElement>("[data-buy]").forEach((el) => el.onclick = () => { H.op?.({ t: "buy", key: el.dataset.buy! }); this.toast("Added to your collection", "#7dff9a"); re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-buy]").forEach((el) => el.onclick = () => {
+      const price = +el.dataset.price!, key = el.dataset.buy!;
+      if ((p.aether ?? 0) < price) { this.toast(`Not enough ${SHOP.currency} (${(price - (p.aether ?? 0)).toLocaleString("en-US")} more)`, "#ff6a6a"); return; }
+      if (el.dataset.sure !== "1") { el.dataset.sure = "1"; el.textContent = `Buy for ${SHOP.symbol} ${price.toLocaleString("en-US")}?`; return; } // tap twice to buy
+      H.op?.({ t: "buy", key });
+      const [k, kind, id] = key.split(":");
+      if (k === "cos" && this.tryOn[kind as CosKind] === id) { delete this.tryOn[kind as CosKind]; H.setting("cos." + kind, id); }
+      this.toast("Added to your collection", "#7dff9a"); re();
+    });
+    this.root.querySelectorAll<HTMLElement>("[data-try]").forEach((el) => el.onclick = () => { const [k, v] = el.dataset.try!.split(":"); if (v) this.tryOn[k as CosKind] = v; else delete this.tryOn[k as CosKind]; re(); });
+    const tc = this.root.querySelector<HTMLElement>("[data-try-clear]"); if (tc) tc.onclick = () => { this.tryOn = {}; re(); };
+    this.root.querySelectorAll<HTMLElement>("[data-pack]").forEach((el) => el.onclick = () => { H.op?.({ t: "buyAether", pack: el.dataset.pack! }); this.toast(`${SHOP.currency} added (free in the test build)`, "#7dff9a"); re(); });
     const cv = this.root.querySelector<HTMLCanvasElement>("#lookPrev");
     if (!cv) return;
     const g = cv.getContext("2d")!; g.imageSmoothingEnabled = false;
-    const cls = char(p).cls, cos = p.cos ?? {};
+    const cls = char(p).cls, cos = this.tab === "shop" ? { ...(p.cos ?? {}), ...this.tryOn } : p.cos ?? {};
+    const pet = p.pet === "none" && this.tab === "shop" && this.tryOn.petSkin ? "bat" : p.pet;
     const parts: { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string }[] = [];
     const emit: Emit = (x, y, vx, vy, life, color) => { if (parts.length < 120) parts.push({ x, y, vx, vy, life, max: life, color }); };
     const t0 = performance.now(); let last = t0;
@@ -562,7 +594,7 @@ export class UI {
       const turn = Math.floor(t / 3) % 3; // face right, face the camera, walk away
       const fx = turn === 0 ? 1 : turn === 1 ? 0.2 : 0.1, fy = turn === 0 ? 0.2 : turn === 1 ? 1 : -1;
       drawHeroCos(g, this.bank, { pid: 0, cls, cos, fx, fy, moving: true, walk: t * 30, swingK: (t % 1.2) < 0.3 ? 1 - (t % 1.2) / 0.3 : 0 }, 26, 36, t, emit);
-      if (p.pet !== "none") drawPetCos(g, this.bank, p.pet, cos.petSkin, 48, 36, true, t, emit);
+      if (pet !== "none") drawPetCos(g, this.bank, pet, cos.petSkin, 48, 36, true, t, emit);
       for (let i = parts.length - 1; i >= 0; i--) {
         const q = parts[i]; q.life -= dt; if (q.life <= 0) { parts.splice(i, 1); continue; }
         q.x += q.vx * dt; q.y += q.vy * dt; g.globalAlpha = Math.min(1, q.life / q.max * 1.5); g.fillStyle = q.color; g.fillRect(Math.round(q.x), Math.round(q.y), 1, 1);

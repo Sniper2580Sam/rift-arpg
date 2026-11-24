@@ -42,6 +42,8 @@ export interface Profile {
   season: { n: number; started: string }; unlockedPets: string[];
   /** feats (achievements) done, and the lifetime counters they read; both survive season resets */
   feats?: string[]; life?: Partial<Life>;
+  /** premium currency (cosmetics only) */
+  aether?: number;
   /** this season's journey counters (reset with the season) */
   journey?: { season: number; stats: Partial<Life> };
   weekly: { week: string; best: number };
@@ -183,7 +185,7 @@ export function startNewSeason(p: Profile): Profile {
   n.season = { n: p.season.n + 1, started: new Date().toISOString().slice(0, 10) };
   n.unlockedPets = p.unlockedPets; n.pet = p.pet; n.cos = p.cos; n.settings = p.settings; n.filter = p.filter;
   // account-wide things carry over: purchases, the hideout, feats and the lifetime counters (baked from the old heroes)
-  n.owned = p.owned; n.hideout = p.hideout; n.feats = p.feats; n.life = lifeStats(p);
+  n.owned = p.owned; n.hideout = p.hideout; n.feats = p.feats; n.life = lifeStats(p); n.aether = p.aether;
   try { localStorage.setItem(`${SAVE_KEY}-season-${p.season.n}`, JSON.stringify(p)); } catch { /* ignore */ }
   return n;
 }

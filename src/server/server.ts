@@ -208,6 +208,8 @@ function newMember(c: Conn): RunMember {
   return { account: c.name, pid: c.pid!, level: char(p).level, pity: pityOf(p), pending: new Map(), forced: 0, usedAnc: false, usedPri: false, drops: 0, mythic: false };
 }
 function sanitizeOp(c: Conn, op: HubOp): HubOp {
+  // no payment provider yet: Aether packs can't be bought on the live server
+  if (op?.t === "buyAether") return { t: "setting", k: "invalid", v: 0 };
   if (op?.t === "reroll") {
     // only accept a choice the server itself offered
     const p = getProfile(c.name), ch = char(p);

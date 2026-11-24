@@ -19,6 +19,7 @@ import cosmeticsJson from "../../data/cosmetics.json";
 import achievementsJson from "../../data/achievements.json";
 import seasonJson from "../../data/season.json";
 import gemsJson from "../../data/gems.json";
+import shopJson from "../../data/shop.json";
 
 export type SlotType = "weapon" | "offhand" | "helm" | "shoulders" | "chest" | "bracers" | "gloves" | "belt" | "pants" | "boots" | "amulet" | "ring";
 export type EquipSlot = Exclude<SlotType, "ring"> | "ring1" | "ring2";
@@ -90,7 +91,7 @@ export interface UnlockCtx { owned?: string[]; chars: Record<string, CharProgres
 /** Account-wide lifetime counters. They survive season resets. */
 export interface Life { rifts: number; tier: number; level: number; legendaries: number; kills: number; elites: number; flawless: number; kings: number; seraphs: number; wave: number; mythics: number; ancestrals: number; paragon: number; maxed: number; party6: number }
 export type LifeStat = keyof Life;
-export interface Achievement { id: string; name: string; desc: string; stat: LifeStat; goal: number; reward?: string }
+export interface Achievement { id: string; name: string; desc: string; stat: LifeStat; goal: number; reward?: string; /** premium currency given once */ aether?: number }
 export const ACHIEVEMENTS = achievementsJson as Achievement[];
 /** The counters an achievement reads: what's stored, topped up from the current heroes (so old saves count). */
 export function lifeStats(p: UnlockCtx): Life {
@@ -185,13 +186,35 @@ export function cosAccess(p: UnlockCtx, kind: CosKind, id: string, cls?: string)
 }
 export const ownsKey = (p: UnlockCtx, key: string) => (p.owned ?? []).includes(key);
 /** All premium shop keys, with a display name and section. Prices are 0 in the test build. */
+// ------------------------------------------------------------------ premium currency (cosmetics only, never power)
+export const SHOP = shopJson as { currency: string; symbol: string; prices: Record<string, number>; classArmorDiscount: number; packs: { id: string; amount: number }[];
+  earn: { chapter: number[]; riftFromTier: number; riftBase: number; riftPerTier: number; seraph: number; endlessFromWave: number; endlessPerWave: number } };
+/** Currency a run earns: only really hard content pays (timed tier 15+, the Seraph, Endless wave 30+). */
+export function aetherForRun(t: RunTally): number {
+  const E = SHOP.earn;
+  if (!t.completed) return 0;
+  if (t.kind === "rift" && t.inTime && t.tier >= E.riftFromTier) return E.riftBase + (t.tier - E.riftFromTier) * E.riftPerTier;
+  if (t.kind === "chase" && t.boss === "seraph") return E.seraph;
+  if (t.kind === "endless" && t.wave >= E.endlessFromWave) return (t.wave - E.endlessFromWave + 1) * E.endlessPerWave;
+  return 0;
+}
+/** Currency for newly done feats and journey chapters (keys from the feats list). */
+export function aetherForFeats(keys: string[]): number {
+  let n = 0;
+  for (const k of keys) {
+    const a = ACHIEVEMENTS.find((x) => x.id === k); if (a?.aether) n += a.aether;
+    const m = /^journey:[^:]+:(\d+)$/.exec(k); if (m) n += SHOP.earn.chapter[+m[1] - 1] ?? 0;
+  }
+  return n;
+}
+
 export function shopCatalogue(): { key: string; section: string; name: string; desc: string; price: number; cls?: string }[] {
   const out: { key: string; section: string; name: string; desc: string; price: number; cls?: string }[] = [];
   const sec: Record<string, string> = { armor: "Armour", wings: "Wings", weapon: "Weapons", petSkin: "Pet skins", dye: "Dyes" };
-  for (const k of COS_KINDS) for (const c of COSMETICS[k]) if ((c as any).unlock === "premium") out.push({ key: `cos:${k}:${c.id}`, section: sec[k], name: String(c.name), desc: String(c.desc ?? ""), price: 0, cls: (c as any).cls });
-  for (const t of HIDEOUT.themes) if (t.premium) out.push({ key: `theme:${t.id}`, section: "Hideout themes", name: t.name, desc: t.desc, price: 0 });
-  for (const d of HIDEOUT.decor) if (d.premium) out.push({ key: `decor:${d.id}`, section: "Hideout decor", name: d.name, desc: "", price: 0 });
-  for (const [skill, styles] of Object.entries(VFX.perSkill)) for (const st of styles) out.push({ key: `fx:${skill}:${st}`, section: "Skill effects", name: `${VFX.styles[st].name} ${SKILL[skill]?.name ?? skill}`, desc: "", price: 0, cls: Object.keys(CLASSES).find((c) => CLASSES[c].skills.includes(skill)) });
+  for (const k of COS_KINDS) for (const c of COSMETICS[k]) if ((c as any).unlock === "premium") out.push({ key: `cos:${k}:${c.id}`, section: sec[k], name: String(c.name), desc: String(c.desc ?? ""), price: Math.round(SHOP.prices[k] * ((c as any).cls ? SHOP.classArmorDiscount : 1)), cls: (c as any).cls });
+  for (const t of HIDEOUT.themes) if (t.premium) out.push({ key: `theme:${t.id}`, section: "Hideout themes", name: t.name, desc: t.desc, price: SHOP.prices.theme });
+  for (const d of HIDEOUT.decor) if (d.premium) out.push({ key: `decor:${d.id}`, section: "Hideout decor", name: d.name, desc: "", price: SHOP.prices.decor });
+  for (const [skill, styles] of Object.entries(VFX.perSkill)) for (const st of styles) out.push({ key: `fx:${skill}:${st}`, section: "Skill effects", name: `${VFX.styles[st].name} ${SKILL[skill]?.name ?? skill}`, desc: "", price: SHOP.prices.fx, cls: Object.keys(CLASSES).find((c) => CLASSES[c].skills.includes(skill)) });
   return out;
 }
 export type CosChoice = Partial<Record<CosKind, string>> & { fx?: Record<string, string> };

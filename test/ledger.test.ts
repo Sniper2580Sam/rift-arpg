@@ -63,7 +63,10 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   const p = newProfile();
   check("free dye set", applyHubOp(p, { t: "setting", k: "cos.dye", v: "crimson" }) === true && p.cos.dye === "crimson");
   check("premium refused before buying", applyHubOp(p, { t: "setting", k: "cos.wings", v: "ember" }) === false);
-  check("shop buy records ownership", applyHubOp(p, { t: "buy", key: "cos:wings:ember" }) === true && p.owned!.includes("cos:wings:ember"));
+  check("can't buy without Aether", applyHubOp(p, { t: "buy", key: "cos:wings:ember" }) === false && !(p.owned ?? []).includes("cos:wings:ember"));
+  check("test pack adds Aether", applyHubOp(p, { t: "buyAether", pack: "medium" }) === true && p.aether === 1100);
+  check("shop buy spends Aether and records ownership", applyHubOp(p, { t: "buy", key: "cos:wings:ember" }) === true && p.owned!.includes("cos:wings:ember") && p.aether === 100);
+  check("can't buy the same thing twice", applyHubOp(p, { t: "buy", key: "cos:wings:ember" }) === false && p.aether === 100);
   check("cosmetic set after buying", applyHubOp(p, { t: "setting", k: "cos.wings", v: "ember" }) === true && p.cos.wings === "ember");
   check("unknown shop key refused", applyHubOp(p, { t: "buy", key: "cos:wings:golden_dragon" }) === false);
   check("unknown cosmetic refused", applyHubOp(p, { t: "setting", k: "cos.wings", v: "golden_dragon" }) === false && p.cos.wings === "ember");
@@ -82,7 +85,7 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   check("place free decor", applyHubOp(p, { t: "hideout", place: { id: "barrel", x: 5, y: 5 } }) === true && p.hideout!.decor.length === 1);
   check("no two on one tile", applyHubOp(p, { t: "hideout", place: { id: "crate", x: 5, y: 5 } }) === false);
   check("premium decor needs owning", applyHubOp(p, { t: "hideout", place: { id: "statue", x: 6, y: 5 } }) === false);
-  applyHubOp(p, { t: "buy", key: "decor:statue" }); applyHubOp(p, { t: "buy", key: "theme:gilded" });
+  p.aether = 5000; applyHubOp(p, { t: "buy", key: "decor:statue" }); applyHubOp(p, { t: "buy", key: "theme:gilded" });
   check("premium decor after buying", applyHubOp(p, { t: "hideout", place: { id: "statue", x: 6, y: 5 } }) === true);
   check("premium theme after buying", applyHubOp(p, { t: "hideout", theme: "gilded" }) === true && p.hideout!.decor.length === 2);
   check("remove decor", applyHubOp(p, { t: "hideout", remove: 0 }) === true && p.hideout!.decor.length === 1 && p.hideout!.decor[0].id === "statue");
@@ -144,6 +147,17 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   const rep: any = base(p); rep.gems = { fury: 50, bane: 1, storm: 1, gale: 1, blood: 1, bulwark: 1 }; rep.gemSlots = ["gale", "storm"];
   applySave(p, "ashknight", rep, member(), r, 1);
   check("gem levels clamped, one new gem per run", c.gems!.fury === 7 && Object.keys(c.gems!).length === 5);
+}
+
+{ // Aether: earned once from feats/chapters and from hard runs only
+  const p = newProfile(), m = member();
+  const r: RunInfo = { kind: "rift", tier: 16, completed: true, inTime: true, time: 300 };
+  const rep: any = base(p); rep.tally = { kills: 100, elites: 0, deaths: 1, wave: 0 };
+  applySave(p, "ashknight", rep, m, r, 1);
+  // T16 timed clear = 12, plus feats tier10 (150) reached via the tier counter
+  check("hard runs and feats pay Aether", p.aether === 12 + 150);
+  const p2 = newProfile(); applySave(p2, "ashknight", base(p2) as any, member(), { kind: "rift", tier: 5, completed: true, inTime: true, time: 100 }, 1);
+  check("easy runs pay nothing", (p2.aether ?? 0) === 0);
 }
 
 if (fails) { console.log(`${fails} ledger checks failed`); process.exit(1); }

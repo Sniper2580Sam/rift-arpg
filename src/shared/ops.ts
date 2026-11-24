@@ -1,6 +1,6 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
-import { GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
+import { SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
 import { Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
@@ -22,6 +22,7 @@ export type HubOp =
   | { t: "buy"; key: string }
   | { t: "paragon"; stat?: string; d?: number; reset?: boolean }
   | { t: "gem"; slot: number; id: string | null }
+  | { t: "buyAether"; pack: string }
   | { t: "hideout"; theme?: string; place?: { id: string; x: number; y: number }; remove?: number }
   | { t: "newSeason" }
   | { t: "reset" };
@@ -136,11 +137,21 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       c.gemSlots = out.filter((g): g is string => !!g).slice(0, GEMS.slots); return true;
     }
     case "buy": {
-      // price 0 in the test build: buying just records ownership
-      if (typeof op.key !== "string" || !shopCatalogue().some((x) => x.key === op.key)) return false;
+      // spend Aether on a cosmetic (premium currency buys looks only, never power)
+      const item = typeof op.key === "string" ? shopCatalogue().find((x) => x.key === op.key) : undefined;
+      if (!item) return false;
       p.owned ??= [];
-      if (!p.owned.includes(op.key)) p.owned.push(op.key);
+      if (p.owned.includes(item.key)) return false;
+      if ((p.aether ?? 0) < item.price) return false;
+      p.aether = (p.aether ?? 0) - item.price;
+      p.owned.push(item.key);
       return true;
+    }
+    case "buyAether": {
+      // test build stub: packs are free. The live server refuses this until a payment provider is wired in.
+      const pack = SHOP.packs.find((x) => x.id === op.pack);
+      if (!pack) return false;
+      p.aether = (p.aether ?? 0) + pack.amount; return true;
     }
     case "hideout": {
       const h = p.hideout ?? { theme: HIDEOUT.themes[0].id, decor: [] };

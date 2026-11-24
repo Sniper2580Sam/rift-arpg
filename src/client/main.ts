@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
@@ -334,6 +334,8 @@ function endRun() {
   runTally = tally; // the live build sends it with the save; the server keeps its own count
   profile.life = bumpLife(lifeStats(profile), tally);
   profile.journey = { season: profile.season.n, stats: bumpLife(seasonStats(profile), tally) };
+  const runAether = aetherForRun(tally);
+  if (runAether) { profile.aether = (profile.aether ?? 0) + runAether; lines.push(`+${runAether} ${SHOP.symbol} ${SHOP.currency}`); }
   if (completeInfo) {
     c.riftsCleared++;
     if (run.kind === "rift") {
@@ -368,7 +370,10 @@ function endRun() {
 function checkFeats(lines?: string[]): boolean {
   const n = newFeats(profile), ch = newChapters(profile, seasonStats(profile));
   if (!n.length && !ch.length) return false;
-  profile.feats = [...(profile.feats ?? []), ...n.map((a) => a.id), ...ch.map(chapterKey)];
+  const keys = [...n.map((a) => a.id), ...ch.map(chapterKey)];
+  profile.feats = [...(profile.feats ?? []), ...keys];
+  const ae = aetherForFeats(keys);
+  if (ae) { profile.aether = (profile.aether ?? 0) + ae; lines?.push(`+${ae} ${SHOP.symbol} ${SHOP.currency} from feats`); }
   for (const a of n) lines?.push(`Feat: ${a.name}${a.reward ? ` · ${rewardName(a.reward)} unlocked in the Wardrobe` : ""}`);
   for (const i of ch) { const c = SEASON_JOURNEY.chapters[i]; lines?.push(`Season journey: ${c.name} complete${c.reward ? ` · ${rewardName(c.reward)} unlocked in the Wardrobe` : ""}`); }
   return true;
@@ -405,6 +410,19 @@ function hubOp(op: HubOp) {
   saveProfile(profile);
   if (online && !online.direct) online.op(op);
   else if (online?.direct) online.pushSetup();
+}
+/** The local input, except in the hideout: next to a station or portal, the main attack button uses it instead of attacking. */
+let hideTapHeld = false;
+function readInput(): PlayerInput {
+  const inp = input.read(sim!, me(), toWorld);
+  if (!inHideout() || decorating) return inp;
+  const down = (inp.act & 1) !== 0;
+  if (hideNear && down) {
+    if (!hideTapHeld) { hideTapHeld = true; const spot = hideNear; setTimeout(() => useSpot(spot), 0); }
+    return { ...inp, act: inp.act & ~1 };
+  }
+  hideTapHeld = down; // a held attack that walks into a spot doesn't fire it; lift and press again
+  return inp;
 }
 function goHub() { if (checkFeats()) saveProfile(profile); enterHideout(); }
 function showMenu() {
@@ -600,7 +618,7 @@ function frame(now: number) {
     let steps = 0;
     while (acc >= DT && steps < 4 && !paused) {
       const p = me();
-      const inp: PlayerInput = input.read(sim, p, toWorld);
+      const inp: PlayerInput = readInput();
       if (coop) hostStep(inp);
       else { step(sim, { [ME]: inp }); afterStep(); }
       acc -= DT; steps++;
@@ -1285,13 +1303,13 @@ function coopFrame(dt: number) {
   if (co.role === "host") {
     acc += dt;
     let steps = 0;
-    while (acc >= DT && steps < 4) { hostStep(input.read(sim!, me(), toWorld)); acc -= DT; steps++; if (!sim || !coop) return; }
+    while (acc >= DT && steps < 4) { hostStep(readInput()); acc -= DT; steps++; if (!sim || !coop) return; }
     if (steps === 4) acc = 0;
     return;
   }
   // guest: send our input at the tick rate, replay the host's ticks with a small jitter buffer
   co.inputAcc += dt;
-  if (co.inputAcc >= DT) { co.inputAcc = Math.min(co.inputAcc - DT, DT); online!.sendU(0, { t: "in", i: input.read(sim!, me(), toWorld) }); }
+  if (co.inputAcc >= DT) { co.inputAcc = Math.min(co.inputAcc - DT, DT); online!.sendU(0, { t: "in", i: readInput() }); }
   acc += dt;
   const frames = () => co.queue.filter((q) => q.t === "f").length;
   let steps = 0;

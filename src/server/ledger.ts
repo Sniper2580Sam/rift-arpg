@@ -1,6 +1,6 @@
 // Server-side item authority: minting drops for a run, and validating what a player brings back.
 // Pure functions (no I/O) so they can be unit tested.
-import { CLASSES, GEM, GEMS, gemCap, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
+import { aetherForFeats, aetherForRun, CLASSES, GEM, GEMS, gemCap, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
 import { Item, MintOpts, mintItem, scrapValue, shardValue } from "../sim/items";
 import { Rng, next } from "../sim/rng";
 import type { CharSave, Profile } from "../client/profile";
@@ -155,5 +155,7 @@ function countRun(p: Profile, c: CharSave, rep: SaveReport, m: RunMember, run: R
   if (run.completed && run.kind === "chase") { if (run.boss === "seraph") c.seraphs = (c.seraphs ?? 0) + 1; else c.kings = (c.kings ?? 0) + 1; }
   if (wave > (c.bestWave ?? 0)) c.bestWave = wave;
   const fe = newFeats(p), ch = newChapters(p, p.journey.stats as any);
-  if (fe.length || ch.length) p.feats = [...(p.feats ?? []), ...fe.map((a) => a.id), ...ch.map(chapterKey)];
+  const keys = [...fe.map((a) => a.id), ...ch.map(chapterKey)];
+  if (keys.length) p.feats = [...(p.feats ?? []), ...keys];
+  p.aether = (p.aether ?? 0) + aetherForRun(tally) + aetherForFeats(keys);
 }
