@@ -125,6 +125,25 @@ export const gemText = (id: string, level: number) => { const [a, b] = gemVals(i
 export interface TalentNode { id: string; name: string; max: number; stat: string; per: number; text: string }
 export interface TalentBranch { name: string; color: string; nodes: TalentNode[] }
 export const TALENTS = talentsJson as { gate: number; note: string; classes: Record<string, TalentBranch[]> };
+// ------------------------------------------------------------------ tier scaling (shared by the sim, the server and the menus)
+/** Abyssal tiers (16+): a 4th rift modifier, more elites, better ancestral and primal odds. */
+export const isAbyssal = (t: number) => t >= RIFT.tiers.abyssFrom;
+/** Enemy life multiplier: steep to tier 20, gentler from 21 to 30. */
+export function tierHpMult(t: number) {
+  const T = RIFT.tiers, a = Math.min(t, T.steepUntil) - 1, b = Math.max(0, t - T.steepUntil);
+  return Math.pow(T.hpGrowth, a) * Math.pow(T.hpGrowthHigh, b) * (t === 1 ? T.tier1Hp ?? 1 : 1);
+}
+export function tierDmgMult(t: number) {
+  const T = RIFT.tiers, a = Math.min(t, T.steepUntil) - 1, b = Math.max(0, t - T.steepUntil);
+  return Math.pow(T.dmgGrowth, a) * Math.pow(T.dmgGrowthHigh, b) * (t === 1 ? T.tier1Dmg ?? 1 : 1);
+}
+/** Ancestral and primal chances for a tier. */
+export function lootChances(t: number) {
+  const T = RIFT.tiers;
+  const anc = t >= T.ancestralFrom ? Math.min(isAbyssal(t) ? T.abyssAncestralCap : T.ancestralCap, T.ancestralBase + T.ancestralPerTier * (t - T.ancestralFrom)) : 0;
+  const pri = t >= T.primalFrom ? T.primalChance * (1 + T.abyssPrimalPerTier * Math.max(0, t - T.abyssFrom + 1)) : 0;
+  return { anc, pri };
+}
 /** The Trial level you face next: one past your best, up to the cap. */
 export const nextTrial = (best: number | undefined) => Math.min(RIFT.trial.maxLevel, (best ?? 0) + 1);
 export const talentSpent = (a: Record<string, number> | undefined) => Object.values(a ?? {}).reduce((x, y) => x + y, 0);

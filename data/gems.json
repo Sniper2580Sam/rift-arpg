@@ -1,6 +1,6 @@
 {
  "slots": 3,
- "maxLevel": 50,
+ "maxLevel": 75,
  "fromTier": 5,
  "dropChance": 0.3,
  "levelCapPerTier": 3,

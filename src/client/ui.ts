@@ -5,7 +5,7 @@ import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { drawFxPreview } from "./fxpreview";
-import { TALENTS, talentCanAdd, talentCanRemove, talentPoints, talentSpent, nextTrial, SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { tierHpMult, lootChances, isAbyssal, TALENTS, talentCanAdd, talentCanRemove, talentPoints, talentSpent, nextTrial, SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { echoCost, BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -201,8 +201,8 @@ export class UI {
 
   private playTab(p: Profile, c: CharSave, H: HubHandlers) {
     const t = this.tier, T = RIFT.tiers;
-    const hp = Math.pow(T.hpGrowth, t - 1), leg = 1 + T.legendaryGrowth * (t - 1);
-    const anc = t >= T.ancestralFrom ? Math.min(T.ancestralCap, T.ancestralBase + T.ancestralPerTier * (t - T.ancestralFrom)) : 0;
+    const hp = tierHpMult(t), leg = 1 + T.legendaryGrowth * (t - 1);
+    const anc = lootChances(t).anc;
     const week = isoWeek();
     const wbest = p.weekly.week === week && p.weekly.best ? fmtTime(p.weekly.best) : "—";
     const classes = Object.entries(CLASSES).map(([id, d]) => `<button class="cls-card ${p.active === id ? "on" : ""}" data-cls="${id}"><b>${d.name}</b><span>Lv ${p.chars[id].level} · ${d.role}</span><small>${esc(d.desc)}</small></button>`).join("");
@@ -210,10 +210,10 @@ export class UI {
       <div class="classes">${classes}</div>
       <div class="tier-row">
         <button id="t-down" aria-label="Lower tier">−</button>
-        <div class="tier"><b>Tier ${t}</b><small>enemy life ×${hp.toFixed(1)} · legendary odds ×${leg.toFixed(2)}${anc ? ` · ancestral ${Math.round(anc * 100)}%` : ""}${t >= T.primalFrom ? " · primals can drop" : ""}</small></div>
+        <div class="tier"><b>Tier ${t}${isAbyssal(t) ? ` <span class="abyss">Abyssal</span>` : ""}</b><small>${isAbyssal(t) ? "4 modifiers · more elites · " : ""}enemy life ×${hp < 100 ? hp.toFixed(1) : Math.round(hp).toLocaleString("en-US")} · legendary odds ×${leg.toFixed(2)}${anc ? ` · ancestral ${Math.round(anc * 100)}%` : ""}${t >= T.primalFrom ? " · primals can drop" : ""}</small></div>
         <button id="t-up" aria-label="Higher tier" ${t >= c.highestTier ? "disabled" : ""}>+</button>
       </div>
-      <div class="dim small">Clear a tier in time to unlock the next one. Under 5 min unlocks 2, under 3 min unlocks 3. Highest: ${c.highestTier}. Ancestral pity: ${c.pityAnc}/${T.ancestralPity}.</div>
+      <div class="dim small">Clear a tier in time to unlock the next one. Tiers ${RIFT.tiers.abyssFrom}–${RIFT.tiers.max} are Abyssal. Under 5 min unlocks 2, under 3 min unlocks 3. Highest: ${c.highestTier}. Ancestral pity: ${c.pityAnc}/${T.ancestralPity}.</div>
       <button id="enter" class="big">Enter a rift</button>
       <div class="row">
         <input id="seed" placeholder="rift code (optional)" maxlength="8" autocomplete="off" aria-label="Rift code">

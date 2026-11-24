@@ -199,3 +199,9 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 - **Gilded Chisel** (Gear tab): once per item, either add one new affix or re-roll the two weakest affixes (never the enchanted one). It is seeded from the item id, so the client and server agree.
 - The Vault is a key you spend from the hideout, not a portal that opens mid-rift. Switching maps mid-run would need a new co-op hand-off.
 - Live server: keys are clamped to +1 per save, like feathers. The server can't prove an imp kill, which is the same trust level as feathers.
+
+## 2026-11-24: Abyssal tiers 16–30 (endgame activity 8)
+- The tier cap went from 20 to 30. Enemy life grows ×1.4 per tier up to 20 (×598 at T20), then ×1.2 per tier (×3,700 at T30). Damage grows ×1.2 per tier, then ×1.08. One shared helper (`tierHpMult`/`tierDmgMult`) is used by the sim, bounty totems and the tier picker.
+- **Abyssal tiers (16+)** get a 4th rift modifier and ×1.5 elite packs. Ancestral odds cap at 40% instead of 25%, and primal odds rise 25% per Abyssal tier. Ancestral and primal odds come from `lootChances` in both the sim and the server.
+- The gem level cap went from 50 to 75, so gems keep levelling through tier 25.
+- This is meant to absorb the new power sources: gems, the reliquary, echoes, talents, chisels and paragon. The numbers are first guesses and need a playtest with a fully geared hero.

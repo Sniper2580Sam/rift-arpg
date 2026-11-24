@@ -1,6 +1,6 @@
 // Pure deterministic simulation for 1–6 players. No DOM, no Math.random, no wall-clock time.
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
-import { GEM, GEMS, gemCap, BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , GUARDIANS, ParagonStat, paragonXp, GuardianDef, guardianDef, MAP, MAPS, MapDef, ITEMS, HideoutLayout, hideoutTheme } from "./data";
+import { isAbyssal, lootChances, tierDmgMult, tierHpMult, GEM, GEMS, gemCap, BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , GUARDIANS, ParagonStat, paragonXp, GuardianDef, guardianDef, MAP, MAPS, MapDef, ITEMS, HideoutLayout, hideoutTheme } from "./data";
 import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, equipTarget, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue, shardValue } from "./items";
 import { TileMap, flowField, genArena, genCave, genHideout, genLinear, genOpen, genRing, genRooms, moveWithWalls, unstick } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
@@ -160,7 +160,7 @@ export interface SimState {
 // ------------------------------------------------------------------ setup
 export function rollModifiers(seed: number, tier: number): string[] {
   const r = makeRng(seed ^ 0x9e3779b9);
-  const n = tier >= 5 ? 3 : 2;
+  const n = isAbyssal(tier) ? 4 : tier >= 5 ? 3 : 2;
   const pool = MODIFIERS.map((m) => m.id);
   const out: string[] = [];
   while (out.length < n && pool.length) out.push(pool.splice(Math.floor(next(r) * pool.length), 1)[0]);
@@ -240,7 +240,7 @@ export function createSim(cfg: SimConfig): SimState {
   }
   const packs: [number, number][] = [];
   let attempts = 0;
-  const eliteChance = RIFT.eliteChance * modVal(s, "eliteMult") + RIFT.party.eliteChancePerExtra * (n - 1);
+  const eliteChance = RIFT.eliteChance * modVal(s, "eliteMult") * (isAbyssal(tier) ? RIFT.tiers.abyssEliteMult : 1) + RIFT.party.eliteChancePerExtra * (n - 1);
   // bigger or smaller maps get proportionally more or fewer packs (the cave has about 4,700 open tiles)
   const packTarget = Math.round(RIFT.packCount * Math.max(0.6, Math.min(1.4, floors.length / 4700)));
   const cap = md?.enemyCap ?? 99999;
@@ -328,8 +328,8 @@ function refreshPlayer(s: SimState, p: Player, minEff: number) {
 function spawnEnemy(s: SimState, kind: EnemyKind, x: number, y: number, party: number): Enemy {
   const d = ENEMIES[kind] ?? { hp: 300, radius: 7 } as EnemyDef;
   const t = s.rift.tier;
-  const hpM = Math.pow(RIFT.tiers.hpGrowth, t - 1) * (t === 1 ? RIFT.tiers.tier1Hp ?? 1 : 1) * (1 + RIFT.party.hpPerExtra * (party - 1)) * modVal(s, "enemyHp");
-  const dmgM = Math.pow(RIFT.tiers.dmgGrowth, t - 1) * (t === 1 ? RIFT.tiers.tier1Dmg ?? 1 : 1) * (1 + RIFT.party.dmgPerExtra * (party - 1));
+  const hpM = tierHpMult(t) * (1 + RIFT.party.hpPerExtra * (party - 1)) * modVal(s, "enemyHp");
+  const dmgM = tierDmgMult(t) * (1 + RIFT.party.dmgPerExtra * (party - 1));
   const hp = Math.round(d.hp * hpM);
   const e: Enemy = {
     id: s.nextId++, kind, x, y, px: x, py: y, r: d.radius, hp, maxHp: hp, dmgMult: dmgM, speedMult: modVal(s, "enemySpeed") * Math.min(RIFT.tiers.speedCap, 1 + RIFT.tiers.speedPerTier * (t - 1)),
@@ -937,8 +937,7 @@ function lootOpts(s: SimState, p: Player, extra: MintOpts): MintOpts {
   return {
     tier: t, ilvl: Math.min(RIFT.levels.max, p.level + Math.floor(t / 4)), equipment: p.equipment, cls: p.cls,
     legendaryWeightMult: (s.rift.map && MAP[s.rift.map]?.legendaryWeightMult) || 1,
-    ancestralChance: t >= T.ancestralFrom ? Math.min(T.ancestralCap, T.ancestralBase + T.ancestralPerTier * (t - T.ancestralFrom)) : 0,
-    primalChance: t >= T.primalFrom ? T.primalChance : 0,
+    ancestralChance: lootChances(t).anc, primalChance: lootChances(t).pri,
     ...extra,
   };
 }
@@ -1661,7 +1660,7 @@ function setupBounty(s: SimState, floors: number[]) {
   { const [x, y] = pick(); const e = spawnEnemy(s, "brute", x, y, n); makeElite(s, e); e.hp = e.maxHp = Math.round(e.maxHp * B.eliteHp); e.noProgress = true;
     tasks.push({ kind: "elite", text: "Slay the Gravelord", x, y, ids: [e.id], have: 0, need: 1, done: false }); }
   { const ids: number[] = []; let cx = 0, cy = 0;
-    for (let i = 0; i < B.totems; i++) { const [x, y] = pick(); cx += x; cy += y; const t = spawnEnemy(s, "pylon", x, y, n); t.hp = t.maxHp = Math.round(ENEMIES.brute.hp * 6 * Math.pow(RIFT.tiers.hpGrowth, s.rift.tier - 1) * (1 + RIFT.party.hpPerExtra * (n - 1))); t.r = 7; t.noProgress = true; ids.push(t.id); }
+    for (let i = 0; i < B.totems; i++) { const [x, y] = pick(); cx += x; cy += y; const t = spawnEnemy(s, "pylon", x, y, n); t.hp = t.maxHp = Math.round(ENEMIES.brute.hp * 6 * tierHpMult(s.rift.tier) * (1 + RIFT.party.hpPerExtra * (n - 1))); t.r = 7; t.noProgress = true; ids.push(t.id); }
     tasks.push({ kind: "totems", text: `Break ${B.totems} bone totems`, x: cx / B.totems, y: cy / B.totems, ids, have: 0, need: B.totems, done: false }); }
   { const [x, y] = pick(); tasks.push({ kind: "shrine", text: "Hold the shrine", x, y, ids: [], have: 0, need: B.shrineSecs, done: false }); }
   tasks.push({ kind: "cull", text: `Slay ${B.cull} enemies`, x: 0, y: 0, ids: [], have: 0, need: B.cull, done: false });

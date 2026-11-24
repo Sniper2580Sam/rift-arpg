@@ -147,7 +147,14 @@
     "inTimeLegendary": true
   },
   "tiers": {
-    "max": 20,
+    "max": 30,
+    "steepUntil": 20,
+    "hpGrowthHigh": 1.2,
+    "dmgGrowthHigh": 1.08,
+    "abyssFrom": 16,
+    "abyssEliteMult": 1.5,
+    "abyssAncestralCap": 0.4,
+    "abyssPrimalPerTier": 0.25,
     "tier1Hp": 0.85,
     "tier1Dmg": 0.85,
     "hpGrowth": 1.4,

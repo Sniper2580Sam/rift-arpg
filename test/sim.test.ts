@@ -243,3 +243,15 @@ console.log("all legendaries, mythics and sets ran", Object.keys(CLASSES).length
   }
   if (bad.length) { console.log("FAIL runes:", bad.join(", ")); proc.exit(1); } else console.log(`all ${runs} runes ran`);
 }
+
+{ // Abyssal tiers: life keeps climbing to 30 (gentler past 20), 4 modifiers from 16, better ancestral odds
+  const { tierHpMult, lootChances, RIFT } = require("../src/sim/data");
+  const { rollModifiers } = require("../src/sim/sim");
+  const T = RIFT.tiers;
+  let ok = T.max === 30;
+  for (let t = 2; t <= 30; t++) if (!(tierHpMult(t) > tierHpMult(t - 1))) ok = false;
+  ok = ok && tierHpMult(21) / tierHpMult(20) < tierHpMult(20) / tierHpMult(19);
+  ok = ok && rollModifiers(7, 16).length === 4 && rollModifiers(7, 15).length === 3;
+  ok = ok && lootChances(30).anc > lootChances(15).anc && lootChances(25).pri > lootChances(10).pri;
+  if (!ok) { console.log("FAIL abyssal tiers"); proc.exit(1); } else console.log(`abyssal tiers ok (T20 life ×${Math.round(tierHpMult(20))}, T30 ×${Math.round(tierHpMult(30))})`);
+}
