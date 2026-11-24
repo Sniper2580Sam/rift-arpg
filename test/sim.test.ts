@@ -2,7 +2,7 @@
 import { createSim, step, stateHash, NO_INPUT, PlayerInput, PlayerSetup, SimState } from "../src/sim/sim";
 import { mintItem, computeStats, Holder } from "../src/sim/items";
 import { makeRng } from "../src/sim/rng";
-import { cosAccess, newFeats, lifeStats, ACHIEVEMENTS, COSMETICS, GUARDIANS, LEGENDARIES, MYTHICS, SETS, CLASSES, SKILL, SlotType, EquipSlot } from "../src/sim/data";
+import { SEASON_JOURNEY, chapterKey, newChapters, cosAccess, newFeats, lifeStats, ACHIEVEMENTS, COSMETICS, GUARDIANS, LEGENDARIES, MYTHICS, SETS, CLASSES, SKILL, SlotType, EquipSlot } from "../src/sim/data";
 const proc = (globalThis as any).process;
 
 function setup(pid: number, cls = "ashknight", level = 1, equipment: Holder["equipment"] = {}, runes: Record<string, string> = {}): PlayerSetup {
@@ -152,6 +152,16 @@ for (const cls of ["ashknight", "gloomstalker"]) {
   const ok = ids.includes("tier10") && ids.includes("king") && ids.includes("kills_1k") && !ids.includes("tier20") && cosAccess(ctx, "armor", "kingslayer").ok && !cosAccess(ctx, "wings", "judgement").ok && lifeStats(ctx).tier === 10;
   const missing = ACHIEVEMENTS.filter((a) => a.reward && !(COSMETICS as any)[a.reward.split(":")[1]]?.some((c: any) => c.id === a.reward!.split(":")[2] && c.earn?.ach === a.id));
   if (!ok || missing.length) { console.error("FAIL feats", ids, missing.map((a) => a.id)); proc.exit(1); } else console.log(`feats ok: ${ids.join(",")}`);
+}
+
+{ // season journey: chapters complete on this season's counters, and every chapter reward exists and unlocks
+  const ctx: any = { chars: { a: { highestTier: 5, level: 12 } } };
+  const season = lifeStats({ chars: ctx.chars, life: { rifts: 3, kills: 400, legendaries: 10, elites: 30 } });
+  const ch = newChapters(ctx, season);
+  const before = cosAccess(ctx, "dye", "bonefire").ok;
+  ctx.feats = ch.map(chapterKey);
+  const rewardsOk = SEASON_JOURNEY.chapters.every((c, i) => !c.reward || (COSMETICS as any)[c.reward.split(":")[1]]?.some((x: any) => x.id === c.reward!.split(":")[2] && x.earn?.ach === chapterKey(i)));
+  if (ch.join() !== "0,1" || before || !cosAccess(ctx, "dye", "bonefire").ok || cosAccess(ctx, "armor", "bonefire").ok || !rewardsOk) { console.error("FAIL journey", ch, before, rewardsOk); proc.exit(1); } else console.log("journey ok: chapters 1-2 done, Bonefire dye unlocked");
 }
 
 // 4) every legendary/mythic/set bonus runs

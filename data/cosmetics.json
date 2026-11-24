@@ -202,6 +202,31 @@
    }
   },
   {
+   "id": "bonefire",
+   "name": "Bonefire Regalia",
+   "desc": "Season 1 journey reward. Bone plate, a horned crest and a cape of green flame.",
+   "m": "#e8dcc0",
+   "d": "#8a7f66",
+   "t1": "#7dff9a",
+   "t2": "#14301a",
+   "overlay": "horns",
+   "X": "#e8dcc0",
+   "U": "#7dff9a",
+   "cape": [
+    "#1a5a32",
+    "#0a2a18"
+   ],
+   "aura": "soul",
+   "auraColor": [
+    "#7dff9a",
+    "#c9ffd0"
+   ],
+   "unlock": "earn",
+   "earn": {
+    "ach": "journey:s1:4"
+   }
+  },
+  {
    "id": "cinder_paladin",
    "name": "Cinder Paladin",
    "desc": "Ashknight only. Gold-crowned plate wreathed in embers.",
@@ -589,6 +614,24 @@
    "earn": {
     "ach": "elites_250"
    }
+  },
+  {
+   "id": "bonefire",
+   "name": "Bonefire",
+   "desc": "Season 1 journey reward. A bone pet with little horns, trailing green flame.",
+   "a": "#e8dcc0",
+   "b": "#8a7f66",
+   "eye": "#7dff9a",
+   "extra": "horns",
+   "fx": "ember",
+   "fxColor": [
+    "#7dff9a",
+    "#c9ffd0"
+   ],
+   "unlock": "earn",
+   "earn": {
+    "ach": "journey:s1:3"
+   }
   }
  ],
  "dye": [
@@ -702,6 +745,19 @@
    "unlock": "earn",
    "earn": {
     "ach": "mythic"
+   }
+  },
+  {
+   "id": "bonefire",
+   "name": "Bonefire",
+   "desc": "Season 1 journey reward. Bone white with green flame trim.",
+   "m": "#e8dcc0",
+   "d": "#6a6450",
+   "t1": "#7dff9a",
+   "t2": "#14301a",
+   "unlock": "earn",
+   "earn": {
+    "ach": "journey:s1:2"
    }
   }
  ]

@@ -3,11 +3,11 @@ import { AFFIX as AFFIX_DEF } from "../sim/data";
 import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
-import { ACHIEVEMENTS, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
-import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, WEEKLY_TIER, char, isoWeek, xpProgress } from "./profile";
+import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, WEEKLY_TIER, char, isoWeek, seasonStats, xpProgress } from "./profile";
 import { KEY_LABELS } from "./input";
 import type { HubOp } from "../shared/ops";
 
@@ -487,7 +487,16 @@ export class UI {
       const bar = ok ? "" : `<div class="feat-bar"><i style="width:${Math.round((100 * have) / a.goal)}%"></i></div><div class="dim small">${fmt(have)} / ${fmt(a.goal)}</div>`;
       return `<div class="feat${ok ? " done" : ""}"><div class="feat-main"><b>${ok ? "✓ " : ""}${esc(a.name)}</b><div class="dim small">${esc(a.desc)}</div>${bar}</div>${a.reward ? `<span class="feat-reward">◆ ${esc(rewardName(a.reward))}</span>` : ""}</div>`;
     };
-    return `<div class="setting"><b>Feats</b> <span class="dim small">${done.size}/${ACHIEVEMENTS.length} done · they count across all heroes and seasons. ◆ rewards unlock in the Wardrobe.</span>
+    const S = SEASON_JOURNEY, SL = seasonStats(p);
+    const chapter = (c: (typeof S.chapters)[number], i: number) => {
+      const ok = done.has(chapterKey(i));
+      const tasks = c.tasks.map((t) => { const have = Math.min(SL[t.stat], t.goal), tk = have >= t.goal; return `<div class="jt${tk ? " done" : ""}"><span>${tk ? "✓" : "○"} ${esc(t.desc)}</span><span class="dim small">${fmt(have)}/${fmt(t.goal)}</span></div>`; }).join("");
+      return `<div class="feat chapter${ok ? " done" : ""}"><div class="feat-main"><b>${ok ? "✓ " : ""}Chapter ${i + 1}: ${esc(c.name)}</b>${tasks}</div>${c.reward ? `<span class="feat-reward">◆ ${esc(rewardName(c.reward))}</span>` : ""}</div>`;
+    };
+    const nDone = S.chapters.filter((_, i) => done.has(chapterKey(i))).length;
+    return `<div class="setting"><b>Season ${p.season.n} journey: ${esc(S.name)}</b> <span class="dim small">${nDone}/${S.chapters.length} chapters. ${esc(S.desc)}</span>
+      <div class="feat-list">${S.chapters.map(chapter).join("")}</div></div>
+      <div class="setting"><b>Feats</b> <span class="dim small">${done.size}/${ACHIEVEMENTS.length} done · they count across all heroes and seasons. ◆ rewards unlock in the Wardrobe.</span>
       <div class="feat-list">${[...ACHIEVEMENTS].sort((a, b) => Number(done.has(a.id)) - Number(done.has(b.id))).map(card).join("")}</div></div>`;
   }
   private shopTab(p: Profile) {

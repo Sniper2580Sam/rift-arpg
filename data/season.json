@@ -1,0 +1,90 @@
+{
+ "id": "s1",
+ "name": "Bone and Feather",
+ "desc": "Finish every task in a chapter to complete it. Rewards are yours to keep after the season ends.",
+ "chapters": [
+  {
+   "name": "First Light",
+   "tasks": [
+    {
+     "stat": "level",
+     "goal": 10,
+     "desc": "Reach level 10"
+    },
+    {
+     "stat": "rifts",
+     "goal": 3,
+     "desc": "Clear 3 rifts"
+    },
+    {
+     "stat": "kills",
+     "goal": 300,
+     "desc": "Slay 300 enemies"
+    }
+   ]
+  },
+  {
+   "name": "Into the Deep",
+   "tasks": [
+    {
+     "stat": "tier",
+     "goal": 4,
+     "desc": "Clear tier 4 in time"
+    },
+    {
+     "stat": "legendaries",
+     "goal": 10,
+     "desc": "Find 10 legendary or set items"
+    },
+    {
+     "stat": "elites",
+     "goal": 25,
+     "desc": "Slay 25 elites"
+    }
+   ],
+   "reward": "cos:dye:bonefire"
+  },
+  {
+   "name": "Crowned in Bone",
+   "tasks": [
+    {
+     "stat": "level",
+     "goal": 30,
+     "desc": "Reach level 30"
+    },
+    {
+     "stat": "kings",
+     "goal": 1,
+     "desc": "Slay the Ossuary King"
+    },
+    {
+     "stat": "wave",
+     "goal": 10,
+     "desc": "Reach Endless wave 10"
+    }
+   ],
+   "reward": "cos:petSkin:bonefire"
+  },
+  {
+   "name": "Ascension",
+   "tasks": [
+    {
+     "stat": "tier",
+     "goal": 8,
+     "desc": "Clear tier 8 in time"
+    },
+    {
+     "stat": "seraphs",
+     "goal": 1,
+     "desc": "Slay the Pale Seraph"
+    },
+    {
+     "stat": "paragon",
+     "goal": 5,
+     "desc": "Reach paragon 5"
+    }
+   ],
+   "reward": "cos:armor:bonefire"
+  }
+ ]
+}

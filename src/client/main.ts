@@ -1,11 +1,11 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { Life, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
 import { sfx, setMuted, unlockAudio } from "./audio";
 import { Input, KEY_LABELS } from "./input";
-import { Profile, char, isoWeek, loadProfile, saveProfile, setLocalSaves, setOnSaved, setupFor, syncFromSim, weeklySeed } from "./profile";
+import { Profile, char, isoWeek, seasonStats, loadProfile, saveProfile, setLocalSaves, setOnSaved, setupFor, syncFromSim, weeklySeed } from "./profile";
 import { queue as cloudQueue, startCloud } from "./cloud";
 import { driveQueue, driveRecheck, startDrive } from "./gdrive";
 import { HubOp, applyHubOp } from "../shared/ops";
@@ -322,16 +322,20 @@ function endRun() {
   if (newRunes.length) lines.push(`New runes: ${newRunes.join(", ")}`);
   if (gotSigil) lines.push(`Bone Sigil found (${c.sigils} owned). The Ossuary King awaits.`);
   if (gotFeather) lines.push(`Pale Feather found (${c.feathers ?? 0} owned). The Pale Seraph awaits.`);
-  // lifetime counters for feats (account-wide, kept across seasons)
-  const L = lifeStats(profile);
-  L.kills += s.rift.kills; L.elites += runElites;
-  for (const f of foundLegs) { if (f.rarity === "mythic") L.mythics++; if (f.quality === "ancestral") L.ancestrals++; }
-  if (completeInfo) {
-    if (run.kind === "rift") { L.rifts++; if (completeInfo.inTime) L.tier = Math.max(L.tier, run.tier); if (completeInfo.inTime && run.tier >= 8 && !(p.deaths ?? 0)) L.flawless++; if (s.players.length >= 6) L.party6++; }
-    if (run.kind === "chase") { if (run.boss === "seraph") L.seraphs++; else L.kings++; }
-    if (run.kind === "endless") L.wave = Math.max(L.wave, s.rift.wave ?? 0);
-  }
-  profile.life = L;
+  // counters for feats (lifetime, kept across seasons) and the season journey (this season only)
+  const bump = (L: Life) => {
+    const r = run!;
+    L.kills += s.rift.kills; L.elites += runElites;
+    for (const f of foundLegs) { L.legendaries++; if (f.rarity === "mythic") L.mythics++; if (f.quality === "ancestral") L.ancestrals++; }
+    if (completeInfo) {
+      if (r.kind === "rift") { L.rifts++; if (completeInfo.inTime) L.tier = Math.max(L.tier, r.tier); if (completeInfo.inTime && r.tier >= 8 && !(p.deaths ?? 0)) L.flawless++; if (s.players.length >= 6) L.party6++; }
+      if (r.kind === "chase") { if (r.boss === "seraph") L.seraphs++; else L.kings++; }
+      if (r.kind === "endless") L.wave = Math.max(L.wave, s.rift.wave ?? 0);
+    }
+    return L;
+  };
+  profile.life = bump(lifeStats(profile));
+  profile.journey = { season: profile.season.n, stats: bump(seasonStats(profile)) };
   if (completeInfo) {
     c.riftsCleared++;
     if (run.kind === "rift") {
@@ -364,10 +368,11 @@ function endRun() {
 
 /** Mark newly reached feats as done; their rewards unlock through the Earn rule. Lines go on the results screen. */
 function checkFeats(lines?: string[]): boolean {
-  const n = newFeats(profile);
-  if (!n.length) return false;
-  profile.feats = [...(profile.feats ?? []), ...n.map((a) => a.id)];
+  const n = newFeats(profile), ch = newChapters(profile, seasonStats(profile));
+  if (!n.length && !ch.length) return false;
+  profile.feats = [...(profile.feats ?? []), ...n.map((a) => a.id), ...ch.map(chapterKey)];
   for (const a of n) lines?.push(`Feat: ${a.name}${a.reward ? ` · ${rewardName(a.reward)} unlocked in the Wardrobe` : ""}`);
+  for (const i of ch) { const c = SEASON_JOURNEY.chapters[i]; lines?.push(`Season journey: ${c.name} complete${c.reward ? ` · ${rewardName(c.reward)} unlocked in the Wardrobe` : ""}`); }
   return true;
 }
 

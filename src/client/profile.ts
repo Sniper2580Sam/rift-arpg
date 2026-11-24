@@ -40,6 +40,8 @@ export interface Profile {
   season: { n: number; started: string }; unlockedPets: string[];
   /** feats (achievements) done, and the lifetime counters they read; both survive season resets */
   feats?: string[]; life?: Partial<Life>;
+  /** this season's journey counters (reset with the season) */
+  journey?: { season: number; stats: Partial<Life> };
   weekly: { week: string; best: number };
   settings: { mute: boolean; shake: boolean; autoTier: boolean };
   /** ms timestamp of the last real change (used to pick the newer of the device and cloud copies) */
@@ -165,6 +167,11 @@ export function weeklySeed(week: string) {
   return h >>> 0;
 }
 export const WEEKLY_TIER = 4;
+
+/** This season's journey counters: run counters since the season began, topped up from this season's heroes. */
+export function seasonStats(p: Profile): Life {
+  return lifeStats({ chars: p.chars, life: p.journey?.season === p.season.n ? p.journey.stats : {} });
+}
 
 export function xpProgress(c: CharSave) { return c.level >= RIFT.levels.max ? (c.pxp ?? 0) / paragonXp(c.paragon ?? 0) : c.xp / xpForLevel(c.level); }
 

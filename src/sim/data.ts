@@ -17,6 +17,7 @@ import boonsJson from "../../data/boons.json";
 import petsJson from "../../data/pets.json";
 import cosmeticsJson from "../../data/cosmetics.json";
 import achievementsJson from "../../data/achievements.json";
+import seasonJson from "../../data/season.json";
 
 export type SlotType = "weapon" | "offhand" | "helm" | "shoulders" | "chest" | "bracers" | "gloves" | "belt" | "pants" | "boots" | "amulet" | "ring";
 export type EquipSlot = Exclude<SlotType, "ring"> | "ring1" | "ring2";
@@ -86,7 +87,7 @@ export interface UnlockCtx { owned?: string[]; chars: Record<string, CharProgres
 
 // ------------------------------------------------------------------ achievements (feats)
 /** Account-wide lifetime counters. They survive season resets. */
-export interface Life { rifts: number; tier: number; kills: number; elites: number; flawless: number; kings: number; seraphs: number; wave: number; mythics: number; ancestrals: number; paragon: number; maxed: number; party6: number }
+export interface Life { rifts: number; tier: number; level: number; legendaries: number; kills: number; elites: number; flawless: number; kings: number; seraphs: number; wave: number; mythics: number; ancestrals: number; paragon: number; maxed: number; party6: number }
 export type LifeStat = keyof Life;
 export interface Achievement { id: string; name: string; desc: string; stat: LifeStat; goal: number; reward?: string }
 export const ACHIEVEMENTS = achievementsJson as Achievement[];
@@ -96,15 +97,28 @@ export function lifeStats(p: UnlockCtx): Life {
   const max = (f: (c: CharProgress) => number) => cs.reduce((m, c) => Math.max(m, f(c)), 0);
   const sum = (f: (c: CharProgress) => number) => cs.reduce((m, c) => m + f(c), 0);
   return {
-    rifts: L.rifts ?? 0, kills: L.kills ?? 0, elites: L.elites ?? 0, flawless: L.flawless ?? 0, mythics: L.mythics ?? 0, ancestrals: L.ancestrals ?? 0, party6: L.party6 ?? 0,
+    rifts: L.rifts ?? 0, legendaries: L.legendaries ?? 0, kills: L.kills ?? 0, elites: L.elites ?? 0, flawless: L.flawless ?? 0, mythics: L.mythics ?? 0, ancestrals: L.ancestrals ?? 0, party6: L.party6 ?? 0,
     tier: Math.max(L.tier ?? 0, max((c) => c.highestTier - 1)),
     wave: Math.max(L.wave ?? 0, max((c) => c.bestWave ?? 0)),
+    level: Math.max(L.level ?? 0, max((c) => c.level ?? 0)),
     kings: Math.max(L.kings ?? 0, sum((c) => c.kings ?? 0)),
     seraphs: Math.max(L.seraphs ?? 0, sum((c) => c.seraphs ?? 0)),
     paragon: Math.max(L.paragon ?? 0, max((c) => c.paragon ?? 0)),
     maxed: Math.max(L.maxed ?? 0, cs.filter((c) => (c.level ?? 0) >= RIFT.levels.max).length),
   };
 }
+// ------------------------------------------------------------------ season journey
+export interface JourneyTask { stat: LifeStat; goal: number; desc: string }
+export interface JourneyChapter { name: string; tasks: JourneyTask[]; reward?: string }
+export const SEASON_JOURNEY = seasonJson as { id: string; name: string; desc: string; chapters: JourneyChapter[] };
+/** A chapter's done key, kept in the feats list so its reward outlives the season. Chapters count from 1. */
+export const chapterKey = (i: number) => `journey:${SEASON_JOURNEY.id}:${i + 1}`;
+/** Chapters complete under these season counters but not yet in the done list. */
+export function newChapters(p: UnlockCtx, season: Life): number[] {
+  const done = new Set(p.feats ?? []);
+  return SEASON_JOURNEY.chapters.map((c, i) => i).filter((i) => !done.has(chapterKey(i)) && SEASON_JOURNEY.chapters[i].tasks.every((t) => season[t.stat] >= t.goal));
+}
+
 /** A reward key ("cos:wings:judgement") as a readable name. */
 export function rewardName(key: string) {
   const [, kind, id] = key.split(":");
