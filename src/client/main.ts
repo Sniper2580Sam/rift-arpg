@@ -232,7 +232,8 @@ function hideoutTick() {
   if (best !== hideNear) { hideNear = best; hideoutButtons(); }
 }
 function leaveHideout() {
-  if (sim) syncFromSim(profile, sim, ME);
+  // never copy the hideout hero back into the save: nothing changes there in play, while the menu changes the save
+  // directly, so syncing would undo (or duplicate) gear moved in the menu
   sim = null; run = null; coop = null; menuOpen = false; decorating = false; hideNear = null;
 }
 /** Home: your hideout. In a direct room the host's hideout is shared and guests wait for it. */
@@ -299,7 +300,7 @@ function openRiftInventory() {
 
 function endRun() {
   if (!sim || !run) return;
-  if (run.kind === "hideout") { syncFromSim(profile, sim, ME); saveProfile(profile); finishOnline(); leaveHideout(); goHub(); return; }
+  if (run.kind === "hideout") { saveProfile(profile); finishOnline(); leaveHideout(); goHub(); return; }
   const s = sim, p = me(), c = char(profile), T = RIFT.tiers;
   syncFromSim(profile, s, ME);
   for (const [k, v] of Object.entries(p.uses)) c.uses[k] = (c.uses[k] ?? 0) + v;
@@ -400,7 +401,7 @@ input.onKey = (k) => {
 };
 addEventListener("pointerdown", () => unlockAudio());
 addEventListener("touchend", () => unlockAudio());
-document.addEventListener("visibilitychange", () => { if (document.hidden && sim) { syncFromSim(profile, sim, ME); if (!ui.invOpen && !completeInfo) openRiftInventory(); } });
+document.addEventListener("visibilitychange", () => { if (document.hidden && sim && !inHideout()) { syncFromSim(profile, sim, ME); if (!ui.invOpen && !completeInfo) openRiftInventory(); } });
 
 // ------------------------------------------------------------------ events -> feel
 function showBanner(text: string, sub: string, color: string, t = 2.2) { banner = { text, sub, color, t }; }
