@@ -48,4 +48,5 @@ const head = `<link rel="manifest" href="manifest.webmanifest">
 const html = readFileSync("dist/index.html", "utf8").replace("<title>", head + "<title>");
 writeFileSync("docs/index.html", html);
 writeFileSync("docs/.nojekyll", "");
+writeFileSync("docs/privacy.html", readFileSync("scripts/privacy.html", "utf8"));
 console.log("docs/ built", VERSION);
