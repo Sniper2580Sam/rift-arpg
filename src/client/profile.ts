@@ -8,6 +8,10 @@ export const SAVE_KEY = "rift-arpg-save";
 export const SAVE_VERSION = 2;
 
 export interface CharSave {
+  /** gear slot upgrades (+1..+5) */
+  slotPlus?: Partial<Record<EquipSlot, number>>;
+  /** masterwork crit affix per slot, and how many times each slot's crit was rolled */
+  slotCrit?: Partial<Record<EquipSlot, string>>; slotCritRolls?: Partial<Record<EquipSlot, number>>;
   cls: string; level: number; xp: number;
   equipment: Holder["equipment"]; bag: Item[];
   runes: Record<string, string>; uses: Record<string, number>;
@@ -23,6 +27,8 @@ export const BUILD_SLOTS = 5;
 export interface Profile {
   version: number; active: string; chars: Record<string, CharSave>;
   materials: number; pet: string; filter: Rarity; cos: CosChoice;
+  /** Rift Shards (account-wide, like materials) */
+  shards?: number;
   /** storage shared by every character */
   stash: Item[];
   season: { n: number; started: string }; unlockedPets: string[];
@@ -68,6 +74,13 @@ export function migrate(raw: any): Profile | null {
   if (raw.version === SAVE_VERSION) {
     const p = { ...newProfile(), ...raw } as Profile;
     for (const cls of Object.keys(CLASSES)) p.chars[cls] ??= newChar(cls);
+    // the old per-item + (merging) moves onto the slot the item is worn in
+    for (const c of Object.values(p.chars)) {
+      c.slotPlus ??= {};
+      for (const [sl, it] of Object.entries(c.equipment)) if ((it as any)?.plus) c.slotPlus[sl as EquipSlot] = Math.max(c.slotPlus[sl as EquipSlot] ?? 0, (it as any).plus);
+      for (const it of [...Object.values(c.equipment), ...c.bag]) if (it) { delete (it as any).plus; delete (it as any).charges; }
+    }
+    for (const it of p.stash ?? []) { delete (it as any).plus; delete (it as any).charges; }
     return p;
   }
   return null;
@@ -103,12 +116,13 @@ export function isFresh(p: Profile) {
 export const char = (p: Profile) => p.chars[p.active];
 export function holderOf(p: Profile): Holder {
   const c = char(p);
-  return { equipment: c.equipment, bag: c.bag, get materials() { return p.materials; }, set materials(v: number) { p.materials = v; } } as Holder;
+  c.slotPlus ??= {}; c.slotCrit ??= {};
+  return { equipment: c.equipment, bag: c.bag, slotPlus: c.slotPlus, slotCrit: c.slotCrit, get materials() { return p.materials; }, set materials(v: number) { p.materials = v; }, get shards() { return p.shards ?? 0; }, set shards(v: number) { p.shards = v; } } as Holder;
 }
 
 export function setupFor(p: Profile, pid = 0, name = "You"): PlayerSetup {
   const c = char(p);
-  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, sigils: c.sigils, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos };
+  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos };
 }
 
 /** Pull the player's persistent state back out of a running sim (items picked up, XP, levels). Boons are not kept. */
@@ -119,7 +133,7 @@ export function syncFromSim(p: Profile, s: SimState, pid = 0) {
   c.equipment = JSON.parse(JSON.stringify(me.equipment));
   c.bag = JSON.parse(JSON.stringify(me.bag));
   c.level = me.level; c.xp = me.xp; c.sigils = me.sigils;
-  p.materials = me.materials;
+  p.materials = me.materials; p.shards = me.shards ?? p.shards ?? 0;
   saveProfile(p);
 }
 

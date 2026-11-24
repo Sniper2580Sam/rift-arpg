@@ -1,7 +1,7 @@
 // Server-side item authority: minting drops for a run, and validating what a player brings back.
 // Pure functions (no I/O) so they can be unit tested.
 import { CLASSES, RIFT } from "../sim/data";
-import { Item, MintOpts, mintItem, scrapValue } from "../sim/items";
+import { Item, MintOpts, mintItem, scrapValue, shardValue } from "../sim/items";
 import { Rng, next } from "../sim/rng";
 import type { CharSave, Profile } from "../client/profile";
 
@@ -52,7 +52,7 @@ export function mintFor(rng: Rng, m: RunMember, opts: MintOpts): Item {
 const same = (a: Item, b: Item) => JSON.stringify({ ...a, locked: undefined }) === JSON.stringify({ ...b, locked: undefined });
 
 export interface SaveReport {
-  equipment: CharSave["equipment"]; bag: Item[]; scrapped: string[]; materials: number;
+  equipment: CharSave["equipment"]; bag: Item[]; scrapped: string[]; materials: number; shards?: number;
   level: number; xp: number; sigils: number; uses: Record<string, number>;
   highestTier: number; pityAnc: number; pityPri: number; bestTimes: Record<string, number>; riftsCleared: number;
   weeklyBest?: number;
@@ -72,12 +72,12 @@ export function applySave(p: Profile, cls: string, rep: SaveReport, m: RunMember
   for (const it of c.bag) owned.set(it.id, it);
   const known = (id: string) => owned.get(id) ?? m?.pending.get(id);
   // materials earned from scrapping
-  let earned = 0;
+  let earned = 0, earnedShards = 0;
   const gone = new Set<string>();
   for (const id of rep.scrapped ?? []) {
     const it = known(id);
     if (!it || gone.has(id)) continue;
-    gone.add(id); earned += scrapValue(it);
+    gone.add(id); earned += scrapValue(it); earnedShards += shardValue(it);
   }
   const seen = new Set<string>();
   const ok = (it: Item | undefined) => {
@@ -94,6 +94,8 @@ export function applySave(p: Profile, cls: string, rep: SaveReport, m: RunMember
   const maxMats = p.materials + earned;
   if (rep.materials > maxMats) problems.push(`materials clamped ${rep.materials} -> ${maxMats}`);
   p.materials = Math.max(0, Math.min(rep.materials | 0, maxMats));
+  const maxShards = (p.shards ?? 0) + earnedShards;
+  p.shards = Math.max(0, Math.min((rep.shards ?? p.shards ?? 0) | 0, maxShards));
   // progression: trusted within sane bounds (the sim is host-run; see DECISIONS.md)
   const L = RIFT.levels.max;
   const lvl = Math.max(c.level, Math.min(L, rep.level | 0, c.level + 6));

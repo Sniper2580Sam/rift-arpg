@@ -218,7 +218,7 @@ function finishOnline() {
     online.send({ t: "complete", inTime: completeInfo?.inTime, time: completeInfo?.time });
     for (const pid of coop.live) online.sendR(pid, { t: "end" });
   }
-  online.send({ t: "save", report: { equipment: c.equipment, bag: c.bag, scrapped, materials: profile.materials, level: c.level, xp: c.xp, sigils: c.sigils, uses: c.uses, highestTier: c.highestTier, pityAnc: c.pityAnc, pityPri: c.pityPri, bestTimes: c.bestTimes, riftsCleared: c.riftsCleared }, week: isoWeek(), weeklyBest: run.weekly });
+  online.send({ t: "save", report: { equipment: c.equipment, bag: c.bag, scrapped, materials: profile.materials, shards: profile.shards ?? 0, level: c.level, xp: c.xp, sigils: c.sigils, uses: c.uses, highestTier: c.highestTier, pityAnc: c.pityAnc, pityPri: c.pityPri, bestTimes: c.bestTimes, riftsCleared: c.riftsCleared }, week: isoWeek(), weeklyBest: run.weekly });
   if (coop?.role === "host") online.send({ t: "runEnd" });
   else if (coop?.role === "guest" && !hostEnded && online.lobby) online.leave(); // a guest who leaves on their own leaves the party
   hostEnded = false;

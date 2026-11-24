@@ -292,16 +292,34 @@
       ]
     }
   },
-  "merge": {
+  "slotUpgrade": {
     "maxPlus": 5,
     "perPlus": 0.1,
-    "cost": [
+    "materials": [
       30,
       60,
       120,
       240,
       480
     ],
-    "dropPlusChance": 0.15
+    "shards": [
+      1,
+      2,
+      4,
+      8,
+      16
+    ],
+    "critBonus": 0.5,
+    "critReroll": {
+      "materials": 100,
+      "shards": 5
+    }
+  },
+  "shardValue": {
+    "legendary": 1,
+    "set": 1,
+    "mythic": 5,
+    "ancestralMult": 2,
+    "primalMult": 5
   }
 }

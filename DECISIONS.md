@@ -79,13 +79,13 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Storage: 60 slots shared by all characters, hub only. Arsenal: 5 saved builds per character (gear, skills, runes). Loading a build pulls items from equipment, bag and storage. Items it takes off go to the bag, or to storage if the bag is full.
 - Room code has Copy and Paste buttons.
 
-## + merging (Samuel chose "same named item, costs materials", 2026-11-24)
-- Three copies of the same legendary (or the same set piece in the same slot) at +N merge into one +N+1, up to +5. The kept item is the one you selected, with its own rolls. The other two must be unlocked and can come from the bag or storage.
-- Each + level scales base damage, armor and affix values by 10% (+5 = +50%). Legendary powers are not scaled.
-- Cost in materials: 30 / 60 / 120 / 240 / 480 for +1 … +5. This gives scrap a second use.
-- 15% of legendary and set drops arrive at +1. This is decided from the item id, so it doesn't shift the random rolls.
-- ⚠ Balance: +5 on a full kit is a big power jump. The numbers are a first pass, and merging only happens in the hub.
-
+## Slot upgrades replace + merging (Samuel, 2026-11-24)
+- Merging copies was clunky. Players chase better rolls and different affixes, so keeping copies around clogged the bag. Merging is removed.
+- Scrapping a legendary or set item gives 1 **Rift Shard** (mythic 5; ancestral ×2, primal ×5) as well as materials.
+- Each character upgrades **gear slots** +1…+5 with materials and shards: 30/1, 60/2, 120/4, 240/8, 480/16. Each level gives the item worn there +10% base stats and affixes. Legendary powers are not scaled. Swapping items keeps the slot level.
+- **Masterwork crit** at +5 (Samuel: "like Diablo 4 masterworking"): the slot rolls one affix type, and that affix gets +50% on anything worn there. Rerolling costs 100 materials and 5 shards. Rolls are deterministic from the slot and the roll count, so client and server agree.
+- Old saves: an item's + moves onto the slot it was worn in.
+- ⚠ Balance: a full +5 kit is +50% stats before crits. Shard income is ~1 per legendary/set drop, so maxing all 13 slots takes ~400 shards.
 ## Font, boon button, density (2026-11-24)
 - Font changed from Pixelify Sans (its 5 looked like an S) to Jersey 10, which is also pixel-style and OFL-licensed, at 130% size. Faux bold is off, because it smeared the pixels.
 - Boons no longer pop up mid-fight. A pulsing "★ Boon" button appears at the top right, and solo play pauses only while the picker is open. "Later" closes the picker. Boons earned while one is waiting stack up (×2, ×3).

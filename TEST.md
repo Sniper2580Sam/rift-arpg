@@ -34,7 +34,7 @@ Saves are stored in Safari for that page. Clearing Safari website data wipes the
 5. Build toward a 6-piece set and see whether the bonus feels build-defining.
 6. Try the weekly rift and the rift code box: the same code should give the same layout.
 7. Gear tab: ★ Lock an item, then try to scrap it. Move items to Storage and switch characters (storage is shared). Save a build in the Arsenal, change gear, then tap "Wear this build".
-8. Collect 3 of the same legendary and merge them to +1 (costs 30 materials). Some drops already show +1 in the corner.
+8. Scrap a legendary for a Rift Shard, then tap an equipped item and upgrade its slot. At +5 the slot gets a masterwork crit (gold ✦ affix).
 
 ## 3b. Co-op with friends (no setup)
 - [ ] On the site, Play tab: type your name, tap **Host a room**, send friends the 4-letter code. They type it and tap **Join**. Up to 4 players.

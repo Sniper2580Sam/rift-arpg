@@ -11,12 +11,18 @@ export interface Item {
   affixes: Affix[];
   legendary?: string; set?: string; quality?: "ancestral" | "primal";
   rerollIdx?: number; rerolls?: number;
-  /** merge level: 3 copies at +N merge into one +N+1 (each + scales its stats by merge.perPlus) */
-  plus?: number;
   /** favourited by the player: scrapping skips it */
   locked?: boolean;
 }
-export interface Holder { equipment: Partial<Record<EquipSlot, Item>>; bag: Item[]; materials: number }
+export interface Holder {
+  equipment: Partial<Record<EquipSlot, Item>>; bag: Item[]; materials: number;
+  /** Rift Shards: from scrapping legendary/set/mythic items; with materials they upgrade gear slots */
+  shards?: number;
+  /** slot upgrades (+1..+5): whatever is worn in that slot gets +10% per level */
+  slotPlus?: Partial<Record<EquipSlot, number>>;
+  /** masterwork crit per slot (rolled at max level): this affix on whatever is worn there gets +50% */
+  slotCrit?: Partial<Record<EquipSlot, string>>;
+}
 export const BAG_SIZE = 30;
 
 const ilvlMult = (ilvl: number) => 1 + ITEMS.ilvlScale * (ilvl - 1);
@@ -108,41 +114,41 @@ export function mintItem(r: Rng, id: string, o: MintOpts = {}): Item {
   if (legendary) item.legendary = legendary;
   if (set) item.set = set;
   if (quality) item.quality = quality;
-  // some legendary and set drops arrive already at +1 (decided by the id, so it costs no rng roll)
-  if ((rarity === "legendary" || rarity === "set") && idHash01(id) < ITEMS.merge.dropPlusChance) item.plus = 1;
   return item;
 }
 
-function idHash01(id: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return (h >>> 0) / 4294967296;
+// ------------------------------------------------------------------ slot upgrades and Rift Shards
+const SU = ITEMS.slotUpgrade;
+export const SLOT_MAX = SU.maxPlus;
+export const slotMult = (plus: number) => 1 + SU.perPlus * plus;
+/** Cost of the next level for a slot at `plus`, or null at the cap. */
+export const slotCost = (plus: number) => (plus >= SU.maxPlus ? null : { materials: SU.materials[plus], shards: SU.shards[plus] });
+export function shardValue(it: Item): number {
+  const V = ITEMS.shardValue as Record<string, number>;
+  const base = V[it.rarity] ?? 0;
+  return base * (it.quality === "primal" ? V.primalMult : it.quality === "ancestral" ? V.ancestralMult : 1);
 }
-
-// ------------------------------------------------------------------ + merging
-export const plusMult = (it: Item) => 1 + ITEMS.merge.perPlus * (it.plus ?? 0);
 const scaleVal = (v: number, m: number) => (Number.isInteger(v) ? Math.round(v * m) : Math.round(v * m * 10) / 10);
-/** The item as it counts in play: base damage, armor and affix values scaled by its + level. */
-export function scaledItem(it: Item): Item {
-  const m = plusMult(it);
-  if (m === 1) return it;
+/** The item as it counts in a slot upgraded to `plus` (with an optional masterwork crit affix): values scaled. */
+export function scaledItem(it: Item, plus = 0, crit?: string): Item {
+  const m = slotMult(plus);
+  if (m === 1 && !(crit && it.affixes.some((a) => a.id === crit))) return it;
+  const cm = m * (1 + SU.critBonus);
   return {
     ...it,
     dmgMin: it.dmgMin !== undefined ? scaleVal(it.dmgMin, m) : undefined, dmgMax: it.dmgMax !== undefined ? scaleVal(it.dmgMax, m) : undefined,
     armor: it.armor ? scaleVal(it.armor, m) : it.armor,
-    affixes: it.affixes.map((a) => ({ ...a, value: scaleVal(a.value, m) })),
+    affixes: it.affixes.map((a) => ({ ...a, value: scaleVal(a.value, a.id === crit ? cm : m) })),
   };
 }
-export const canMerge = (it: Item) => (it.rarity === "legendary" || it.rarity === "set") && (it.plus ?? 0) < ITEMS.merge.maxPlus;
-export const mergeKey = (it: Item) => (it.legendary ? "L:" + it.legendary : it.set ? `S:${it.set}:${it.slot}` : "");
-export const mergeCost = (it: Item) => ITEMS.merge.cost[Math.min(it.plus ?? 0, ITEMS.merge.cost.length - 1)];
-/** Unlocked copies (same named item, same + level) that a merge into `it` would use up, from the bag first, then storage. */
-export function mergeFodder(it: Item, bag: Item[], stash: Item[]): { where: "bag" | "stash"; i: number }[] {
-  const k = mergeKey(it), pl = it.plus ?? 0, out: { where: "bag" | "stash"; i: number }[] = [];
-  if (!k) return out;
-  const scan = (list: Item[], where: "bag" | "stash") => list.forEach((x, i) => { if (out.length < 2 && x !== it && x.id !== it.id && !x.locked && mergeKey(x) === k && (x.plus ?? 0) === pl) out.push({ where, i }); });
-  scan(bag, "bag"); scan(stash, "stash");
-  return out;
+/** Affix types that can roll in a slot (ring1/ring2 share the ring list). */
+export const slotAffixes = (slot: EquipSlot) => AFFIXES.filter((a) => a.slots.includes((slot.startsWith("ring") ? "ring" : slot) as SlotType)).map((a) => a.id);
+/** Masterwork crit roll: deterministic from the slot and how many times it was rolled, so client and server agree. */
+export function rollSlotCrit(slot: EquipSlot, n: number, current?: string): string {
+  const pool = slotAffixes(slot).filter((id) => id !== current);
+  let h = 2166136261; const key = `${slot}:${n}`;
+  for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return pool[(h >>> 0) % pool.length];
 }
 
 function rollAffix(r: Rng, id: string, ilvl: number, qm: number, max: boolean): Affix {
@@ -202,7 +208,7 @@ export interface Stats {
   speed: number; dmgMult: number; takenMult: number;
 }
 
-export interface StatCtx { cls: string; level: number; effLevel?: number; boons?: string[]; riftMods?: string[] }
+export interface StatCtx { cls: string; level: number; effLevel?: number; boons?: string[]; riftMods?: string[]; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"] }
 
 export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
   const cd = CLASSES[c.cls];
@@ -212,9 +218,9 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
     maxHp: cd.baseHp + cd.hpPerLevel * (c.level - 1), armor: 0, regen: 0, moveSpeed: 0, cdr: 0, lifeOnHit: 0, eliteDmg: 0, resRegen: 0, costRed: 0, resMax: 0, areaPct: 0,
     tagDmg: {}, mods: [], flags: {}, setCounts: {}, speed: cd.speed, dmgMult: 1, takenMult: 1,
   };
-  for (const raw of Object.values(eq)) {
+  for (const [slot, raw] of Object.entries(eq)) {
     if (!raw) continue;
-    const it = scaledItem(raw);
+    const it = scaledItem(raw, c.slotPlus?.[slot as EquipSlot] ?? 0, c.slotCrit?.[slot as EquipSlot]);
     if (it.dmgMin !== undefined) { s.dmgMin = it.dmgMin; s.dmgMax = it.dmgMax!; }
     if (it.armor) s.armor += it.armor;
     for (const a of it.affixes) {
@@ -345,13 +351,13 @@ export function applyInvCmd(h: Holder, cmd: InvCmd): boolean {
     const it = h.bag[cmd.bagIndex];
     if (!it || it.locked) return false;
     h.bag.splice(cmd.bagIndex, 1);
-    h.materials += scrapValue(it);
+    h.materials += scrapValue(it); h.shards = (h.shards ?? 0) + shardValue(it);
     return true;
   }
   if (cmd.type === "scrapBelow") {
     const lim = RARITY_ORDER.indexOf(cmd.rarity);
     const keep: Item[] = [];
-    for (const it of h.bag) { if (!it.locked && RARITY_ORDER.indexOf(it.rarity) < lim) h.materials += scrapValue(it); else keep.push(it); }
+    for (const it of h.bag) { if (!it.locked && RARITY_ORDER.indexOf(it.rarity) < lim) { h.materials += scrapValue(it); h.shards = (h.shards ?? 0) + shardValue(it); } else keep.push(it); }
     const changed = keep.length !== h.bag.length;
     h.bag.splice(0, h.bag.length, ...keep); // in place: the hub passes a holder view whose bag is the character's own array
     return changed;

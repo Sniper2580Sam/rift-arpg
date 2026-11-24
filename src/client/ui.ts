@@ -1,7 +1,8 @@
 // DOM screens: hub (play / gear / skills / settings), inventory with compare + reroll, boon picker, results.
+import { AFFIX as AFFIX_DEF } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { BOON, CLASSES, COSMETICS, CosKind, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
-import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, canMerge, mergeCost, mergeFodder, scaledItem } from "../sim/items";
+import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, WEEKLY_TIER, char, isoWeek, xpProgress } from "./profile";
@@ -33,20 +34,23 @@ function icon(bank: SpriteBank, it: Item) {
 }
 function cellHtml(bank: SpriteBank, it: Item | undefined, attrs: string, extra = "", label = "") {
   if (!it) return `<button class="cell empty" ${attrs}>${label ? `<span>${label}</span>` : ""}</button>`;
-  return `<button class="cell r-${it.rarity} ${it.quality ? "q-" + it.quality : ""} ${extra}" ${attrs}><img alt="" src="${icon(bank, it)}">${extra.includes("isup") ? '<i class="up">▲</i>' : ""}${it.locked ? '<i class="lk" aria-label="locked">★</i>' : ""}${it.plus ? `<i class="pl">+${it.plus}</i>` : ""}</button>`;
+  return `<button class="cell r-${it.rarity} ${it.quality ? "q-" + it.quality : ""} ${extra}" ${attrs}><img alt="" src="${icon(bank, it)}">${extra.includes("isup") ? '<i class="up">▲</i>' : ""}${it.locked ? '<i class="lk" aria-label="locked">★</i>' : ""}</button>`;
 }
 
 export function itemHtml(raw: Item, h?: Holder, ctx?: { cls: string; level: number }): string {
-  const it = scaledItem(raw);
+  // worn items show their values with the slot upgrade (and masterwork crit) applied
+  const worn = h ? (Object.entries(h.equipment).find(([, x]) => x === raw)?.[0] as EquipSlot | undefined) : undefined;
+  const plus = worn ? h!.slotPlus?.[worn] ?? 0 : 0, crit = worn ? h!.slotCrit?.[worn] : undefined;
+  const it = scaledItem(raw, plus, crit);
   const col = RARITY_COLOR[it.rarity];
-  let out = `<div class="it-name" style="color:${col}">${it.locked ? "★ " : ""}${it.plus ? `+${it.plus} ` : ""}${esc(it.name)}</div>`;
-  if (it.plus) out += `<div class="it-plus">+${it.plus}: base stats and affixes +${Math.round(ITEMS.merge.perPlus * 100 * it.plus)}%</div>`;
+  let out = `<div class="it-name" style="color:${col}">${it.locked ? "★ " : ""}${esc(it.name)}</div>`;
+  if (plus) out += `<div class="it-plus">${SLOT_NAME[worn!]} slot +${plus}: stats +${Math.round((slotMult(plus) - 1) * 100)}%${crit ? ` · ✦ masterwork crit: ${esc(AFFIX_DEF[crit]?.text.replace("{v}", "X") ?? crit)} +50%` : ""}</div>`;
   out += `<div class="it-type">${it.quality ? `<b class="q-${it.quality}">${it.quality === "primal" ? "Primal" : "Ancestral"}</b> ` : ""}${RARITY_NAME[it.rarity]} ${SLOT_NAME[it.slot]} · item level ${it.ilvl}</div>`;
   if (it.dmgMin !== undefined) out += `<div class="it-base">${it.dmgMin}–${it.dmgMax} Damage</div>`;
   if (it.armor) out += `<div class="it-base">${it.armor} Armor</div>`;
   it.affixes.forEach((a, i) => {
     const q = Math.round(affixQuality(a) * 100);
-    out += `<div class="it-affix${it.rerollIdx === i ? " locked" : ""}">${esc(affixText(a))} <small class="range">${a.min}–${a.max}${q >= 100 ? " ★" : ""}</small></div>`;
+    out += `<div class="it-affix${it.rerollIdx === i ? " locked" : ""}${a.id === crit ? " mw" : ""}">${a.id === crit ? "✦ " : ""}${esc(affixText(a))} <small class="range">${a.min}–${a.max}${q >= 100 ? " ★" : ""}</small></div>`;
   });
   if (it.legendary) out += `<div class="it-power ${LEGENDARY[it.legendary].mythic ? "mythic" : ""}">${esc(powerText(it))}</div>`;
   if (it.set) {
@@ -56,11 +60,11 @@ export function itemHtml(raw: Item, h?: Holder, ctx?: { cls: string; level: numb
     for (const [n, b] of Object.entries(sd.bonuses)) out += `<div class="${have >= +n ? "on" : ""}">(${n}) ${esc(b.text)}</div>`;
     out += `</div>`;
   }
-  if (h && ctx) {
-    const slot = equipTarget(h, it);
+  if (h && ctx && !worn) {
+    const slot = equipTarget(h, raw);
     const cur = h.equipment[slot];
-    if (cur !== it) {
-      const a = computeStats(h.equipment, ctx), b = computeStats({ ...h.equipment, [slot]: it }, ctx);
+    {
+      const a = computeStats(h.equipment, ctx), b = computeStats({ ...h.equipment, [slot]: raw }, ctx);
       const parts: string[] = [];
       const fmt = (v: number, label: string, unit = "") => { if (Math.abs(v) >= 0.5) parts.push(`<span class="${v > 0 ? "up" : "down"}">${v > 0 ? "+" : "−"}${Math.abs(Math.round(v))}${unit} ${label}</span>`); };
       fmt((effectiveDps(b) / effectiveDps(a) - 1) * 100, "damage", "%");
@@ -132,7 +136,7 @@ export class UI {
     const tabs = (["play", "gear", "skills", "looks", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("");
     let body = "";
     if (this.tab === "play") body = this.playTab(p, c, H);
-    if (this.tab === "gear") body = this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials }, true);
+    if (this.tab === "gear") body = this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
     if (this.tab === "skills") body = this.skillsTab(c);
     if (this.tab === "looks") body = this.looksTab(p);
     if (this.tab === "settings") body = this.settingsTab(p);
@@ -236,8 +240,8 @@ export class UI {
 
   // ---------------------------------------------------------------- gear
   gearTab(p: Profile | null, c: { cls: string; level: number } & Holder, allowReroll: boolean, materials?: number) {
-    const ctx = { cls: c.cls, level: c.level };
     const h = c as Holder;
+    const ctx = { cls: c.cls, level: c.level, slotPlus: h.slotPlus, slotCrit: h.slotCrit };
     const st = computeStats(h.equipment, ctx);
     const sel = this.sel;
     let selItem: Item | undefined;
@@ -245,7 +249,11 @@ export class UI {
     if (sel?.where === "eq") selItem = h.equipment[sel.slot];
     if (sel?.where === "stash") selItem = p?.stash?.[sel.i];
     if (!selItem) this.sel = null;
-    const doll = (ITEMS.equipSlots as EquipSlot[]).map((slot) => cellHtml(this.bank, h.equipment[slot], `data-eq="${slot}" aria-label="${SLOT_NAME[slot]}"`, sel?.where === "eq" && sel.slot === slot ? "on" : "", SLOT_NAME[slot])).join("");
+    const doll = (ITEMS.equipSlots as EquipSlot[]).map((slot) => {
+      const lv = h.slotPlus?.[slot] ?? 0;
+      const cell = cellHtml(this.bank, h.equipment[slot], `data-eq="${slot}" aria-label="${SLOT_NAME[slot]}${lv ? " +" + lv : ""}"`, sel?.where === "eq" && sel.slot === slot ? "on" : "", SLOT_NAME[slot]);
+      return lv ? cell.replace(/<\/button>$/, `<i class="pl ${h.slotCrit?.[slot] ? "mw" : ""}">+${lv}</i></button>`) : cell;
+    }).join("");
     let bag = "";
     for (let i = 0; i < BAG_SIZE; i++) {
       const it = h.bag[i];
@@ -267,12 +275,12 @@ export class UI {
       } else detail += `<button id="unequip">Unequip</button>${lockBtn}`;
       detail += `</div>`;
       if (allowReroll && p && this.sel!.where !== "stash") detail += this.rerollHtml(selItem, p.materials);
-      if (allowReroll && p) detail += this.mergeHtml(selItem, h.bag, p.stash ?? [], p.materials);
+      if (allowReroll && p && this.sel!.where === "eq") detail += this.slotHtml(this.sel!.slot, h, p);
     }
     const sets = Object.entries(st.setCounts).filter(([, n]) => n >= 2).map(([id, n]) => `${SET[id].name} ${n}/6`).join(", ");
     void sets;
     return `
-      <div class="statline">Damage ${st.dmgMin}–${st.dmgMax} (+${st.dmgPct}%) · Crit ${st.critChance}%/+${st.critDmg}% · AS +${st.atkSpeed}% · Life ${st.maxHp} · Armor ${st.armor}${st.cdr ? ` · CDR ${st.cdr}%` : ""}${st.regen ? ` · ${st.regen} life/s` : ""}<br>Powers: ${st.mods.filter((m) => !(m as any).text).length} · Sets: ${sets || "none"} · Materials ${materials ?? p?.materials ?? 0}</div>
+      <div class="statline">Damage ${st.dmgMin}–${st.dmgMax} (+${st.dmgPct}%) · Crit ${st.critChance}%/+${st.critDmg}% · AS +${st.atkSpeed}% · Life ${st.maxHp} · Armor ${st.armor}${st.cdr ? ` · CDR ${st.cdr}%` : ""}${st.regen ? ` · ${st.regen} life/s` : ""}<br>Powers: ${st.mods.filter((m) => !(m as any).text).length} · Sets: ${sets || "none"} · Materials ${materials ?? p?.materials ?? 0} · Shards ${p?.shards ?? h.shards ?? 0}</div>
       <div class="doll">${doll}</div>
       <div class="bag-head"><span>Bag ${h.bag.length}/${BAG_SIZE}</span><span><button class="tiny-btn" data-scrapbelow="rare">Scrap common+magic</button><button class="tiny-btn" data-scrapbelow="legendary">Scrap all but legendary/set</button></span></div>
       <div class="bag">${bag}</div>
@@ -306,14 +314,22 @@ export class UI {
     return `<div class="bag-head"><span>Arsenal</span><span class="dim small">${esc(CLASSES[c.cls].name)} builds</span></div><div class="builds">${slots}</div>${detail}`;
   }
 
-  private mergeHtml(it: Item, bag: Item[], stash: Item[], mats: number) {
-    if (it.rarity !== "legendary" && it.rarity !== "set") return "";
-    if (!canMerge(it)) return `<div class="reroll"><b>Merge:</b> +${it.plus} is the maximum.</div>`;
-    const pl = it.plus ?? 0, cost = mergeCost(it), have = mergeFodder(it, bag, stash).length;
-    const ok = have >= 2 && mats >= cost;
-    const why = have < 2 ? `Find ${2 - have} more unlocked ${pl ? "+" + pl + " " : ""}cop${2 - have > 1 ? "ies" : "y"} (bag or storage).` : mats < cost ? `Need ${cost - mats} more materials.` : "Uses 2 unlocked copies from your bag or storage.";
-    return `<div class="reroll"><b>Merge to +${pl + 1}:</b> 3 × ${pl ? "+" + pl : "this item"} → +${pl + 1} (+${Math.round(ITEMS.merge.perPlus * 100)}% stats). Costs ${cost} materials. <span class="mats ${ok ? "" : "short"}">Copies ${have + 1}/3 · You have ${mats} · ${why}</span>
-      <div class="opts"><button id="merge" ${ok ? "" : "disabled"}>⇪ Merge to +${pl + 1}</button></div></div>`;
+  private slotHtml(slot: EquipSlot, h: Holder, p: Profile) {
+    const lv = h.slotPlus?.[slot] ?? 0, cost = slotCost(lv), mats = p.materials, sh = p.shards ?? 0;
+    let out = `<div class="reroll"><b>${SLOT_NAME[slot]} slot +${lv}</b>`;
+    if (cost) {
+      const ok = mats >= cost.materials && sh >= cost.shards;
+      out += ` · upgrade to +${lv + 1}: whatever you wear here gets +${Math.round((slotMult(lv + 1) - 1) * 100)}% stats${lv + 1 >= SLOT_MAX ? " and a masterwork crit" : ""}. Costs ${cost.materials} materials and ${cost.shards} shard${cost.shards > 1 ? "s" : ""}.
+        <span class="mats ${ok ? "" : "short"}">You have ${mats} materials, ${sh} shards${ok ? "" : " · scrap legendary and set items for shards"}</span>
+        <div class="opts"><button id="slot-up" ${ok ? "" : "disabled"}>⇪ Upgrade to +${lv + 1}</button></div>`;
+    } else out += ` (max)`;
+    const crit = h.slotCrit?.[slot];
+    if (crit) {
+      const rc = ITEMS.slotUpgrade.critReroll, ok = mats >= rc.materials && sh >= rc.shards;
+      out += `<div class="small">✦ Masterwork crit: <b>${esc(AFFIX_DEF[crit]?.text.replace("{v}", "X") ?? crit)}</b> gets +50% on anything worn here.</div>
+        <div class="opts"><button id="slot-crit" ${ok ? "" : "disabled"}>↻ Reroll crit (${rc.materials} materials, ${rc.shards} shards)</button></div>`;
+    }
+    return out + `</div>`;
   }
 
   private rerollHtml(it: Item, mats: number) {
@@ -359,21 +375,8 @@ export class UI {
     let armed = false;
     bind("#b-del", () => { if (!armed) { armed = true; const el = this.root.querySelector<HTMLElement>("#b-del"); if (el) el.textContent = "Tap again to delete"; return; } H.op?.({ t: "buildDelete", idx: this.buildSel }); re(); });
     if (!allowReroll || !p) return;
-    bind("#merge", () => {
-      const s = this.sel; if (!s) return;
-      const stash = p.stash ?? [];
-      const cur = s.where === "bag" ? c.bag[s.i] : s.where === "stash" ? stash[s.i] : c.equipment[s.slot];
-      if (!cur) return;
-      const id = cur.id, before = cur.plus ?? 0;
-      H.op?.({ t: "merge", target: s.where === "bag" ? { bag: s.i } : s.where === "stash" ? { stash: s.i } : { slot: s.slot } });
-      // indices shift when copies are used up: follow the merged item
-      const bi = c.bag.findIndex((x) => x.id === id), si = stash.findIndex((x) => x.id === id);
-      if (s.where === "bag" && bi >= 0) this.sel = { where: "bag", i: bi };
-      else if (s.where === "stash" && si >= 0) this.sel = { where: "stash", i: si };
-      const now = bi >= 0 ? c.bag[bi] : si >= 0 ? stash[si] : s.where === "eq" ? c.equipment[s.slot] : undefined;
-      if ((now?.plus ?? 0) > before) this.toast(`Merged: +${now!.plus} ${now!.name}`, "#ffd23f");
-      this.rerollState = null; re();
-    });
+    bind("#slot-up", () => { if (this.sel?.where !== "eq") return; const sl = this.sel.slot; H.op?.({ t: "slotUp", slot: sl }); this.toast(`${SLOT_NAME[sl]} slot upgraded`, "#7dff9a"); re(); });
+    bind("#slot-crit", () => { if (this.sel?.where !== "eq") return; H.op?.({ t: "slotCrit", slot: this.sel.slot }); this.toast("Masterwork crit rerolled", "#ffd23f"); re(); });
     const target = this.sel?.where === "bag" ? { bag: this.sel.i } : this.sel?.where === "eq" ? { slot: this.sel.slot } : null;
     const it = this.sel?.where === "bag" ? c.bag[this.sel.i] : this.sel?.where === "eq" ? c.equipment[this.sel.slot] : undefined;
     this.root.querySelectorAll<HTMLElement>("[data-reroll]").forEach((el) => el.onclick = () => {

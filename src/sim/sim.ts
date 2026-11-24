@@ -1,7 +1,7 @@
 // Pure deterministic simulation for 1–4 players. No DOM, no Math.random, no wall-clock time.
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
 import { BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel } from "./data";
-import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue } from "./items";
+import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue, shardValue } from "./items";
 import { TileMap, flowField, genArena, genCave, moveWithWalls } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
 import { DIR_TABLE, len, norm, rotFine } from "./vec";
@@ -21,6 +21,7 @@ export type HostCmd =
 export interface PlayerSetup {
   pid: number; name: string; cls: string; level: number; xp: number;
   equipment: Holder["equipment"]; bag: Item[]; materials: number; sigils: number;
+  shards?: number; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"];
   runes: Record<string, string>; pet: string; filter: Rarity;
   loadout?: string[];
   /** cosmetics: visual only, never read by the sim */
@@ -196,7 +197,7 @@ export function addPlayer(s: SimState, ps: PlayerSetup): Player {
   const cls = ps.cls;
   const p: Player = {
     pid: ps.pid, name: ps.name, cls, level: ps.level, xp: ps.xp, sigils: ps.sigils, runes: { ...ps.runes }, pet: ps.pet, filter: ps.filter, cos: { ...ps.cos },
-    equipment: clone(ps.equipment), bag: clone(ps.bag), materials: ps.materials,
+    equipment: clone(ps.equipment), bag: clone(ps.bag), materials: ps.materials, shards: ps.shards ?? 0, slotPlus: { ...(ps.slotPlus ?? {}) }, slotCrit: { ...(ps.slotCrit ?? {}) },
     x: s.startX + (s.players.length % 2) * 12 - 6, y: s.startY + Math.floor(s.players.length / 2) * 12, px: 0, py: 0, r: 5, hp: 1, fx: 1, fy: 0, moving: false, walk: 0,
     skills: [], cds: {}, charges: {}, chargeT: {}, swingT: 0, swingCount: 0,
     dashT: 0, dashDx: 0, dashDy: 0, dashHit: [], dashSkill: "", trailT: 0,
@@ -221,7 +222,7 @@ export function refreshAll(s: SimState) {
 }
 function refreshPlayer(s: SimState, p: Player, minEff: number) {
   const ratio = p.stats ? p.hp / p.stats.maxHp : 1;
-  p.stats = computeStats(p.equipment, { cls: p.cls, level: p.level, effLevel: Math.max(p.level, minEff), boons: p.boons, riftMods: s.rift.mods });
+  p.stats = computeStats(p.equipment, { cls: p.cls, level: p.level, effLevel: Math.max(p.level, minEff), boons: p.boons, riftMods: s.rift.mods, slotPlus: p.slotPlus, slotCrit: p.slotCrit });
   p.sk = {};
   for (const id of p.skills) p.sk[id] = resolveSkill(id, p.runes[id], p.stats);
   if (!p.dead) p.hp = Math.max(1, Math.min(p.stats.maxHp, p.stats.maxHp * ratio));
@@ -1268,7 +1269,7 @@ function updateLoot(s: SimState) {
     if (hiddenByFilter(p, l.item)) {
       // auto-scrap: anything the loot filter hides turns into materials on pickup
       const v = scrapValue(l.item);
-      p.materials += v; s.loot.splice(i, 1);
+      p.materials += v; p.shards = (p.shards ?? 0) + shardValue(l.item); s.loot.splice(i, 1);
       s.events.push({ type: "scrapped", pid: p.pid, name: l.item.name, mats: v, id: l.item.id });
       continue;
     }
