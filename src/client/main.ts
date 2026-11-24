@@ -452,7 +452,7 @@ function render(alpha: number, dt: number) {
   const sx = Math.round(camX + (Math.random() - 0.5) * shake * 2), sy = Math.round(camY + (Math.random() - 0.5) * shake * 2);
   const g = wctx;
   g.imageSmoothingEnabled = false;
-  g.fillStyle = "#0e0a14"; g.fillRect(0, 0, W, H);
+  g.fillStyle = (sim?.rift.map && MAP[sim.rift.map]?.theme.void) || "#0e0a14"; g.fillRect(0, 0, W, H);
   g.save();
   g.translate(-sx, -sy);
   g.drawImage(mapCanvas!, sx, sy, W, H, sx, sy, W, H);
