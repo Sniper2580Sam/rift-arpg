@@ -1,0 +1,6 @@
+[
+  { "id": "none",  "name": "No pet" },
+  { "id": "bat",   "name": "Gloom Bat",   "desc": "Flaps after you." },
+  { "id": "slime", "name": "Bone Slime",  "desc": "Wobbles after you." },
+  { "id": "fox",   "name": "Ember Fox",   "desc": "Trots after you." }
+]

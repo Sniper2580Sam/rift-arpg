@@ -19,3 +19,15 @@ export function rotSteps(x: number, y: number, k: number): [number, number] {
   const [c, s] = DIR_TABLE[((k % DIRS) + DIRS) % DIRS];
   return [x * c - y * s, x * s + y * c];
 }
+
+const FINE = 256;
+const FINE_TABLE: ReadonlyArray<readonly [number, number]> = Array.from({ length: FINE }, (_, i) => {
+  const a = (i / FINE) * Math.PI * 2;
+  return [r6(Math.cos(a)), r6(Math.sin(a))] as const;
+});
+/** Rotate by k/256 of a turn (k rounded to an integer). */
+export function rotFine(x: number, y: number, k: number): [number, number] {
+  const i = ((Math.round(k) % FINE) + FINE) % FINE;
+  const [c, s] = FINE_TABLE[i];
+  return [x * c - y * s, x * s + y * c];
+}

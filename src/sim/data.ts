@@ -1,35 +1,60 @@
 import skillsJson from "../../data/skills.json";
+import classesJson from "../../data/classes.json";
 import enemiesJson from "../../data/enemies.json";
 import riftJson from "../../data/rift.json";
 import affixesJson from "../../data/affixes.json";
 import itemsJson from "../../data/items.json";
 import legendariesJson from "../../data/legendaries.json";
+import mythicsJson from "../../data/mythics.json";
+import setsJson from "../../data/sets.json";
+import elitesJson from "../../data/elites.json";
+import modifiersJson from "../../data/modifiers.json";
+import boonsJson from "../../data/boons.json";
+import petsJson from "../../data/pets.json";
 
-export type Slot = "weapon" | "helm" | "chest" | "gloves" | "boots";
-export type Rarity = "common" | "magic" | "rare" | "legendary";
-export type Tag = "melee" | "physical" | "pierce" | "fire" | "projectile" | "dash" | "summon" | "explosion";
+export type SlotType = "weapon" | "offhand" | "helm" | "shoulders" | "chest" | "bracers" | "gloves" | "belt" | "pants" | "boots" | "amulet" | "ring";
+export type EquipSlot = Exclude<SlotType, "ring"> | "ring1" | "ring2";
+export type Rarity = "common" | "magic" | "rare" | "legendary" | "set" | "mythic";
+export type Tag = string;
+export type Num = Record<string, number>;
 
-export interface SkillDef {
-  id: string; name: string; slot: string; key: string; tags: Tag[]; desc: string;
-  cooldown: number; damage: number;
-  interval?: number; range?: number; arcCos?: number; knockback?: number;
-  speed?: number; radius?: number; distance?: number; duration?: number;
-  count?: number; attackInterval?: number;
-}
+export interface ModDef { tag?: string; skill?: string; set?: Num; add?: Num; mul?: Num; addTags?: string[]; player?: boolean; text?: string }
+export interface RuneDef { id: string; name: string; uses: number; desc: string; set?: Num; add?: Num; mul?: Num; addTags?: string[]; removeTags?: string[] }
+export interface SkillDef { id: string; name: string; kind: string; slot: string; unlock: number; tags: string[]; desc: string; p: Num; runes: RuneDef[] }
+export interface ClassDef { name: string; role: string; desc: string; baseHp: number; hpPerLevel: number; speed: number; fists: [number, number]; skills: string[] }
 export interface EnemyDef {
-  name: string; hp: number; damage: number; speed: number; radius: number;
+  name: string; hp: number; damage: number; speed: number; radius: number; xp: number;
   attackRange: number; attackCooldown: number; windup: number; progress: number; dropChance: number;
-  projectileSpeed?: number; slamRadius?: number; enrageAfter?: number; novaCount?: number; novaSpeed?: number; chargeSpeed?: number;
+  projectileSpeed?: number; slamRadius?: number; enrageAfter?: number; novaSpeed?: number; chargeSpeed?: number;
 }
-export interface AffixDef { id: string; text: string; min: number; max: number; slots: Slot[] }
-export interface LegendaryDef { id: string; name: string; slot: Slot; tag: Tag; power: string; text: string; params: Record<string, number> }
+export interface AffixDef { id: string; text: string; min: number; max: number; slots: SlotType[]; flat?: boolean }
+export interface LegendaryDef extends ModDef { id: string; name: string; slot: SlotType; tag: string; text: string; scales?: string[]; pct?: string[]; mythic?: boolean }
+export interface SetDef { id: string; name: string; tag: string; skill: string; color: string; pieces: Partial<Record<SlotType, string>>; bonuses: Record<string, ModDef & { text: string }> }
+export interface ModifierDef { id: string; name: string; desc: string; packMult?: number; enemySpeed?: number; enemyHp?: number; dropMult?: number; playerDmg?: number; playerTaken?: number; eliteMult?: number; dark?: boolean; xpMult?: number }
+export interface BoonDef { id: string; name: string; desc: string; stats?: Num; mod?: ModDef }
 
-export const SKILLS = skillsJson as SkillDef[];
+export const SKILLS = skillsJson as unknown as SkillDef[];
 export const SKILL = Object.fromEntries(SKILLS.map((s) => [s.id, s])) as Record<string, SkillDef>;
-export const ENEMIES = enemiesJson as Record<string, EnemyDef>;
+export const CLASSES = classesJson as unknown as Record<string, ClassDef>;
+export const ENEMIES = enemiesJson as unknown as Record<string, EnemyDef>;
 export const RIFT = riftJson;
-export const AFFIXES = affixesJson as AffixDef[];
+export const AFFIXES = affixesJson as unknown as AffixDef[];
 export const AFFIX = Object.fromEntries(AFFIXES.map((a) => [a.id, a])) as Record<string, AffixDef>;
-export const ITEMS = itemsJson as typeof itemsJson & { slots: Slot[] };
-export const LEGENDARIES = legendariesJson as LegendaryDef[];
-export const LEGENDARY = Object.fromEntries(LEGENDARIES.map((l) => [l.id, l])) as Record<string, LegendaryDef>;
+export const ITEMS = itemsJson as typeof itemsJson & { slots: SlotType[]; equipSlots: EquipSlot[] };
+export const LEGENDARIES = legendariesJson as unknown as LegendaryDef[];
+export const MYTHICS = (mythicsJson as unknown as LegendaryDef[]).map((m) => ({ ...m, mythic: true }));
+export const LEGENDARY = Object.fromEntries([...LEGENDARIES, ...MYTHICS].map((l) => [l.id, l])) as Record<string, LegendaryDef>;
+export const SETS = setsJson as unknown as SetDef[];
+export const SET = Object.fromEntries(SETS.map((s) => [s.id, s])) as Record<string, SetDef>;
+export const ELITES = elitesJson;
+export const MODIFIERS = modifiersJson as unknown as ModifierDef[];
+export const MODIFIER = Object.fromEntries(MODIFIERS.map((m) => [m.id, m])) as Record<string, ModifierDef>;
+export const BOONS = boonsJson as unknown as BoonDef[];
+export const BOON = Object.fromEntries(BOONS.map((b) => [b.id, b])) as Record<string, BoonDef>;
+export const PETS = petsJson as unknown as { id: string; name: string; desc?: string }[];
+
+export const RARITY_ORDER: Rarity[] = ["common", "magic", "rare", "legendary", "set", "mythic"];
+export const slotTypeOf = (e: EquipSlot): SlotType => (e === "ring1" || e === "ring2" ? "ring" : e);
+
+export function xpForLevel(l: number): number { return Math.round(RIFT.levels.xpBase * Math.pow(l, RIFT.levels.xpExp)); }
+export function levelPower(l: number): number { return 1 + RIFT.levels.powerPerLevel * (l - 1); }

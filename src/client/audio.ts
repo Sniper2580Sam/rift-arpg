@@ -11,8 +11,10 @@ export function unlockAudio() {
     } catch { ctx = null; }
   }
   if (ctx && ctx.state === "suspended") ctx.resume();
+  if (ctx && master) master.gain.value = muted ? 0 : 0.35;
 }
 export function toggleMute() { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.35; return muted; }
+export function setMuted(v: boolean) { muted = v; if (master) master.gain.value = muted ? 0 : 0.35; }
 
 function tone(freq: number, dur: number, type: OscillatorType = "square", vol = 0.3, slideTo?: number, delay = 0) {
   if (!ctx || !master || muted) return;
@@ -58,6 +60,9 @@ export const sfx = {
     if (rarity === "legendary") {
       tone(110, 0.9, "sawtooth", 0.35, 55); noise(0.6, 0.5, 250);
       [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0.9, "triangle", 0.28, undefined, 0.08 + i * 0.07));
+    } else if (rarity === "set" || rarity === "mythic") {
+      tone(98, 0.9, "sawtooth", 0.35, 49); noise(0.6, 0.5, 250);
+      [587, 740, 880, 1175, 1480].forEach((f, i) => tone(f, 0.9, "triangle", 0.28, undefined, 0.08 + i * 0.07));
     } else if (rarity === "rare") {
       [784, 988, 1175].forEach((f, i) => tone(f, 0.35, "triangle", 0.18, undefined, i * 0.05));
     } else if (rarity === "magic") { tone(660, 0.2, "triangle", 0.12); tone(880, 0.2, "triangle", 0.1, undefined, 0.05); }
@@ -67,4 +72,5 @@ export const sfx = {
   complete: () => { [392, 523, 659, 784].forEach((f, i) => tone(f, 0.6, "triangle", 0.25, undefined, i * 0.12)); },
   death: () => { tone(300, 0.8, "sawtooth", 0.3, 40); },
   ui: () => tone(600, 0.04, "square", 0.08),
+  shout: () => { tone(160, 0.35, "sawtooth", 0.25, 90); noise(0.3, 0.25, 500); },
 };

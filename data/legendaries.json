@@ -1,12 +1,240 @@
 [
-  { "id": "cinderbrand",  "name": "Cinderbrand",          "slot": "weapon", "tag": "melee",  "power": "cleave_wave",   "text": "Melee attacks also send a wave of fire forward for 70% weapon damage.", "params": { "damage": 0.7, "speed": 210, "range": 120 } },
-  { "id": "trident",      "name": "Trident of Embers",    "slot": "weapon", "tag": "pierce", "power": "pierce_split",  "text": "Pierce skills throw 3 projectiles in a fan.", "params": { "count": 3 } },
-  { "id": "tide_gaunt",   "name": "Gauntlets of the Tide","slot": "gloves", "tag": "pierce", "power": "pierce_return", "text": "Pierce projectiles fly back to you at the end of their path, hitting again.", "params": {} },
-  { "id": "reaper_grip",  "name": "Grip of the Reaper",   "slot": "gloves", "tag": "melee",  "power": "melee_ring",    "text": "Every 3rd melee attack hits all around you for double damage.", "params": { "every": 3, "mult": 2.0 } },
-  { "id": "pyre_mail",    "name": "Pyre Mail",            "slot": "chest",  "tag": "fire",   "power": "fire_ignite",   "text": "Fire skills ignite enemies, burning for 90% of the hit over 3 seconds.", "params": { "mult": 0.9, "duration": 3 } },
-  { "id": "heart_of_ash", "name": "Heart of Ash",         "slot": "chest",  "tag": "fire",   "power": "fire_explode",  "text": "Enemies killed by fire skills explode for 35% of their max life.", "params": { "pct": 0.35, "radius": 40 } },
-  { "id": "comet_treads", "name": "Comet Treads",         "slot": "boots",  "tag": "dash",   "power": "dash_trail",    "text": "Dash skills leave a burning trail for 3 seconds.", "params": { "dps": 1.2, "duration": 3 } },
-  { "id": "echo_stride",  "name": "Stride of Echoes",     "slot": "boots",  "tag": "dash",   "power": "dash_charges",  "text": "Dash skills have 3 charges.", "params": { "charges": 3 } },
-  { "id": "brood_crown",  "name": "Brood Crown",          "slot": "helm",   "tag": "summon", "power": "summon_extra",  "text": "Summon skills call 2 extra minions.", "params": { "extra": 2 } },
-  { "id": "hollow_diadem","name": "Hollow Diadem",        "slot": "helm",   "tag": "summon", "power": "summon_burst",  "text": "Your minions explode for 250% weapon damage when they expire.", "params": { "damage": 2.5, "radius": 38 } }
+ {
+  "id": "cinderbrand",
+  "name": "Cinderbrand",
+  "slot": "weapon",
+  "tag": "melee",
+  "text": "Melee attacks also send a wave of fire forward for {wave} weapon damage.",
+  "set": {
+   "wave": 0.7
+  },
+  "scales": [
+   "wave"
+  ],
+  "pct": [
+   "wave"
+  ]
+ },
+ {
+  "id": "trident",
+  "name": "Trident of Embers",
+  "slot": "weapon",
+  "tag": "pierce",
+  "text": "Pierce skills throw {count} extra projectiles in a fan.",
+  "add": {
+   "count": 2
+  },
+  "scales": [
+   "count"
+  ]
+ },
+ {
+  "id": "tide_gaunt",
+  "name": "Gauntlets of the Tide",
+  "slot": "gloves",
+  "tag": "pierce",
+  "text": "Pierce projectiles fly back to you at the end of their path, hitting again.",
+  "set": {
+   "returns": 1
+  }
+ },
+ {
+  "id": "reaper_grip",
+  "name": "Grip of the Reaper",
+  "slot": "gloves",
+  "tag": "melee",
+  "text": "Every 3rd melee attack hits all around you for {ringMult}\u00d7 damage.",
+  "set": {
+   "ringEvery": 3,
+   "ringMult": 2
+  },
+  "scales": [
+   "ringMult"
+  ]
+ },
+ {
+  "id": "pyre_mail",
+  "name": "Pyre Mail",
+  "slot": "chest",
+  "tag": "fire",
+  "text": "Fire skills ignite enemies, burning for {igniteMult} of the hit over 3 seconds.",
+  "set": {
+   "igniteMult": 0.9
+  },
+  "scales": [
+   "igniteMult"
+  ],
+  "pct": [
+   "igniteMult"
+  ]
+ },
+ {
+  "id": "heart_of_ash",
+  "name": "Heart of Ash",
+  "slot": "chest",
+  "tag": "fire",
+  "text": "Enemies killed by fire skills explode for {explodeOnKill} of their max life.",
+  "set": {
+   "explodeOnKill": 0.35
+  },
+  "scales": [
+   "explodeOnKill"
+  ],
+  "pct": [
+   "explodeOnKill"
+  ]
+ },
+ {
+  "id": "comet_treads",
+  "name": "Comet Treads",
+  "slot": "boots",
+  "tag": "dash",
+  "text": "Dash skills leave a burning trail for 3 seconds.",
+  "set": {
+   "trail": 1.2
+  },
+  "addTags": [
+   "fire"
+  ],
+  "scales": [
+   "trail"
+  ]
+ },
+ {
+  "id": "echo_stride",
+  "name": "Stride of Echoes",
+  "slot": "boots",
+  "tag": "dash",
+  "text": "Dash skills have {charges} extra charges.",
+  "add": {
+   "charges": 2
+  }
+ },
+ {
+  "id": "brood_crown",
+  "name": "Brood Crown",
+  "slot": "helm",
+  "tag": "summon",
+  "text": "Summon skills call {count} extra minions.",
+  "add": {
+   "count": 2
+  },
+  "scales": [
+   "count"
+  ]
+ },
+ {
+  "id": "hollow_diadem",
+  "name": "Hollow Diadem",
+  "slot": "helm",
+  "tag": "summon",
+  "text": "Your minions explode for {burst} weapon damage when they expire.",
+  "set": {
+   "burst": 2.5
+  },
+  "scales": [
+   "burst"
+  ],
+  "pct": [
+   "burst"
+  ]
+ },
+ {
+  "id": "cinder_bulwark",
+  "name": "Bulwark of Cinders",
+  "slot": "offhand",
+  "tag": "shout",
+  "text": "Shouts also blast enemies in their radius for {shoutDamage} weapon damage.",
+  "set": {
+   "shoutDamage": 3
+  },
+  "scales": [
+   "shoutDamage"
+  ],
+  "pct": [
+   "shoutDamage"
+  ]
+ },
+ {
+  "id": "pack_pauldrons",
+  "name": "Pauldrons of the Pack",
+  "slot": "shoulders",
+  "tag": "summon",
+  "text": "Minions last twice as long.",
+  "mul": {
+   "duration": 2
+  }
+ },
+ {
+  "id": "frostgrip",
+  "name": "Frostgrip Bracers",
+  "slot": "bracers",
+  "tag": "cold",
+  "text": "Cold skills slow {slowPct}% more and slowed enemies take 20% more damage from you.",
+  "add": {
+   "slowPct": 25
+  },
+  "set": {
+   "slowVuln": 0.2
+  },
+  "scales": [
+   "slowPct"
+  ]
+ },
+ {
+  "id": "momentum_belt",
+  "name": "Girdle of Momentum",
+  "slot": "belt",
+  "tag": "dash",
+  "text": "Dashing resets the cooldown of your secondary skill.",
+  "set": {
+   "resetSecondary": 1
+  }
+ },
+ {
+  "id": "nova_legs",
+  "name": "Legplates of the Nova",
+  "slot": "pants",
+  "tag": "aoe",
+  "text": "Area skills pulse {pulses} extra times.",
+  "add": {
+   "pulses": 2
+  }
+ },
+ {
+  "id": "rift_eye",
+  "name": "Eye of the Rift",
+  "slot": "amulet",
+  "tag": "projectile",
+  "text": "Projectile skills fire {count} extra projectile and fly 40% faster.",
+  "add": {
+   "count": 1
+  },
+  "mul": {
+   "speed": 1.4
+  }
+ },
+ {
+  "id": "echo_band",
+  "name": "Band of Echoing Cries",
+  "slot": "ring",
+  "tag": "shout",
+  "text": "Shout skills have half the cooldown.",
+  "mul": {
+   "cooldown": 0.5
+  }
+ },
+ {
+  "id": "ember_loop",
+  "name": "Ember Loop",
+  "slot": "ring",
+  "tag": "fire",
+  "text": "Fire skills make enemies take {vulnOnHit}% more damage for 3 seconds.",
+  "set": {
+   "vulnOnHit": 15
+  },
+  "scales": [
+   "vulnOnHit"
+  ]
+ }
 ]

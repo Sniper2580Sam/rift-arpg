@@ -1,5 +1,5 @@
 // All art is drawn in code: palette-indexed string arrays rendered once to offscreen canvases and cached.
-import type { Rarity, Slot } from "../sim/data";
+import type { Rarity, SlotType as Slot } from "../sim/data";
 
 export type Sprite = { img: HTMLCanvasElement; flash: HTMLCanvasElement; w: number; h: number };
 
@@ -17,6 +17,11 @@ const BASE: Record<string, string> = {
   V: "#2b1f3a", v: "#463559", // robe
   C: "#ffffff", c: "#999999", // item colour placeholders (recoloured per rarity)
   s: "#d9d4c8",
+  H: "#2f5a3a", h: "#447a4f", // ranger cloak
+  F: "#c8763a", f: "#8a4a22", // fox / leather
+  L: "#7dd6c8", l: "#3e8f86", // slime
+  M: "#5a3f73", m: "#8a68a8", // bat
+  Z: "#9be0ff", // frost
 };
 
 function make(rows: string[], pal: Record<string, string> = BASE): Sprite {
@@ -185,6 +190,90 @@ const IMP = [
 ];
 
 const ICONS: Record<Slot, string[]> = {
+  offhand: [
+    ".kkkkkkkk.",
+    "kCCCCCCCCk",
+    "kCCcyycCCk",
+    "kCCcyycCCk",
+    "kCCCCCCCCk",
+    ".kCCCCCCk.",
+    ".kcCCCCck.",
+    "..kccccK..",
+    "...kkkk...",
+    "..........",
+  ],
+  shoulders: [
+    "..........",
+    "..kkk.kkk.",
+    ".kCCCkCCCk",
+    "kCCcCkCcCC",
+    "kCCCk.kCCC",
+    "kcck...kcc",
+    ".kk.....kk",
+    "..........",
+    "..........",
+    "..........",
+  ],
+  bracers: [
+    "..........",
+    "...kkkkk..",
+    "..kCCCCCk.",
+    "..kcyycCk.",
+    "..kCCCCCk.",
+    "..kcyycCk.",
+    "..kCCCCCk.",
+    "...kkkkk..",
+    "..........",
+    "..........",
+  ],
+  belt: [
+    "..........",
+    "..........",
+    "kkkkkkkkkk",
+    "kCCCkykCCk",
+    "kcccyCyccK",
+    "kCCCkykCCk",
+    "kkkkkkkkkk",
+    "..........",
+    "..........",
+    "..........",
+  ],
+  pants: [
+    ".kkkkkkkk.",
+    ".kCCCCCCk.",
+    ".kCCkkCCk.",
+    ".kCCk.kCCk",
+    ".kCCk.kCCk",
+    ".kcCk.kCck",
+    ".kcck.kcck",
+    ".kkkk.kkkk",
+    "..........",
+    "..........",
+  ],
+  amulet: [
+    "..k....k..",
+    "...k..k...",
+    "....kk....",
+    "...kCCk...",
+    "..kCyyCk..",
+    "..kCyyCk..",
+    "...kccK...",
+    "....kk....",
+    "..........",
+    "..........",
+  ],
+  ring: [
+    "..........",
+    "....kk....",
+    "...kyyk...",
+    "..kCkkCk..",
+    ".kC....Ck.",
+    ".kC....Ck.",
+    "..kc..ck..",
+    "...kcck...",
+    "....kk....",
+    "..........",
+  ],
   weapon: [
     "........kk",
     ".......kCk",
@@ -252,11 +341,40 @@ export const RARITY_COLOR: Record<Rarity, string> = {
   magic: "#5b8cff",
   rare: "#ffd84a",
   legendary: "#ff8a1f",
+  set: "#3ddc84",
+  mythic: "#ff3b6b",
 };
-const RARITY_DARK: Record<Rarity, string> = { common: "#7d7d7d", magic: "#2f4ea8", rare: "#b38b16", legendary: "#b04a0a" };
+const RARITY_DARK: Record<Rarity, string> = { common: "#7d7d7d", magic: "#2f4ea8", rare: "#b38b16", legendary: "#b04a0a", set: "#1d7a46", mythic: "#8f1233" };
+
+const RANGER_TOP = [
+  "....kkkk....",
+  "...kHHHHk...",
+  "..kHhhhhHk..",
+  "..kHkkkkHk..",
+  "..kHksskHk..",
+  "...kkkkkk.n.",
+  "..kHHhhHHkn.",
+  ".kbHhhhhHbn.",
+  ".kbHHhhHHkn.",
+  "..kHHHHHHk..",
+  "..kkbkkbkk..",
+];
+const RANGER_LEGS = [
+  ["...kbk.kbk..", "...kbk.kbk..", "..kbbk.kbbk.", "..kkkk.kkkk."],
+  ["..kbk...kbk.", "..kbk...kbk.", ".kbbk..kbbk.", ".kkkk..kkkk."],
+  ["....kbkbk...", "....kbkbk...", "...kbbkbbk..", "...kkkkkkk.."],
+];
+const RAVEN = [["k.....k", "kk...kk", ".kkkkk.", "..kek..", "...k..."], [".......", "kk...kk", "kkkkkkk", "..kek..", "...k..."]];
+const PETS: Record<string, string[][]> = {
+  bat: [["m.....m", "mM.k.Mm", ".MMMMM.", "..MeM..", "...M..."], [".......", "mM.k.Mm", "mMMMMMm", "..MeM..", "...M..."]],
+  slime: [["..LLL..", ".LLLLL.", "LLkLkLL", "LLLLLLL", "lllllll"], ["...L...", ".LLLLL.", "LLkLkLL", "LLLLLLL", ".lllll."]],
+  fox: [["k.....k.", "Fk...kF.", "FFFFFFk.", "FkFFkF..", ".FFFFFFF", "..F..F.f"], ["k.....k.", "Fk...kF.", "FFFFFFk.", "FkFFkF..", ".FFFFFFF", ".F....Ff"]],
+};
+const PYLON = ["..kk..", ".kwwk.", ".kwyk.", "kwwwwk", "kwyywk", "kwwwwk", "kWWWWk", "kkkkkk"];
 
 export interface SpriteBank {
-  hero: Sprite[]; ghoul: Sprite[]; archer: Sprite[]; brute: Sprite[]; guardian: Sprite[]; imp: Sprite[];
+  hero: Sprite[]; ranger: Sprite[]; raven: Sprite[]; pets: Record<string, Sprite[]>; pylon: Sprite[];
+  ghoul: Sprite[]; archer: Sprite[]; brute: Sprite[]; guardian: Sprite[]; imp: Sprite[];
   icon: (slot: Slot, rarity: Rarity) => Sprite;
 }
 
@@ -265,6 +383,10 @@ export function buildSprites(): SpriteBank {
   const iconCache = new Map<string, Sprite>();
   return {
     hero,
+    ranger: RANGER_LEGS.map((legs) => make([...RANGER_TOP, ...legs])),
+    raven: RAVEN.map((r) => make(r)),
+    pets: Object.fromEntries(Object.entries(PETS).map(([k, v]) => [k, v.map((r) => make(r))])),
+    pylon: [make(PYLON)],
     ghoul: GHOUL.map((r) => make(r)),
     archer: ARCHER.map((r) => make(r)),
     brute: BRUTE.map((r) => make(r)),

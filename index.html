@@ -4,15 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Rift ARPG</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&display=swap" rel="stylesheet">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0710">
 <style>
+  @font-face { font-family:"Pixelify Sans"; src:url(data:font/woff2;base64,/*FONT*/) format("woff2"); font-weight:400 700; font-display:swap; }
   :root { --bg:#0b0710; --panel:#140c1cee; --line:#4a3b5a; --text:#e9e1f5; --dim:#9a8cb0; --accent:#ff8a1f; }
   html,body { margin:0; height:100%; background:var(--bg); color:var(--text); overflow:hidden; overscroll-behavior:none;
     font-family:"Pixelify Sans", ui-monospace, monospace; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
   canvas#game { position:fixed; inset:0; touch-action:none; display:block; }
-  #ui.screen { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:16px; box-sizing:border-box; overflow:auto; background:rgba(5,2,10,.55); }
-  #ui.hudbtns { position:fixed; top:10px; right:10px; display:flex; gap:6px; }
+  #ui.screen { position:fixed; inset:0; display:flex; align-items:flex-start; justify-content:center; padding:16px; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; box-sizing:border-box; overflow:auto; background:rgba(5,2,10,.55); }
+  #ui.hudbtns { position:fixed; display:flex; gap:6px; }
   #ui.hudbtns button { padding:6px 10px; font-size:13px; }
   .panel { background:var(--panel); border:2px solid var(--line); padding:16px; max-width:560px; width:100%; box-shadow:0 0 0 2px #000, 0 10px 40px #000a; margin:auto; }
   h1 { margin:0; font-size:40px; color:var(--accent); letter-spacing:2px; text-shadow:3px 3px 0 #000; }
@@ -50,6 +51,41 @@
   .legs { margin:8px 0; }
   #toast { position:fixed; left:50%; bottom:90px; transform:translateX(-50%); background:#140c1cdd; border:2px solid var(--line); padding:6px 12px; font-size:14px;
     opacity:0; transition:opacity .3s; pointer-events:none; white-space:nowrap; max-width:92vw; overflow:hidden; text-overflow:ellipsis; }
+
+  .hub { max-width:720px; }
+  .hub-head { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap; }
+  .who { text-align:right; font-size:14px; } @media (max-width:520px){ .who{font-size:12px; text-align:left;} .xpbar{width:100%; margin-left:0;} } .xpbar { width:140px; height:6px; background:#1b1424; margin-top:4px; margin-left:auto; } .xpbar i { display:block; height:100%; background:#7dff9a; }
+  .tabs { display:flex; gap:4px; margin:12px 0 10px; } .tab { flex:1; padding:8px 4px; font-size:14px; } .tab.on { background:#5a2a12; border-color:var(--accent); }
+  .tab-body { display:flex; flex-direction:column; gap:8px; }
+  .classes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .cls-card { display:flex; flex-direction:column; align-items:flex-start; gap:2px; text-align:left; padding:10px; } .cls-card.on { border-color:#ffd23f; background:#3a2a1a; }
+  .cls-card span { color:var(--accent); font-size:12px; } .cls-card small { color:var(--dim); font-size:11px; }
+  .tier-row { display:flex; align-items:center; gap:8px; } .tier-row > button { width:44px; height:44px; font-size:22px; padding:0; }
+  .tier { flex:1; text-align:center; } .tier b { font-size:22px; color:#ffd23f; display:block; } .tier small { color:var(--dim); font-size:11px; }
+  .small { font-size:12px; } button:disabled { opacity:.45; cursor:default; }
+  button.chase { border-color:#ff3b6b; color:#ffc0d0; }
+  .doll { display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin-bottom:8px; }
+  .bag { display:grid; grid-template-columns:repeat(10,1fr); gap:4px; }
+  .bag-head { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--dim); margin-bottom:4px; gap:6px; flex-wrap:wrap; }
+  .tiny-btn { font-size:11px; padding:3px 6px; margin-left:4px; box-shadow:none; }
+  .cell { padding:0; } .cell span { font-size:9px; }
+  .cell.r-set { border-color:#3ddc84; border-style:solid; } .cell.r-mythic { border-color:#ff3b6b; border-style:solid; box-shadow:inset 0 0 12px #ff3b6baa; }
+  .cell.q-ancestral { outline:2px solid #ff8a1f; outline-offset:-5px; } .cell.q-primal { outline:2px solid #ff3b3b; outline-offset:-5px; box-shadow:0 0 10px #ff3b3b; }
+  b.q-ancestral { color:#ff8a1f; } b.q-primal { color:#ff3b3b; }
+  .it-affix small.range { color:#6a5a7e; font-size:11px; } .it-affix.locked { color:#c9a0ff; }
+  .it-power.mythic { color:#ff3b6b; } .it-set { color:#3ddc84; font-size:13px; margin-top:4px; } .it-set div { color:#4a6a55; } .it-set div.on { color:#3ddc84; }
+  .reroll { margin-top:8px; font-size:13px; border-top:1px dashed var(--line); padding-top:6px; }
+  .opts { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; } .opts button { font-size:13px; padding:6px 8px; } .opts button.on { border-color:#ffd23f; background:#3a2a1a; }
+  .skill { border:2px solid var(--line); padding:8px; background:#1b1424; } .skill.locked { opacity:.55; } .lock { color:#ff7a3c; font-size:12px; }
+  .runes { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-top:6px; }
+  .rune { display:flex; flex-direction:column; text-align:left; gap:2px; padding:6px; font-size:12px; } .rune small { color:var(--dim); font-size:10px; } .rune.on { border-color:#ffd23f; background:#3a2a1a; }
+  .setting { border-bottom:1px solid #2f2540; padding:8px 0; }
+  .boons { max-width:520px; } .boon-list { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+  .boon { display:flex; flex-direction:column; text-align:left; padding:12px; } .boon b { color:#ffd23f; font-size:18px; } .boon span { color:var(--dim); }
+  code { background:#1b1424; padding:1px 4px; }
+  #ui.hudbtns { top:calc(10px + env(safe-area-inset-top,0px)); right:calc(10px + env(safe-area-inset-right,0px)); }
+  #ui.screen { padding-top:calc(16px + env(safe-area-inset-top,0px)); padding-bottom:calc(16px + env(safe-area-inset-bottom,0px)); }
+  @media (max-width:600px) { .doll { grid-template-columns:repeat(5,1fr); } .bag { grid-template-columns:repeat(6,1fr); } .runes { grid-template-columns:1fr 1fr; } .classes { grid-template-columns:1fr; } .tab { font-size:13px; } }
   @media (max-width:520px) { h1 { font-size:30px; } .skills { grid-template-columns:1fr; } .bag { grid-template-columns:repeat(6,1fr); } }
 </style>
 </head>

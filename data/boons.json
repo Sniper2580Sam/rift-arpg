@@ -1,0 +1,12 @@
+[
+  { "id": "might",     "name": "Might",          "desc": "+25% damage.",                   "stats": { "dmgPct": 25 } },
+  { "id": "swift",     "name": "Swiftness",      "desc": "+25% movement speed.",           "stats": { "moveSpeed": 25 } },
+  { "id": "fury",      "name": "Fury",           "desc": "+20% attack speed.",             "stats": { "atkSpeed": 20 } },
+  { "id": "focus",     "name": "Focus",          "desc": "Cooldowns 20% shorter.",         "stats": { "cdr": 20 } },
+  { "id": "precision", "name": "Precision",      "desc": "+12% critical hit chance.",      "stats": { "critChance": 12 } },
+  { "id": "vigor",     "name": "Vigor",          "desc": "+30% max life, 1% life/s.",      "stats": { "hpPct": 30, "regenPct": 1 } },
+  { "id": "bulwark",   "name": "Bulwark",        "desc": "+60% armor.",                    "stats": { "armorPct": 60 } },
+  { "id": "kindling",  "name": "Kindling",       "desc": "All skills ignite enemies.",     "mod": { "tag": "any", "set": { "igniteMult": 0.5 } } },
+  { "id": "splinters", "name": "Splinters",      "desc": "Projectile skills fire 2 extra.", "mod": { "tag": "projectile", "add": { "count": 2 } } },
+  { "id": "legion",    "name": "Legion",         "desc": "+2 minions.",                    "mod": { "tag": "summon", "add": { "count": 2 } } }
+]

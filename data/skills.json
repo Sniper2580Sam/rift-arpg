@@ -1,26 +1,123 @@
 [
-  {
-    "id": "cleave", "name": "Cleave", "slot": "primary", "key": "LMB",
-    "tags": ["melee", "physical"],
+  { "id": "cleave", "name": "Cleave", "kind": "melee", "slot": "primary", "unlock": 1, "tags": ["melee", "physical"],
     "desc": "Swing in a wide arc in front of you.",
-    "cooldown": 0, "interval": 0.38, "damage": 1.0, "range": 30, "arcCos": 0.35, "knockback": 70
-  },
-  {
-    "id": "ember_lance", "name": "Ember Lance", "slot": "secondary", "key": "RMB",
-    "tags": ["pierce", "fire", "projectile"],
+    "p": { "damage": 1.0, "interval": 0.38, "range": 30, "arcCos": 0.35, "knockback": 70 },
+    "runes": [
+      { "id": "wide", "name": "Wide Arc", "uses": 0, "desc": "Hits almost all around you for 90% damage.", "mul": { "damage": 0.9 }, "set": { "arcCos": -0.4 } },
+      { "id": "searing", "name": "Searing Edge", "uses": 30, "desc": "Becomes a fire skill.", "addTags": ["fire"], "removeTags": ["physical"] },
+      { "id": "reaping", "name": "Reaping", "uses": 80, "desc": "Heals 1% of max life per enemy hit.", "set": { "healPerHit": 0.01 } },
+      { "id": "rupture", "name": "Rupture", "uses": 160, "desc": "Enemies killed explode for 25% of their max life.", "set": { "explodeOnKill": 0.25 } },
+      { "id": "heavy", "name": "Heavy Swing", "uses": 300, "desc": "Slower, but deals 180% damage and knocks back twice as far.", "mul": { "interval": 1.4, "damage": 1.8, "knockback": 2 } }
+    ] },
+  { "id": "ember_lance", "name": "Ember Lance", "kind": "projectile", "slot": "secondary", "unlock": 2, "tags": ["pierce", "fire", "projectile"],
     "desc": "Hurl a burning lance that pierces every enemy in a line.",
-    "cooldown": 0.9, "damage": 1.8, "speed": 280, "range": 230, "radius": 5, "knockback": 40
-  },
-  {
-    "id": "ash_dash", "name": "Ash Dash", "slot": "utility", "key": "Space",
-    "tags": ["dash", "physical"],
-    "desc": "Dash forward, striking everything you pass through. You can't be hit while dashing.",
-    "cooldown": 3.0, "damage": 1.4, "distance": 84, "duration": 0.18, "knockback": 120
-  },
-  {
-    "id": "cinderlings", "name": "Cinderlings", "slot": "ultimate", "key": "Q",
-    "tags": ["summon", "fire"],
+    "p": { "damage": 1.8, "cooldown": 0.9, "speed": 280, "range": 230, "radius": 5, "count": 1, "spreadSteps": 1, "pierce": 1, "knockback": 40 },
+    "runes": [
+      { "id": "twin", "name": "Twin Lance", "uses": 0, "desc": "Throws 2 lances for 75% damage each.", "add": { "count": 1 }, "mul": { "damage": 0.75 } },
+      { "id": "molten", "name": "Molten Path", "uses": 30, "desc": "Leaves a burning line behind the lance.", "set": { "trail": 0.8 } },
+      { "id": "frost", "name": "Frost Lance", "uses": 80, "desc": "Becomes cold: slows enemies by 40% for 2 seconds.", "addTags": ["cold"], "removeTags": ["fire"], "set": { "slowPct": 40, "slowT": 2 } },
+      { "id": "heavy", "name": "Heavy Lance", "uses": 160, "desc": "Slower and twice as wide, deals 140% damage.", "mul": { "speed": 0.6, "radius": 2, "damage": 1.4 } },
+      { "id": "impale", "name": "Impale", "uses": 300, "desc": "No longer pierces, but deals 300% damage.", "set": { "pierce": 0 }, "mul": { "damage": 3, "knockback": 3 }, "removeTags": ["pierce"] }
+    ] },
+  { "id": "ash_dash", "name": "Ash Dash", "kind": "dash", "slot": "utility", "unlock": 3, "tags": ["dash", "physical"],
+    "desc": "Dash forward, striking everything you pass. You can't be hit while dashing.",
+    "p": { "damage": 1.4, "cooldown": 3.0, "distance": 84, "duration": 0.18, "knockback": 120, "charges": 1 },
+    "runes": [
+      { "id": "stride", "name": "Long Stride", "uses": 0, "desc": "Dash 50% further.", "mul": { "distance": 1.5, "duration": 1.3 } },
+      { "id": "cinder", "name": "Cinder Step", "uses": 30, "desc": "Becomes fire and leaves a burning trail.", "addTags": ["fire"], "set": { "trail": 0.8 } },
+      { "id": "charge", "name": "Shoulder Charge", "uses": 80, "desc": "Shorter, but deals 250% damage.", "mul": { "distance": 0.8, "damage": 2.5, "knockback": 2 } },
+      { "id": "ghost", "name": "Ghost Step", "uses": 160, "desc": "40% shorter cooldown, half damage.", "mul": { "cooldown": 0.6, "damage": 0.5 } },
+      { "id": "wind", "name": "Second Wind", "uses": 300, "desc": "Each dash heals 8% of max life.", "set": { "healPct": 0.08 } }
+    ] },
+  { "id": "warcry", "name": "Warcry", "kind": "shout", "slot": "utility", "unlock": 5, "tags": ["shout"],
+    "desc": "Party gains 40% armor for 6 seconds. Nearby enemies are taunted to attack you.",
+    "p": { "cooldown": 12, "radius": 100, "duration": 6, "armorPct": 40, "dmgPct": 0, "healPct": 0, "taunt": 3, "vulnPct": 0 },
+    "runes": [
+      { "id": "rally", "name": "Rally", "uses": 0, "desc": "Also heals the party for 12% of max life.", "set": { "healPct": 0.12 } },
+      { "id": "fear", "name": "Fearsome", "uses": 20, "desc": "Enemies hit take 20% more damage for 6 seconds.", "set": { "vulnPct": 20 } },
+      { "id": "iron", "name": "Iron Skin", "uses": 50, "desc": "Armor bonus doubled.", "mul": { "armorPct": 2 } },
+      { "id": "echo", "name": "Echoing Cry", "uses": 100, "desc": "35% shorter cooldown.", "mul": { "cooldown": 0.65 } },
+      { "id": "fury", "name": "Battle Fury", "uses": 180, "desc": "Party also deals 20% more damage.", "set": { "dmgPct": 20 } }
+    ] },
+  { "id": "flame_nova", "name": "Flame Nova", "kind": "nova", "slot": "utility", "unlock": 7, "tags": ["fire", "aoe"],
+    "desc": "Burst of fire around you.",
+    "p": { "cooldown": 6, "damage": 2.4, "radius": 56, "pulses": 1, "pull": 0, "knockback": 60 },
+    "runes": [
+      { "id": "wide", "name": "Wide Nova", "uses": 0, "desc": "40% larger.", "mul": { "radius": 1.4 } },
+      { "id": "pull", "name": "Inferno Pull", "uses": 25, "desc": "Pulls enemies in before burning them.", "set": { "pull": 1, "knockback": 0 } },
+      { "id": "frost", "name": "Frost Nova", "uses": 60, "desc": "Becomes cold: freezes enemies (80% slow) for 2.5 seconds, 60% damage.", "addTags": ["cold"], "removeTags": ["fire"], "set": { "slowPct": 80, "slowT": 2.5 }, "mul": { "damage": 0.6 } },
+      { "id": "double", "name": "Double Pulse", "uses": 120, "desc": "Pulses a second time.", "add": { "pulses": 1 } },
+      { "id": "phoenix", "name": "Phoenix", "uses": 220, "desc": "Half cooldown, 70% damage.", "mul": { "cooldown": 0.5, "damage": 0.7 } }
+    ] },
+  { "id": "cinderlings", "name": "Cinderlings", "kind": "summon", "slot": "ultimate", "unlock": 9, "tags": ["summon", "fire"],
     "desc": "Call 3 fire imps that hunt nearby enemies for 12 seconds.",
-    "cooldown": 14, "count": 3, "duration": 12, "damage": 0.45, "attackInterval": 0.7, "speed": 95
-  }
+    "p": { "cooldown": 14, "count": 3, "duration": 12, "damage": 0.45, "attackInterval": 0.7, "speed": 95, "size": 1 },
+    "runes": [
+      { "id": "brood", "name": "Big Brood", "uses": 0, "desc": "+2 imps, 70% damage each.", "add": { "count": 2 }, "mul": { "damage": 0.7 } },
+      { "id": "giant", "name": "Ember Giant", "uses": 15, "desc": "One giant imp with 450% damage that lasts longer.", "set": { "count": 1, "size": 2 }, "mul": { "damage": 4.5, "duration": 1.5 } },
+      { "id": "leech", "name": "Leech Imps", "uses": 40, "desc": "Imp hits heal you for 0.5% of max life.", "set": { "healPerHit": 0.005 } },
+      { "id": "kamikaze", "name": "Kamikaze", "uses": 80, "desc": "Imps rush and explode on contact for 250% damage.", "set": { "contactExplode": 2.5 }, "mul": { "speed": 1.6, "cooldown": 0.6 } },
+      { "id": "watch", "name": "Long Watch", "uses": 150, "desc": "Imps last twice as long.", "mul": { "duration": 2 } }
+    ] },
+
+  { "id": "hex_bolt", "name": "Hex Bolt", "kind": "projectile", "slot": "primary", "unlock": 1, "tags": ["projectile", "physical"],
+    "desc": "Fire a fast bolt at the nearest foe.",
+    "p": { "damage": 0.95, "interval": 0.32, "speed": 320, "range": 210, "radius": 3, "count": 1, "spreadSteps": 1, "pierce": 0, "knockback": 25 },
+    "runes": [
+      { "id": "splinter", "name": "Splinter", "uses": 0, "desc": "3 bolts for 45% damage each.", "add": { "count": 2 }, "mul": { "damage": 0.45 } },
+      { "id": "piercing", "name": "Piercing Bolt", "uses": 30, "desc": "Pierces enemies.", "set": { "pierce": 1 }, "addTags": ["pierce"] },
+      { "id": "frost", "name": "Frost Bolt", "uses": 80, "desc": "Becomes cold and slows by 30%.", "addTags": ["cold"], "removeTags": ["physical"], "set": { "slowPct": 30, "slowT": 1.5 } },
+      { "id": "ember", "name": "Ember Bolt", "uses": 160, "desc": "Becomes fire.", "addTags": ["fire"], "removeTags": ["physical"], "mul": { "damage": 1.1 } },
+      { "id": "heavy", "name": "Heavy Bolt", "uses": 300, "desc": "Slower, 190% damage.", "mul": { "interval": 1.5, "damage": 1.9, "knockback": 3 } }
+    ] },
+  { "id": "volley", "name": "Volley", "kind": "projectile", "slot": "secondary", "unlock": 2, "tags": ["projectile", "pierce", "physical"],
+    "desc": "Loose a fan of 7 piercing arrows.",
+    "p": { "damage": 0.8, "cooldown": 2.2, "speed": 260, "range": 170, "radius": 3, "count": 7, "spreadSteps": 1, "pierce": 1, "knockback": 30 },
+    "runes": [
+      { "id": "focused", "name": "Focused", "uses": 0, "desc": "Tight fan, 120% damage.", "set": { "spreadSteps": 0.4 }, "mul": { "damage": 1.2 } },
+      { "id": "burning", "name": "Burning Arrows", "uses": 30, "desc": "Becomes fire.", "addTags": ["fire"], "removeTags": ["physical"] },
+      { "id": "storm", "name": "Arrow Storm", "uses": 80, "desc": "+6 arrows in a full circle.", "add": { "count": 6 }, "set": { "spreadSteps": 2.4 } },
+      { "id": "quick", "name": "Quick Draw", "uses": 160, "desc": "Half cooldown, 70% damage.", "mul": { "cooldown": 0.5, "damage": 0.7 } },
+      { "id": "frost", "name": "Frost Volley", "uses": 300, "desc": "Becomes cold and slows by 40%.", "addTags": ["cold"], "removeTags": ["physical"], "set": { "slowPct": 40, "slowT": 2 } }
+    ] },
+  { "id": "tumble", "name": "Tumble", "kind": "dash", "slot": "utility", "unlock": 3, "tags": ["dash", "physical"],
+    "desc": "Roll away. You can't be hit while rolling.",
+    "p": { "damage": 0.5, "cooldown": 2.5, "distance": 72, "duration": 0.2, "knockback": 60, "charges": 1 },
+    "runes": [
+      { "id": "double", "name": "Double Roll", "uses": 0, "desc": "+1 charge.", "add": { "charges": 1 } },
+      { "id": "smoke", "name": "Frost Trail", "uses": 30, "desc": "Leaves a chilling trail that slows.", "addTags": ["cold"], "set": { "trail": 0.4, "slowPct": 40, "slowT": 1 } },
+      { "id": "far", "name": "Far Roll", "uses": 80, "desc": "60% further.", "mul": { "distance": 1.6, "duration": 1.3 } },
+      { "id": "mend", "name": "Mending Roll", "uses": 160, "desc": "Heals 6% of max life.", "set": { "healPct": 0.06 } },
+      { "id": "quick", "name": "Quick Roll", "uses": 300, "desc": "45% shorter cooldown.", "mul": { "cooldown": 0.55 } }
+    ] },
+  { "id": "frost_snare", "name": "Frost Snare", "kind": "trap", "slot": "utility", "unlock": 5, "tags": ["cold", "aoe"],
+    "desc": "Throw a snare that slows and chills enemies for 5 seconds.",
+    "p": { "cooldown": 7, "radius": 34, "duration": 5, "dps": 1.0, "slowPct": 50, "slowT": 0.6, "castRange": 140 },
+    "runes": [
+      { "id": "wide", "name": "Wide Snare", "uses": 0, "desc": "50% larger.", "mul": { "radius": 1.5 } },
+      { "id": "fire", "name": "Fire Pit", "uses": 25, "desc": "Becomes fire, triple damage, no slow.", "addTags": ["fire"], "removeTags": ["cold"], "mul": { "dps": 3 }, "set": { "slowPct": 0 } },
+      { "id": "long", "name": "Long Snare", "uses": 60, "desc": "Lasts twice as long.", "mul": { "duration": 2 } },
+      { "id": "freeze", "name": "Deep Freeze", "uses": 120, "desc": "Slow becomes 85%.", "set": { "slowPct": 85 } },
+      { "id": "quick", "name": "Quick Snare", "uses": 220, "desc": "Half cooldown.", "mul": { "cooldown": 0.5 } }
+    ] },
+  { "id": "rally_banner", "name": "Rally Banner", "kind": "shout", "slot": "utility", "unlock": 7, "tags": ["shout", "support"],
+    "desc": "Heal the party for 20% and grant 15% faster cooldowns for 6 seconds.",
+    "p": { "cooldown": 14, "radius": 130, "duration": 6, "armorPct": 0, "dmgPct": 0, "healPct": 0.2, "taunt": 0, "vulnPct": 0, "cdrPct": 15 },
+    "runes": [
+      { "id": "war", "name": "War Banner", "uses": 0, "desc": "Party also deals 15% more damage.", "set": { "dmgPct": 15 } },
+      { "id": "ward", "name": "Ward Banner", "uses": 20, "desc": "Party also gains 50% armor.", "set": { "armorPct": 50 } },
+      { "id": "big", "name": "Great Heal", "uses": 50, "desc": "Heal becomes 35%.", "set": { "healPct": 0.35 } },
+      { "id": "quick", "name": "Quick Banner", "uses": 100, "desc": "35% shorter cooldown.", "mul": { "cooldown": 0.65 } },
+      { "id": "haste", "name": "Haste Banner", "uses": 180, "desc": "Cooldown speed bonus becomes 30%.", "set": { "cdrPct": 30 } }
+    ] },
+  { "id": "raven_swarm", "name": "Raven Swarm", "kind": "summon", "slot": "ultimate", "unlock": 9, "tags": ["summon", "physical"],
+    "desc": "Release 5 ravens that peck enemies for 10 seconds.",
+    "p": { "cooldown": 16, "count": 5, "duration": 10, "damage": 0.35, "attackInterval": 0.5, "speed": 130, "size": 1 },
+    "runes": [
+      { "id": "murder", "name": "Murder", "uses": 0, "desc": "+3 ravens, 70% damage.", "add": { "count": 3 }, "mul": { "damage": 0.7 } },
+      { "id": "fire", "name": "Phoenix Brood", "uses": 15, "desc": "Becomes fire.", "addTags": ["fire"], "removeTags": ["physical"] },
+      { "id": "leech", "name": "Blood Ravens", "uses": 40, "desc": "Raven hits heal you for 0.4% of max life.", "set": { "healPerHit": 0.004 } },
+      { "id": "dive", "name": "Dive Bomb", "uses": 80, "desc": "Ravens explode on contact for 200% damage.", "set": { "contactExplode": 2 }, "mul": { "cooldown": 0.6 } },
+      { "id": "long", "name": "Long Flight", "uses": 150, "desc": "Ravens last twice as long.", "mul": { "duration": 2 } }
+    ] }
 ]

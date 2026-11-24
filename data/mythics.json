@@ -1,0 +1,5 @@
+[
+  { "id": "king_crown",   "name": "Crown of the Ossuary King", "slot": "helm",    "tag": "melee",      "text": "Every melee attack is a full spin for {ringMult}× damage that pulls enemies in.", "set": { "ringEvery": 1, "ringMult": 1.5, "pullOnHit": 1 }, "scales": ["ringMult"] },
+  { "id": "rift_quiver",  "name": "Rift-Torn Quiver",          "slot": "offhand", "tag": "projectile", "text": "Projectile skills fire twice as many projectiles.", "mul": { "count": 2 } },
+  { "id": "last_ember",   "name": "The Last Ember",            "slot": "amulet",  "tag": "any",        "text": "Fatal damage instead makes you immune for 3 seconds and heals you fully (once every {cheatDeath} seconds).", "set": { "cheatDeath": 60 }, "player": true }
+]

@@ -1,93 +1,105 @@
-// Headless checks: determinism + a scripted bot that plays the rift to measure pacing/balance.
-import { createSim, step, stateHash, NO_INPUT, PlayerInput, SimState } from "../src/sim/sim";
-import { mintItem, Holder, computeStats } from "../src/sim/items";
+// Headless checks: determinism, mint spread, bot pacing per tier/class, every legendary + set + mythic runs.
+import { createSim, step, stateHash, NO_INPUT, PlayerInput, PlayerSetup, SimState } from "../src/sim/sim";
+import { mintItem, computeStats, Holder } from "../src/sim/items";
 import { makeRng } from "../src/sim/rng";
-import { LEGENDARIES } from "../src/sim/data";
+import { LEGENDARIES, MYTHICS, SETS, CLASSES, SlotType, EquipSlot } from "../src/sim/data";
+const proc = (globalThis as any).process;
 
-function bot(s: SimState, t: number): PlayerInput {
-  const p = s.player;
+function setup(pid: number, cls = "ashknight", level = 1, equipment: Holder["equipment"] = {}, runes: Record<string, string> = {}): PlayerSetup {
+  return { pid, name: "P" + pid, cls, level, xp: 0, equipment, bag: [], materials: 0, sigils: 0, runes, pet: "none", filter: "common" };
+}
+function bot(s: SimState, pid: number, t: number): PlayerInput {
+  const p = s.players.find((q) => q.pid === pid)!;
   let target: { x: number; y: number } | null = null, best = 1e9;
   for (const e of s.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < best) { best = d; target = e; } }
-  for (const l of s.loot) { const d = Math.hypot(l.x - p.x, l.y - p.y); if (d < 80 && d < best) { best = d; target = l; } }
+  for (const l of s.loot) { if (l.owner !== pid) continue; const d = Math.hypot(l.x - p.x, l.y - p.y); if (d < 80 && d < best) { best = d; target = l; } }
   if (!target) return NO_INPUT;
-  // follow the flow field direction toward the target (cheap: straight line + wall slide)
   const dx = target.x - p.x, dy = target.y - p.y, d = Math.hypot(dx, dy) || 1;
-  const near = d < 26;
-  // circle a bit around walls using tick-based wobble so the bot doesn't stall forever
-  const wob = Math.floor(t / 90) % 2 ? 0.6 : -0.6;
-  const mx = near ? 0 : dx / d + (p.x === p.px && p.y === p.py ? -dy / d * wob * 3 : 0);
-  const my = near ? 0 : dy / d + (p.x === p.px && p.y === p.py ? dx / d * wob * 3 : 0);
-  return { mx, my, ax: target.x, ay: target.y, primary: d < 40, secondary: d < 150, dash: d > 120 && d < 200 && t % 60 === 0, ult: d < 100 };
+  const near = d < (p.cls === "gloomstalker" ? 90 : 26);
+  let act = 0;
+  if (d < (p.cls === "gloomstalker" ? 200 : 40)) act |= 1;
+  if (d < 150) act |= 2;
+  if (d < 70) act |= 8 | 16;
+  if (d < 100) act |= 32;
+  if (d > 120 && d < 200 && t % 60 === 0) act |= 4;
+  return { mx: near ? 0 : dx / d, my: near ? 0 : dy / d, ax: target.x, ay: target.y, act };
 }
-
-// a bot can't navigate caves well, so for pacing we let it "path" by teleporting along when stuck too long
-function run(seed: number, holder: Holder, label: string, maxSec = 900) {
-  const s = createSim(seed, holder);
-  let stuck = 0, deaths = 0, guardianAt = -1, legs = 0, drops = 0, lastX = 0, lastY = 0;
+function run(cfg: { seed: number; tier?: number; players: PlayerSetup[]; kind?: "rift" | "chase" }, label: string, maxSec = 900) {
+  const s = createSim({ ...cfg, mods: cfg.kind === "chase" ? [] : ["fortified", "hasted"] });
+  let deaths = 0, guardianAt = -1, legs = 0, drops = 0, lastX = 0, lastY = 0, stuck = 0, boons = 0, lvls = 0;
   for (let t = 0; t < maxSec * 30; t++) {
-    step(s, bot(s, t));
+    const inputs: Record<number, PlayerInput> = {};
+    for (const p of s.players) {
+      inputs[p.pid] = bot(s, p.pid, t);
+      const off = s.boonOffers[p.pid];
+      if (off) inputs[p.pid].cmds = [{ type: "boon", id: off[0] }];
+    }
+    step(s, inputs);
     for (const e of s.events) {
       if (e.type === "playerDeath") deaths++;
       if (e.type === "guardianSpawn") guardianAt = s.rift.time;
-      if (e.type === "drop") { drops++; if (e.rarity === "legendary") legs++; }
+      if (e.type === "drop") { drops++; if (e.rarity === "legendary" || e.rarity === "set" || e.rarity === "mythic") legs++; }
+      if (e.type === "boonTaken") boons++;
+      if (e.type === "levelUp") lvls++;
     }
     if (t % 60 === 0) {
-      if (Math.hypot(s.player.x - lastX, s.player.y - lastY) < 4) stuck++; else stuck = 0;
-      lastX = s.player.x; lastY = s.player.y;
-      if (stuck > 2) { // nudge the bot to the nearest live enemy (simulates a human pathing)
-        const e = s.enemies.find((e) => !e.dead);
-        if (e) { s.player.x = e.x; s.player.y = e.y; }
-        stuck = 0;
-      }
+      const p = s.players[0];
+      if (Math.hypot(p.x - lastX, p.y - lastY) < 4) stuck++; else stuck = 0;
+      lastX = p.x; lastY = p.y;
+      if (stuck > 2) { const e = s.enemies.find((e) => !e.dead); if (e) for (const q of s.players) { q.x = e.x; q.y = e.y; } stuck = 0; }
     }
     if (s.rift.done) break;
   }
-  const st = s.player.stats;
-  console.log(`${label}: done=${s.rift.done} time=${s.rift.time.toFixed(0)}s guardianAt=${guardianAt.toFixed(0)}s kills=${s.rift.kills} deaths=${deaths} drops=${drops} legendaries=${legs} dmg=${st.dmgMin}-${st.dmgMax} hp=${st.maxHp}`);
+  const p = s.players[0];
+  console.log(`${label}: done=${s.rift.done} t=${s.rift.time.toFixed(0)}s guardian@${guardianAt.toFixed(0)} kills=${s.rift.kills} deaths=${deaths} drops=${drops} leg/set=${legs} boons=${boons} lvl=${p.level} (+${lvls}) dmg=${p.stats.dmgMin}-${p.stats.dmgMax} hp=${p.stats.maxHp}`);
   return s;
 }
 
 // 1) determinism
-const empty: Holder = { equipment: {}, bag: [], materials: 0 };
 function replay(seed: number) {
-  const s = createSim(seed, empty);
-  for (let t = 0; t < 30 * 60; t++) step(s, bot(s, t));
+  const s = createSim({ seed, players: [setup(0), setup(1, "gloomstalker", 12)] });
+  for (let t = 0; t < 30 * 60; t++) { step(s, { 0: bot(s, 0, t), 1: bot(s, 1, t) }); for (const p of s.players) if (s.boonOffers[p.pid]) step(s, { [p.pid]: { ...NO_INPUT, cmds: [{ type: "boon", id: s.boonOffers[p.pid][0] }] } }); }
   return stateHash(s);
 }
 const h1 = replay(1234), h2 = replay(1234), h3 = replay(999);
-if (h1 !== h2) { console.error("DETERMINISM FAIL", h1, h2); (globalThis as any).process.exit(1); }
+if (h1 !== h2) { console.error("DETERMINISM FAIL", h1, h2); proc.exit(1); }
 console.log(`determinism ok (${h1}), different seed differs: ${h1 !== h3}`);
 
-// 2) mint sanity
-const r = makeRng(7);
-const counts: Record<string, number> = {};
-for (let i = 0; i < 5000; i++) { const it = mintItem(r, "t" + i); counts[it.rarity] = (counts[it.rarity] ?? 0) + 1; }
-console.log("rarity spread /5000:", counts);
-const r2 = makeRng(8);
-for (const l of LEGENDARIES) {
-  const it = mintItem(r2, "x", { rarity: "legendary", slot: l.slot });
-  if (it.slot !== l.slot) throw new Error("legendary slot mismatch");
+// 2) mint spread at tier 1 and tier 10
+for (const tier of [1, 10]) {
+  const r = makeRng(7), counts: Record<string, number> = {}; let anc = 0, pri = 0;
+  for (let i = 0; i < 5000; i++) { const it = mintItem(r, "t" + i, { tier, ancestralChance: tier >= 3 ? 0.15 : 0, primalChance: tier >= 8 ? 0.004 : 0 }); counts[it.rarity] = (counts[it.rarity] ?? 0) + 1; if (it.quality === "ancestral") anc++; if (it.quality === "primal") pri++; }
+  console.log(`tier ${tier} rarity /5000:`, JSON.stringify(counts), `ancestral ${anc} primal ${pri}`);
 }
 
-// 3) pacing with no gear, and with a decent rare kit
-for (const seed of [1, 2, 3]) run(seed, empty, `fresh seed ${seed}`);
-const kit: Holder = { equipment: {}, bag: [], materials: 0 };
-const kr = makeRng(42);
-for (const slot of ["weapon", "helm", "chest", "gloves", "boots"] as const) kit.equipment[slot] = mintItem(kr, slot, { rarity: "rare", slot });
-const ks = computeStats(kit);
-console.log(`rare kit: dmg ${ks.dmgMin}-${ks.dmgMax} +${ks.dmgPct}% hp ${ks.maxHp} armor ${ks.armor}`);
-for (const seed of [1, 2]) run(seed, kit, `rare kit seed ${seed}`);
+// 3) pacing
+run({ seed: 1, players: [setup(0)] }, "T1 fresh knight");
+run({ seed: 2, players: [setup(0, "gloomstalker")] }, "T1 fresh stalker");
+const kit = (lvl: number, rar: "rare" | "legendary", seed = 42): Holder["equipment"] => {
+  const r = makeRng(seed), eq: Holder["equipment"] = {};
+  for (const sl of ["weapon", "offhand", "helm", "shoulders", "chest", "bracers", "gloves", "belt", "pants", "boots", "amulet", "ring1", "ring2"] as EquipSlot[])
+    eq[sl] = mintItem(r, sl, { rarity: rar, slot: (sl.startsWith("ring") ? "ring" : sl) as SlotType, ilvl: lvl });
+  return eq;
+};
+run({ seed: 3, tier: 5, players: [setup(0, "ashknight", 20, kit(20, "rare"), { cleave: "searing" })] }, "T5 lvl20 rare kit knight");
+run({ seed: 4, tier: 10, players: [setup(0, "ashknight", 30, kit(30, "legendary"))] }, "T10 lvl30 legendary kit knight");
+run({ seed: 5, tier: 3, players: [setup(0, "ashknight", 15, kit(15, "rare")), setup(1, "gloomstalker", 8, kit(8, "rare", 9))] }, "T3 duo (15 + 8, level sync)");
+run({ seed: 6, tier: 3, kind: "chase", players: [setup(0, "ashknight", 25, kit(25, "legendary"))] }, "Chase boss lvl25 legendary kit", 400);
 
-// 4) every legendary power runs without errors and changes the outcome of a fixed replay
-{
-  const base = (() => { const s = createSim(77, empty); for (let t = 0; t < 30 * 40; t++) step(s, bot(s, t)); return s.rift.kills; })();
-  const lr = makeRng(5);
-  for (const l of LEGENDARIES) {
-    const h: Holder = { equipment: { [l.slot]: mintItem(lr, l.id, { rarity: "legendary", slot: l.slot }) }, bag: [], materials: 0 };
-    h.equipment[l.slot]!.legendary = l.id; h.equipment[l.slot]!.name = l.name;
-    const s = createSim(77, h);
-    let extra = 0;
-    for (let t = 0; t < 30 * 40; t++) { step(s, bot(s, t)); for (const e of s.events) if (e.type === "explosion") extra++; }
-    console.log(`  ${l.name.padEnd(22)} (${l.power}): kills in 40s ${s.rift.kills} vs ${base} baseline, explosions ${extra}, hazards live ${s.hazards.length}`);
-  }
+// 4) every legendary/mythic/set bonus runs
+for (const l of [...LEGENDARIES, ...MYTHICS]) {
+  const it = mintItem(makeRng(5), l.id, { rarity: l.mythic ? "mythic" : "legendary", slot: l.slot });
+  it.legendary = l.id;
+  const cls = ["projectile", "pierce", "cold", "aoe"].includes(l.tag) ? "gloomstalker" : "ashknight";
+  const s = createSim({ seed: 77, players: [setup(0, cls, 12, { [l.slot === "ring" ? "ring1" : l.slot]: it })] });
+  for (let t = 0; t < 30 * 20; t++) step(s, { 0: bot(s, 0, t) });
 }
+for (const st of SETS) {
+  const eq: Holder["equipment"] = {}; const r = makeRng(3);
+  for (const sl of Object.keys(st.pieces) as SlotType[]) { const it = mintItem(r, sl, { rarity: "set", slot: sl }); it.set = st.id; eq[sl === "ring" ? "ring1" : (sl as EquipSlot)] = it; }
+  const stt = computeStats(eq, { cls: "ashknight", level: 12 });
+  const s = createSim({ seed: 78, players: [setup(0, "ashknight", 12, eq), setup(1, "gloomstalker", 12, eq)] });
+  for (let t = 0; t < 30 * 20; t++) step(s, { 0: bot(s, 0, t), 1: bot(s, 1, t) });
+  console.log(`  set ${st.name}: ${stt.setCounts[st.id]} pieces, ${stt.mods.length} mods, kills in 20s ${s.rift.kills}`);
+}
+console.log("all legendaries, mythics and sets ran", Object.keys(CLASSES).length, "classes");

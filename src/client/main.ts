@@ -1,167 +1,204 @@
-// Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD.
-import { ENEMIES, RIFT, SKILL } from "../sim/data";
-import { Holder, InvCmd, applyInvCmd, mintItem } from "../sim/items";
-import { makeRng } from "../sim/rng";
-import { DT, Enemy, PlayerInput, SimEvent, SimState, applyPlayerCmd, createSim, maxDashCharges, step } from "../sim/sim";
-import { sfx, toggleMute, unlockAudio } from "./audio";
-import { Input } from "./input";
+// Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
+import { CLASSES, ENEMIES, MODIFIER, RIFT, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
+import { DT, Enemy, Player, PlayerInput, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, step, rollModifiers } from "../sim/sim";
+import { sfx, setMuted, unlockAudio } from "./audio";
+import { Input, KEY_LABELS } from "./input";
+import { Profile, char, holderOf, isoWeek, loadProfile, newProfile, saveProfile, setupFor, startNewSeason, syncFromSim, weeklySeed } from "./profile";
 import { RARITY_COLOR, Sprite, buildSprites, renderMap } from "./sprites";
-import { UI, fmtTime } from "./ui";
+import { UI, fmtTime, modsLine } from "./ui";
+import { startOnline, onlineAvailable } from "./net";
 
 declare const OFFLINE_TEST: boolean;
-
-// ------------------------------------------------------------------ save (OFFLINE_TEST only; live saves go to the backend)
-const SAVE_KEY = "rift-arpg-save";
-const SAVE_VERSION = 1;
-interface Profile extends Holder { version: number; riftsCleared: number; bestTime: number }
-
-function newProfile(): Profile {
-  const starter = mintItem(makeRng(20261124), "starter-0", { rarity: "common", slot: "weapon" });
-  return { version: SAVE_VERSION, equipment: { weapon: starter }, bag: [], materials: 0, riftsCleared: 0, bestTime: 0 };
-}
-function loadProfile(): Profile {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (raw) {
-      const p = JSON.parse(raw);
-      if (p && p.version === SAVE_VERSION) return p;
-    }
-  } catch { /* private mode etc. */ }
-  return newProfile();
-}
-function saveProfile(p: Profile) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(p)); } catch { /* ignore */ } }
+const ME = 0;
 
 // ------------------------------------------------------------------ setup
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
-const wb = document.createElement("canvas"); // low-res world buffer
+const wb = document.createElement("canvas");
 const wctx = wb.getContext("2d")!;
 const bank = buildSprites();
 const input = new Input(canvas);
 const ui = new UI(bank);
-let profile = loadProfile();
+let profile: Profile = loadProfile();
+setMuted(profile.settings.mute);
 
 let dpr = 1, cssW = 0, cssH = 0, pix = 3;
+function readInsets() {
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;top:env(safe-area-inset-top,0px);right:env(safe-area-inset-right,0px);bottom:env(safe-area-inset-bottom,0px);left:env(safe-area-inset-left,0px);pointer-events:none;visibility:hidden";
+  document.body.appendChild(probe);
+  const cs = getComputedStyle(probe);
+  input.insets = { top: parseFloat(cs.top) || 0, right: parseFloat(cs.right) || 0, bottom: parseFloat(cs.bottom) || 0, left: parseFloat(cs.left) || 0 };
+  probe.remove();
+}
 function resize() {
   dpr = Math.min(2, window.devicePixelRatio || 1);
   cssW = innerWidth; cssH = innerHeight;
   canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
   canvas.style.width = cssW + "px"; canvas.style.height = cssH + "px";
-  pix = Math.max(2, Math.floor((Math.min(cssW, cssH) * dpr) / 200));
+  pix = Math.max(2, Math.floor((Math.min(cssW, cssH) * dpr) / 210));
   wb.width = Math.ceil(canvas.width / pix); wb.height = Math.ceil(canvas.height / pix);
+  readInsets();
   input.layout(cssW, cssH);
   vignette = null;
 }
 addEventListener("resize", resize);
-resize();
+addEventListener("orientationchange", () => setTimeout(resize, 200));
 
 // ------------------------------------------------------------------ run state
 type Mode = "hub" | "rift" | "blocked";
 let mode: Mode = "hub";
 let sim: SimState | null = null;
-let mapCanvas: HTMLCanvasElement | null = null;
-let miniCanvas: HTMLCanvasElement | null = null;
-let pendingCmds: InvCmd[] = []; // reserved for co-op: inventory commands sent with the next input
+let mapCanvas: HTMLCanvasElement | null = null, miniCanvas: HTMLCanvasElement | null = null;
 let paused = false;
 let acc = 0, hitstop = 0, shake = 0, flash = 0, flashColor = "#fff", hurtFlash = 0;
 let camX = 0, camY = 0;
 let banner: { text: string; sub: string; color: string; t: number } | null = null;
-let found: Record<string, number> = {}, foundLegs: string[] = [];
+let found: Record<string, number> = {}, foundLegs: { name: string; rarity: Rarity; quality?: string }[] = [];
+let gotAncestral = false, gotPrimal = false, gotSigil = 0, startLevel = 1;
 let completeInfo: { inTime: boolean; time: number } | null = null;
+let run: { kind: "rift" | "chase"; tier: number; weekly: boolean; seed: number } | null = null;
 let leaveArmed = 0;
+const pets = new Map<number, { x: number; y: number; flip: boolean }>();
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; grav: number }
 interface Num { x: number; y: number; text: string; color: string; size: number; t: number; vx: number }
-interface Ring { x: number; y: number; r: number; t: number; max: number; color: string }
-interface Arc { x: number; y: number; fx: number; fy: number; r: number; ring: boolean; t: number }
-interface Ghost { x: number; y: number; t: number; flip: boolean }
+interface Ring { x: number; y: number; r: number; t: number; max: number; color: string; fill?: boolean }
+interface Arc { x: number; y: number; fx: number; fy: number; r: number; ring: boolean; t: number; arcCos: number }
+interface Ghost { x: number; y: number; t: number; flip: boolean; cls: string }
 const particles: Particle[] = [], nums: Num[] = [], rings: Ring[] = [], arcs: Arc[] = [], ghosts: Ghost[] = [];
+const me = () => sim!.players.find((p) => p.pid === ME)!;
 
-function startRift(seed: number | null) {
+function startRun(o: { tier: number; seed: number | null; kind: "rift" | "chase"; weekly?: boolean }) {
   unlockAudio();
-  const sd = seed ?? ((Math.random() * 0xffffffff) >>> 0);
-  sim = createSim(sd, profile);
-  mapCanvas = renderMap(sim.map.tiles, sim.map.w, sim.map.h, sim.map.ts, sd);
+  const c = char(profile);
+  let seed = o.seed ?? ((Math.random() * 0xffffffff) >>> 0);
+  if (o.weekly) seed = weeklySeed(isoWeek());
+  if (o.kind === "chase") { if (c.sigils <= 0) return; c.sigils--; saveProfile(profile); }
+  const T = RIFT.tiers;
+  sim = createSim({
+    seed, kind: o.kind, tier: o.tier, players: [setupFor(profile, ME)],
+    mods: o.kind === "chase" ? [] : rollModifiers(seed, o.tier),
+    pity: { [ME]: { ancestral: c.pityAnc >= T.ancestralPity, primal: c.pityPri >= T.primalPity } },
+  });
+  run = { kind: o.kind, tier: o.tier, weekly: !!o.weekly, seed };
+  mapCanvas = renderMap(sim.map.tiles, sim.map.w, sim.map.h, sim.map.ts, seed);
   miniCanvas = document.createElement("canvas");
   miniCanvas.width = sim.map.w; miniCanvas.height = sim.map.h;
   const m = miniCanvas.getContext("2d")!;
   for (let i = 0; i < sim.map.tiles.length; i++) if (sim.map.tiles[i] === 0) { m.fillStyle = "#6a5a7e"; m.fillRect(i % sim.map.w, Math.floor(i / sim.map.w), 1, 1); }
-  camX = sim.player.x - wb.width / 2; camY = sim.player.y - wb.height / 2;
-  particles.length = nums.length = rings.length = arcs.length = ghosts.length = 0;
-  found = {}; foundLegs = []; completeInfo = null; acc = 0; hitstop = 0; paused = false; pendingCmds = [];
+  const p = me();
+  camX = p.x - wb.width / 2; camY = p.y - wb.height / 2;
+  particles.length = nums.length = rings.length = arcs.length = ghosts.length = 0; pets.clear();
+  found = {}; foundLegs = []; completeInfo = null; acc = 0; hitstop = 0; paused = false; gotAncestral = gotPrimal = false; gotSigil = 0; startLevel = c.level;
   mode = "rift";
   ui.hide();
   riftButtons();
-  showBanner(RIFT.name, `Rift code ${sd.toString(36).toUpperCase()} · fill the bar, slay the guardian`, "#c9b8ff", 3);
+  if (o.kind === "chase") showBanner(RIFT.chase.name, "Three phases. Dodge the fire, break the pylons.", "#ff3b6b", 3.5);
+  else showBanner(o.weekly ? "WEEKLY RIFT" : RIFT.name, `Tier ${o.tier} · code ${seed.toString(36).toUpperCase()} · ${modsLine(sim.rift.mods)}`, "#c9b8ff", 3.5);
 }
 
 function riftButtons() {
   const root = document.getElementById("ui")!;
   root.className = "hudbtns";
-  root.innerHTML = `<button id="b-inv">Bag</button><button id="b-mute">Sound</button><button id="b-leave">Leave</button>`;
+  root.innerHTML = `<button id="b-inv">Bag</button><button id="b-leave">Leave</button>`;
   document.getElementById("b-inv")!.onclick = () => openRiftInventory();
-  document.getElementById("b-mute")!.onclick = (e) => { (e.target as HTMLElement).textContent = toggleMute() ? "Muted" : "Sound"; };
   document.getElementById("b-leave")!.onclick = (e) => {
     const el = e.target as HTMLElement;
-    if (completeInfo || performance.now() - leaveArmed < 2500) endRift();
-    else { leaveArmed = performance.now(); el.textContent = "Leave? tap again"; setTimeout(() => (el.textContent = "Leave"), 2500); }
+    if (completeInfo || performance.now() - leaveArmed < 2500) endRun();
+    else { leaveArmed = performance.now(); el.textContent = "Leave? tap again"; setTimeout(() => { if (!completeInfo) el.textContent = "Leave"; }, 2500); }
   };
+  if (completeInfo) document.getElementById("b-leave")!.textContent = "Finish";
 }
 
-function syncProfileFromSim() {
-  if (!sim) return;
-  profile.equipment = JSON.parse(JSON.stringify(sim.player.equipment));
-  profile.bag = JSON.parse(JSON.stringify(sim.player.bag));
-  profile.materials = sim.player.materials;
-  saveProfile(profile);
-}
-
+function resume() { paused = false; input.enabled = true; riftButtons(); }
 function openRiftInventory() {
   if (!sim) return;
-  paused = true; // solo only: co-op can't pause the shared sim (see notes)
-  input.enabled = false;
-  const s = sim;
-  ui.showInventory(s.player, (c) => {
-    // solo + paused: apply now. In co-op this goes out as an input command for the host's next tick.
-    if (applyPlayerCmd(s, c)) syncProfileFromSim();
-  }, () => { paused = false; input.enabled = true; riftButtons(); }, "Inventory · rift paused");
+  paused = true; input.enabled = false; // solo only: co-op never pauses the shared sim
+  const s = sim, p = me();
+  ui.showRiftInventory(p, p.materials, (c: InvCmd) => { if (applyPlayerCmd(s, p, c)) syncFromSim(profile, s, ME); }, resume);
 }
 
-function endRift() {
-  if (!sim) return;
-  syncProfileFromSim();
-  const s = sim;
+function endRun() {
+  if (!sim || !run) return;
+  const s = sim, p = me(), c = char(profile), T = RIFT.tiers;
+  syncFromSim(profile, s, ME);
+  for (const [k, v] of Object.entries(p.uses)) c.uses[k] = (c.uses[k] ?? 0) + v;
+  const lines: string[] = [];
+  if (c.level > startLevel) lines.push(`Level ${startLevel} → ${c.level}`);
+  const newRunes = CLASSES[c.cls].skills.flatMap((id) => SKILL[id].runes.filter((r) => r.uses > (c.uses[id] ?? 0) - (p.uses[id] ?? 0) && r.uses <= (c.uses[id] ?? 0)).map((r) => `${SKILL[id].name}: ${r.name}`));
+  if (newRunes.length) lines.push(`New runes: ${newRunes.join(", ")}`);
+  if (gotSigil) lines.push(`Bone Sigil found (${c.sigils} owned). The Ossuary King awaits.`);
   if (completeInfo) {
-    profile.riftsCleared++;
-    if (completeInfo.inTime && (!profile.bestTime || completeInfo.time < profile.bestTime)) profile.bestTime = completeInfo.time;
+    c.riftsCleared++;
+    if (run.kind === "rift") {
+      if (completeInfo.inTime && run.tier >= c.highestTier && c.highestTier < T.max) { c.highestTier = run.tier + 1; lines.push(`Tier ${c.highestTier} unlocked!`); }
+      const key = String(run.tier);
+      if (completeInfo.inTime && (!c.bestTimes[key] || completeInfo.time < c.bestTimes[key])) c.bestTimes[key] = completeInfo.time;
+      if (run.tier >= T.ancestralFrom) c.pityAnc = gotAncestral ? 0 : c.pityAnc + 1;
+      if (run.tier >= T.primalFrom) c.pityPri = gotPrimal ? 0 : c.pityPri + 1;
+      if (run.weekly) {
+        const wk = isoWeek();
+        if (profile.weekly.week !== wk) profile.weekly = { week: wk, best: 0 };
+        if (completeInfo.inTime && (!profile.weekly.best || completeInfo.time < profile.weekly.best)) { profile.weekly.best = completeInfo.time; lines.push("New weekly best!"); }
+      }
+    }
     saveProfile(profile);
-    ui.showResults({ ...completeInfo, kills: s.rift.kills, found, legendaries: foundLegs }, goHub);
-  } else goHub();
-  sim = null; mode = "hub";
+    const title = run.kind === "chase" ? "The Ossuary King falls" : completeInfo.inTime ? "Rift cleared in time!" : "Guardian slain";
+    const sub = completeInfo.inTime ? "Bonus loot for time remaining." : "The timer ran out, so the rewards were smaller.";
+    ui.showResults({ title, sub, time: completeInfo.time, kills: s.rift.kills, found, legendaries: foundLegs, lines }, goHub);
+  } else { saveProfile(profile); goHub(); }
+  sim = null; run = null; mode = "hub";
 }
 
 function goHub() {
   mode = "hub";
-  ui.showHub({ materials: profile.materials, riftsCleared: profile.riftsCleared, bestTime: profile.bestTime, bagCount: profile.bag.length, offline: OFFLINE_TEST },
-    (seed) => startRift(seed),
-    () => ui.showInventory(profile, (c) => { applyInvCmd(profile, c); saveProfile(profile); }, goHub),
-    () => { profile = newProfile(); saveProfile(profile); goHub(); });
+  const H = holderOf(profile);
+  ui.showHub(profile, {
+    enter: startRun,
+    invCmd: (c) => { applyInvCmd(holderOf(profile), c); saveProfile(profile); },
+    setClass: (cls) => { profile.active = cls; saveProfile(profile); },
+    setRune: (sk, r) => { const c = char(profile); if (r) c.runes[sk] = r; else delete c.runes[sk]; saveProfile(profile); },
+    reroll: (t, idx, choice) => {
+      const c = char(profile);
+      const it = t.bag !== undefined ? c.bag[t.bag] : c.equipment[t.slot!];
+      if (!it) return;
+      const cost = rerollCost(it);
+      if (profile.materials < cost) return;
+      profile.materials -= cost;
+      it.rerollIdx = idx; it.rerolls = (it.rerolls ?? 0) + 1;
+      if (choice) it.affixes[idx] = choice;
+      saveProfile(profile);
+    },
+    setting: (k, v) => {
+      if (k === "filter") profile.filter = v; else if (k === "pet") profile.pet = v;
+      else { (profile.settings as any)[k] = v; if (k === "mute") setMuted(v); }
+      saveProfile(profile);
+    },
+    newSeason: () => { profile = startNewSeason(profile); saveProfile(profile); goHub(); },
+    reset: () => { profile = newProfile(); saveProfile(profile); goHub(); },
+  });
+  void H;
 }
 
 input.onKey = (k) => {
   unlockAudio();
   if (mode !== "rift") return;
-  if (k === "i" || k === "tab" || k === "b") { if (ui.invOpen) { ui.hide(); paused = false; input.enabled = true; riftButtons(); } else openRiftInventory(); }
-  if (k === "m") toggleMute();
-  if (k === "escape" && ui.invOpen) { ui.hide(); paused = false; input.enabled = true; riftButtons(); }
-  if (k === "enter" && completeInfo) endRift();
+  if (k === "i" || k === "tab" || k === "b") { if (ui.invOpen) { ui.hide(); resume(); } else openRiftInventory(); }
+  if (k === "m") { profile.settings.mute = !profile.settings.mute; setMuted(profile.settings.mute); saveProfile(profile); }
+  if (k === "escape" && ui.invOpen) { ui.hide(); resume(); }
+  if (k === "enter" && completeInfo) endRun();
 };
-canvas.addEventListener("pointerdown", () => unlockAudio());
+addEventListener("pointerdown", () => unlockAudio());
+addEventListener("touchend", () => unlockAudio());
+document.addEventListener("visibilitychange", () => { if (document.hidden && sim) { syncFromSim(profile, sim, ME); if (!ui.invOpen && !completeInfo) openRiftInventory(); } });
 
 // ------------------------------------------------------------------ events -> feel
 function showBanner(text: string, sub: string, color: string, t = 2.2) { banner = { text, sub, color, t }; }
+function addShake(v: number) { if (profile.settings.shake) shake = Math.max(shake, v); }
 function burst(x: number, y: number, n: number, color: string | string[], speed = 60, size = 1, life = 0.4, grav = 0) {
-  for (let i = 0; i < n && particles.length < 400; i++) {
+  for (let i = 0; i < n && particles.length < 350; i++) {
     const a = Math.random() * Math.PI * 2, v = speed * (0.3 + Math.random() * 0.7);
     const c = Array.isArray(color) ? color[(Math.random() * color.length) | 0] : color;
     particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: life * (0.6 + Math.random() * 0.6), max: life, color: c, size, grav });
@@ -169,65 +206,97 @@ function burst(x: number, y: number, n: number, color: string | string[], speed 
 }
 const BLOOD: Record<string, string[]> = {
   ghoul: ["#6f8f5a", "#4a6640", "#9bc27a"], archer: ["#f2ead3", "#c9bf9f"], brute: ["#9a7aa8", "#6b4f7a", "#4a3456"], guardian: ["#f2ead3", "#ffd23f", "#2b1f3a"],
+  king: ["#f2ead3", "#ff3b6b", "#2b1f3a"], pylon: ["#f2ead3", "#ffd23f"],
 };
+const SKILL_COLOR = (tags: string[]) => (tags.includes("cold") && !tags.includes("fire") ? "#9be0ff" : tags.includes("fire") ? "#ff8a1f" : "#e8e0ff");
 
 function handleEvent(e: SimEvent) {
+  const mine = (pid: number) => pid === ME;
   switch (e.type) {
     case "hit": {
-      if (nums.length < 80) nums.push({ x: e.x + (Math.random() * 6 - 3), y: e.y, text: String(e.amount), color: e.burn ? "#ff9a3c" : e.crit ? "#ffe14a" : "#ffffff", size: e.crit ? 1.5 : e.burn ? 0.8 : 1, t: 0, vx: (Math.random() - 0.5) * 20 });
-      burst(e.x, e.y + 4, e.crit ? 6 : 3, BLOOD[e.kind], 70, 1, 0.35, 120);
+      if (nums.length < 70 && (mine(e.pid) || e.crit)) nums.push({ x: e.x + (Math.random() * 6 - 3), y: e.y, text: String(e.amount), color: e.burn ? "#ff9a3c" : e.crit ? "#ffe14a" : "#ffffff", size: e.crit ? 1.5 : e.burn ? 0.8 : 1, t: 0, vx: (Math.random() - 0.5) * 20 });
+      burst(e.x, e.y + 4, e.crit ? 5 : 2, BLOOD[e.kind] ?? BLOOD.ghoul, 70, 1, 0.35, 120);
       if (!e.burn) sfx.hit(e.crit);
-      if (e.crit) { hitstop = Math.max(hitstop, 0.03); shake = Math.max(shake, 1.5); }
+      if (e.crit && mine(e.pid)) { hitstop = Math.max(hitstop, 0.025); addShake(1.5); }
       break;
     }
+    case "immune": if (nums.length < 70) nums.push({ x: e.x, y: e.y, text: "IMMUNE", color: "#9be0ff", size: 0.8, t: 0, vx: 0 }); break;
     case "kill":
-      burst(e.x, e.y, e.kind === "brute" ? 26 : e.kind === "guardian" ? 80 : 12, BLOOD[e.kind], e.kind === "guardian" ? 160 : 90, e.kind === "ghoul" ? 1 : 2, 0.6, 150);
-      if (e.kind === "brute") { hitstop = Math.max(hitstop, 0.08); shake = Math.max(shake, 5); sfx.bigKill(); }
-      else if (e.kind === "guardian") { hitstop = 0.4; shake = 12; flash = 0.5; flashColor = "#fff"; sfx.bigKill(); }
+      burst(e.x, e.y, e.kind === "brute" || e.elite ? 26 : e.kind === "guardian" || e.kind === "king" ? 80 : 12, BLOOD[e.kind] ?? BLOOD.ghoul, e.kind === "guardian" || e.kind === "king" ? 160 : 90, e.kind === "ghoul" ? 1 : 2, 0.6, 150);
+      if (e.kind === "guardian" || e.kind === "king") { hitstop = 0.4; addShake(12); flash = 0.5; flashColor = "#fff"; sfx.bigKill(); }
+      else if (e.kind === "brute" || e.elite) { hitstop = Math.max(hitstop, 0.07); addShake(5); sfx.bigKill(); }
       else sfx.kill();
       break;
     case "swing":
-      arcs.push({ x: e.x, y: e.y, fx: e.fx, fy: e.fy, r: e.range, ring: e.ring, t: 0 });
+      arcs.push({ x: e.x, y: e.y, fx: e.fx, fy: e.fy, r: e.range, ring: e.ring, t: 0, arcCos: e.arcCos });
       sfx.swing();
-      if (e.hits > 0) shake = Math.max(shake, e.ring ? 3 : 1);
-      if (e.hits > 0) hitstop = Math.max(hitstop, e.ring ? 0.05 : 0.018);
+      if (e.hits > 0 && mine(e.pid)) { addShake(e.ring ? 3 : 1); hitstop = Math.max(hitstop, e.ring ? 0.05 : 0.018); }
       break;
-    case "cast":
-      if (e.skill === "ember_lance") sfx.lance();
-      if (e.skill === "ash_dash") sfx.dash();
-      if (e.skill === "cinderlings") { sfx.summon(); burst(e.x, e.y, 20, ["#ff8a1f", "#ffd23f"], 80, 1, 0.5); }
+    case "cast": {
+      const sk = SKILL[e.skill];
+      if (!sk) break;
+      if (sk.kind === "projectile") sfx.lance();
+      if (sk.kind === "dash") sfx.dash();
+      if (sk.kind === "summon") { sfx.summon(); burst(e.x, e.y, 20, ["#ff8a1f", "#ffd23f"], 80, 1, 0.5); }
+      if (sk.kind === "shout") { sfx.shout(); rings.push({ x: e.x, y: e.y, r: e.r ?? 100, t: 0, max: 0.5, color: e.skill === "rally_banner" ? "#7dff9a" : "#ffd23f" }); addShake(2); }
+      if (sk.kind === "nova") { sfx.explosion(); const p = sim?.players.find((q) => q.pid === e.pid); const col = p ? SKILL_COLOR(p.sk[e.skill].tags) : "#ff8a1f"; rings.push({ x: e.x, y: e.y, r: e.r ?? 56, t: 0, max: 0.3, color: col, fill: true }); burst(e.x, e.y, 24, [col, "#fff"], 160, 1, 0.4); addShake(2.5); }
+      if (sk.kind === "trap") { sfx.ui(); rings.push({ x: e.x, y: e.y, r: e.r ?? 30, t: 0, max: 0.25, color: "#9be0ff" }); }
       break;
+    }
     case "playerHurt":
-      shake = Math.max(shake, 3); hurtFlash = 0.35; sfx.hurt();
-      if (sim && nums.length < 80) nums.push({ x: sim.player.x, y: sim.player.y - 14, text: "-" + e.amount, color: "#ff4a4a", size: 1, t: 0, vx: 0 });
+      if (!mine(e.pid)) break;
+      addShake(3); hurtFlash = 0.35; sfx.hurt();
+      if (sim && nums.length < 70) { const p = me(); nums.push({ x: p.x, y: p.y - 14, text: "-" + e.amount, color: "#ff4a4a", size: 1, t: 0, vx: 0 }); }
       break;
-    case "playerDeath": sfx.death(); showBanner("You fell", "Respawning at the rift entrance…", "#ff4a4a", 2.5); break;
-    case "slam": rings.push({ x: e.x, y: e.y, r: e.r, t: 0, max: 0.35, color: e.big ? "#ffd23f" : "#c9a0ff" }); shake = Math.max(shake, e.big ? 6 : 4); sfx.slam(); burst(e.x, e.y, 14, ["#5c4a6e", "#8a7f66"], 90, 1, 0.5); break;
-    case "explosion": rings.push({ x: e.x, y: e.y, r: e.r, t: 0, max: 0.3, color: "#ff8a1f" }); burst(e.x, e.y, 18, ["#ff8a1f", "#ffd23f", "#ff5a1f"], 110, 1, 0.45); shake = Math.max(shake, 2.5); sfx.explosion(); break;
+    case "playerDeath": if (mine(e.pid)) { sfx.death(); showBanner("You fell", "Respawning…", "#ff4a4a", 3); } break;
+    case "cheatDeath": if (mine(e.pid)) { showBanner("THE LAST EMBER", "Death refused", "#ff3b6b", 2); flash = 0.4; flashColor = "#ff3b6b"; } break;
+    case "slam": rings.push({ x: e.x, y: e.y, r: e.r, t: 0, max: 0.35, color: e.big ? "#ffd23f" : "#ff6a6a" }); addShake(e.big ? 6 : 3); sfx.slam(); burst(e.x, e.y, 12, ["#5c4a6e", "#8a7f66"], 90, 1, 0.5); break;
+    case "explosion": rings.push({ x: e.x, y: e.y, r: e.r, t: 0, max: 0.3, color: e.cold ? "#9be0ff" : "#ff8a1f" }); burst(e.x, e.y, 16, e.cold ? ["#9be0ff", "#fff"] : ["#ff8a1f", "#ffd23f", "#ff5a1f"], 110, 1, 0.45); addShake(2.5); sfx.explosion(); break;
+    case "teleport": burst(e.x, e.y, 14, ["#c9a0ff", "#fff"], 70, 1, 0.4); break;
     case "drop":
+      if (!mine(e.owner)) break;
       sfx.drop(e.rarity);
-      if (e.rarity === "legendary") { shake = Math.max(shake, 5); flash = 0.35; flashColor = RARITY_COLOR.legendary; showBanner("LEGENDARY!", e.name, RARITY_COLOR.legendary, 2.4); burst(e.x, e.y, 40, ["#ff8a1f", "#ffd23f", "#fff"], 140, 2, 0.9); }
-      else if (e.rarity === "rare") burst(e.x, e.y, 14, ["#ffd84a", "#fff"], 80, 1, 0.6);
+      if (e.quality) { gotAncestral ||= e.quality === "ancestral" || e.quality === "primal"; gotPrimal ||= e.quality === "primal"; }
+      if (e.rarity === "legendary" || e.rarity === "set" || e.rarity === "mythic") {
+        addShake(5); flash = 0.35; flashColor = RARITY_COLOR[e.rarity];
+        showBanner(e.quality === "primal" ? "PRIMAL!" : e.rarity === "mythic" ? "MYTHIC!" : e.quality === "ancestral" ? "ANCESTRAL!" : e.rarity === "set" ? "SET ITEM!" : "LEGENDARY!", e.name, RARITY_COLOR[e.rarity], 2.4);
+        burst(e.x, e.y, 40, [RARITY_COLOR[e.rarity], "#ffd23f", "#fff"], 140, 2, 0.9);
+      } else if (e.rarity === "rare") burst(e.x, e.y, 14, ["#ffd84a", "#fff"], 80, 1, 0.6);
       break;
     case "pickup":
+      if (!mine(e.pid)) break;
       sfx.pickup(); found[e.rarity] = (found[e.rarity] ?? 0) + 1;
-      if (e.rarity === "legendary") foundLegs.push(e.name);
-      if (e.rarity === "legendary" || e.rarity === "rare") ui.toast(`Picked up ${e.name} (I to equip)`, RARITY_COLOR[e.rarity]);
-      syncProfileFromSim();
+      if (e.rarity === "legendary" || e.rarity === "set" || e.rarity === "mythic") foundLegs.push({ name: e.name, rarity: e.rarity, quality: e.item.quality });
+      if (e.rarity !== "common" && e.rarity !== "magic") ui.toast(`Picked up ${e.name} · Bag to equip`, RARITY_COLOR[e.rarity]);
+      syncFromSim(profile, sim!, ME);
       break;
-    case "bagFull": ui.toast("Bag full! Open the bag (I) and scrap something.", "#ff6a6a"); break;
-    case "guardianSpawn": showBanner("THE HOLLOW WARDEN", "rises from the bone pit", "#ffd23f", 3); shake = 8; sfx.guardian(); burst(e.x, e.y, 60, ["#2b1f3a", "#ffd23f", "#f2ead3"], 140, 2, 0.9); break;
-    case "enrage": showBanner("ENRAGED", "The Warden grows faster and deadlier", "#ff4a4a", 2); sfx.guardian(); break;
+    case "scrapped": if (mine(e.pid) && nums.length < 70) { const p = me(); nums.push({ x: p.x, y: p.y - 18, text: `+${e.mats} mat`, color: "#b8a8d0", size: 0.7, t: 0, vx: 0 }); } break;
+    case "bagFull": if (mine(e.pid)) ui.toast("Bag full! Open the Bag and scrap something.", "#ff6a6a"); break;
+    case "guardianSpawn": showBanner(e.kind === "king" ? "THE OSSUARY KING" : "THE HOLLOW WARDEN", "rises from the bone pit", "#ffd23f", 3); addShake(8); sfx.guardian(); burst(e.x, e.y, 60, ["#2b1f3a", "#ffd23f", "#f2ead3"], 140, 2, 0.9); break;
+    case "enrage": showBanner("ENRAGED", "Faster and deadlier", "#ff4a4a", 2); sfx.guardian(); break;
     case "guardianStun": showBanner("STUNNED", "", "#9be0ff", 1); break;
-    case "timeUp": showBanner("TIME'S UP", "Finish the rift for reduced rewards", "#ff7a3c", 2.5); break;
+    case "phase": showBanner(`PHASE ${Math.min(3, e.n)}`, e.text, "#ff3b6b", 3); sfx.guardian(); addShake(6); break;
+    case "timeUp": showBanner("TIME'S UP", "Finish for reduced rewards", "#ff7a3c", 2.5); break;
+    case "levelUp":
+      if (!mine(e.pid)) break;
+      sfx.complete(); burst(me().x, me().y - 8, 40, ["#ffd23f", "#fff", "#7dff9a"], 120, 1, 0.8);
+      { const unlocked = CLASSES[me().cls].skills.map((id) => SKILL[id]).filter((d) => d.unlock === e.level); showBanner(`LEVEL ${e.level}`, unlocked.length ? `New skill: ${unlocked.map((d) => d.name).join(", ")}` : "Stronger", "#7dff9a", 2.5); }
+      syncFromSim(profile, sim!, ME);
+      break;
+    case "boonOffer":
+      if (!mine(e.pid) || !sim) break;
+      { const s = sim; paused = true; input.enabled = false;
+        ui.showBoons(s.boonOffers[ME], (id) => { applyPlayerCmd(s, me(), { type: "boon", id }); sfx.complete(); resume(); }); }
+      break;
+    case "sigil": if (mine(e.pid)) { gotSigil++; showBanner("BONE SIGIL", "Opens the Throne of the Ossuary King", "#ff3b6b", 2.5); } break;
     case "riftComplete":
       completeInfo = { inTime: e.inTime, time: e.time };
       sfx.complete();
-      showBanner(e.inTime ? "RIFT CLEARED" : "GUARDIAN SLAIN", `${fmtTime(e.time)} · grab your loot, then Leave (or Enter)`, "#7dff9a", 4);
-      document.getElementById("b-leave") && (document.getElementById("b-leave")!.textContent = "Finish");
-      syncProfileFromSim();
+      showBanner(run?.kind === "chase" ? "KING SLAIN" : e.inTime ? "RIFT CLEARED" : "GUARDIAN SLAIN", `${fmtTime(e.time)} · grab your loot, then Finish`, "#7dff9a", 4);
+      riftButtons();
+      syncFromSim(profile, sim!, ME);
       break;
-    case "equipChanged": syncProfileFromSim(); break;
+    case "equipChanged": break;
   }
 }
 
@@ -237,24 +306,22 @@ function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   if (mode === "rift" && sim) {
-    if (hitstop > 0) hitstop -= dt; // solo-only: freezes the sim; co-op needs a render-only version
+    if (hitstop > 0) hitstop -= dt; // solo only: freezes the sim; co-op uses a render-only freeze
     else if (!paused) acc += dt;
     let steps = 0;
-    while (acc >= DT && steps < 5) {
-      const inp: PlayerInput = input.read(sim, toWorld);
-      if (pendingCmds.length) { inp.cmds = pendingCmds; pendingCmds = []; }
-      const ps = sim.player;
-      step(sim, inp);
+    while (acc >= DT && steps < 4 && !paused) {
+      const p = me();
+      const inp: PlayerInput = input.read(sim, p, toWorld);
+      step(sim, { [ME]: inp });
       for (const e of sim.events) handleEvent(e);
-      if (ps.dashT > 0) ghosts.push({ x: ps.x, y: ps.y, t: 0, flip: ps.fx < 0 });
+      for (const q of sim.players) if (q.dashT > 0) ghosts.push({ x: q.x, y: q.y, t: 0, flip: q.fx < 0, cls: q.cls });
       acc -= DT; steps++;
       if (hitstop > 0) { acc = 0; break; }
     }
-    if (steps === 5) acc = 0;
+    if (steps === 4) acc = 0;
     updateFx(dt);
-    render(Math.min(1, acc / DT), dt);
+    if (sim) render(Math.min(1, acc / DT), dt);
   } else {
-    ctx.fillStyle = "#0b0710"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     drawHubBackdrop(now / 1000);
   }
   requestAnimationFrame(frame);
@@ -276,43 +343,59 @@ function updateFx(dt: number) {
   flash = Math.max(0, flash - dt);
   hurtFlash = Math.max(0, hurtFlash - dt);
   if (banner) { banner.t -= dt; if (banner.t <= 0) banner = null; }
+  if (sim) for (const p of sim.players) {
+    if (!p.pet || p.pet === "none") continue;
+    let pt = pets.get(p.pid);
+    if (!pt) { pt = { x: p.x, y: p.y, flip: false }; pets.set(p.pid, pt); }
+    const tx = p.x - p.fx * 14 - 6, ty = p.y - 4;
+    const d = Math.hypot(tx - pt.x, ty - pt.y);
+    if (d > 2) { const k = Math.min(1, dt * (d > 60 ? 8 : 4)); pt.flip = tx < pt.x; pt.x += (tx - pt.x) * k; pt.y += (ty - pt.y) * k; }
+  }
 }
 
 // ------------------------------------------------------------------ render
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-let vignette: HTMLCanvasElement | null = null;
+let vignette: HTMLCanvasElement | null = null, vignetteDark = false;
+const heroFrames = (cls: string) => (cls === "gloomstalker" ? bank.ranger : bank.hero);
 
 function render(alpha: number, dt: number) {
   const s = sim!;
-  const p = s.player;
+  const p = me();
   const px = lerp(p.px, p.x, alpha), py = lerp(p.py, p.y, alpha);
   const W = wb.width, H = wb.height;
-  const tx = px - W / 2, ty = py - H / 2;
   const k = Math.min(1, dt * 12);
-  camX += (tx - camX) * k; camY += (ty - camY) * k;
+  camX += (px - W / 2 - camX) * k; camY += (py - H / 2 - camY) * k;
   const sx = Math.round(camX + (Math.random() - 0.5) * shake * 2), sy = Math.round(camY + (Math.random() - 0.5) * shake * 2);
   const g = wctx;
   g.imageSmoothingEnabled = false;
   g.fillStyle = "#0e0a14"; g.fillRect(0, 0, W, H);
   g.save();
   g.translate(-sx, -sy);
-  g.drawImage(mapCanvas!, 0, 0);
-
+  g.drawImage(mapCanvas!, sx, sy, W, H, sx, sy, W, H);
   const t = performance.now() / 1000;
-  // hazards
+  const onScreen = (x: number, y: number, m = 40) => x > sx - m && x < sx + W + m && y > sy - m && y < sy + H + m;
+
   for (const h of s.hazards) {
+    if (!onScreen(h.x, h.y)) continue;
     const a = Math.min(1, h.life / 0.6);
-    g.globalAlpha = 0.5 * a; g.fillStyle = (Math.floor(t * 12 + h.id) % 2) ? "#ff5a1f" : "#ff8a1f";
-    g.beginPath(); g.ellipse(h.x, h.y, h.r * 0.8, h.r * 0.5, 0, 0, Math.PI * 2); g.fill();
+    const frost = h.kind === "frost";
+    g.globalAlpha = (h.max > 3 ? 0.35 : 0.5) * a;
+    g.fillStyle = frost ? ((Math.floor(t * 6 + h.id) % 2) ? "#9be0ff" : "#5fb0e0") : ((Math.floor(t * 12 + h.id) % 2) ? "#ff5a1f" : "#ff8a1f");
+    g.beginPath(); g.ellipse(h.x, h.y, h.r, h.r * 0.6, 0, 0, Math.PI * 2); g.fill();
+    if (h.max > 3) { g.globalAlpha = 0.8 * a; g.strokeStyle = frost ? "#d8f4ff" : "#ffd23f"; g.beginPath(); g.ellipse(h.x, h.y, h.r, h.r * 0.6, 0, 0, Math.PI * 2); g.stroke(); }
     g.globalAlpha = 1;
-    if (Math.random() < 0.08) particles.push({ x: h.x + (Math.random() - 0.5) * 10, y: h.y, vx: 0, vy: -20, life: 0.4, max: 0.4, color: "#ffd23f", size: 1, grav: 0 });
+    if (Math.random() < 0.06) particles.push({ x: h.x + (Math.random() - 0.5) * h.r, y: h.y, vx: 0, vy: -20, life: 0.4, max: 0.4, color: frost ? "#fff" : "#ffd23f", size: 1, grav: 0 });
   }
-  // telegraphs
+  for (const z of s.zones) {
+    if (!onScreen(z.x, z.y)) continue;
+    if (z.kind === "pool") { g.globalAlpha = 0.55; g.fillStyle = (Math.floor(t * 10 + z.id) % 2) ? "#c2361f" : "#e0521f"; g.beginPath(); g.ellipse(z.x, z.y, z.r, z.r * 0.6, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
+    else telegraphCircle(g, z.x, z.y, z.r, 1 - z.delay / 1.4);
+  }
   for (const e of s.enemies) {
-    if (e.dead) continue;
+    if (e.dead || !onScreen(e.x, e.y, 80)) continue;
     const def = ENEMIES[e.kind];
-    if (e.kind === "brute" && e.state === "windup") telegraphCircle(g, e.tx, e.ty, def.slamRadius!, 1 - e.t / def.windup);
-    if (e.kind === "guardian") {
+    if (e.kind === "brute" && e.state === "windup") telegraphCircle(g, e.tx, e.ty, def.slamRadius! * e.scale, 1 - e.t / def.windup);
+    if (e.kind === "guardian" || e.kind === "king") {
       if (e.state === "slam") telegraphCircle(g, e.tx, e.ty, def.slamRadius!, 1 - e.t / def.windup);
       if (e.state === "nova") { g.strokeStyle = "#ffd23f"; g.globalAlpha = 0.4 + 0.4 * Math.sin(t * 30); g.beginPath(); g.arc(e.x, e.y, e.r + 6 + (1 - e.t) * 10, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1; }
       if (e.state === "chargeWind") {
@@ -323,58 +406,78 @@ function render(alpha: number, dt: number) {
       }
     }
     if (e.kind === "archer" && e.state === "windup") {
-      g.strokeStyle = "rgba(255,60,60,0.5)"; g.beginPath(); g.moveTo(e.x, e.y); g.lineTo(p.x, p.y); g.stroke();
+      const tg = s.players.find((q) => q.pid === e.target);
+      if (tg) { g.strokeStyle = "rgba(255,60,60,0.5)"; g.beginPath(); g.moveTo(e.x, e.y); g.lineTo(tg.x, tg.y); g.stroke(); }
     }
   }
-  // loot
+  // loot (only yours; per-player drops)
   for (const l of s.loot) {
-    const col = RARITY_COLOR[l.item.rarity];
+    if (l.owner !== ME || !onScreen(l.x, l.y, 100)) continue;
+    const r = l.item.rarity;
+    const col = RARITY_COLOR[r];
+    const hidden = RARITY_ORDER_IDX(r) < RARITY_ORDER_IDX(profile.filter);
     const bob = Math.sin(t * 4 + l.id) * 1.5;
-    const hgt = l.item.rarity === "legendary" ? 90 : l.item.rarity === "rare" ? 40 : l.item.rarity === "magic" ? 22 : 0;
+    const big = r === "legendary" || r === "set" || r === "mythic";
+    const hgt = hidden ? 0 : big ? 90 : r === "rare" ? 40 : r === "magic" ? 22 : 0;
     if (hgt) {
-      const wdt = l.item.rarity === "legendary" ? 6 + Math.sin(t * 8) : 3;
+      const wdt = big ? 6 + Math.sin(t * 8) : 3;
       const gr = g.createLinearGradient(0, l.y - hgt, 0, l.y);
-      gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, col);
+      gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, l.item.quality === "primal" ? "#ff3b3b" : col);
       g.globalAlpha = 0.65; g.fillStyle = gr; g.fillRect(Math.round(l.x - wdt / 2), l.y - hgt, wdt, hgt); g.globalAlpha = 1;
     }
-    const ic = bank.icon(l.item.slot, l.item.rarity);
+    const ic = bank.icon(l.item.slot, r);
+    g.globalAlpha = hidden ? 0.35 : 1;
     g.fillStyle = "rgba(0,0,0,0.4)"; g.fillRect(l.x - 4, l.y + 3, 8, 2);
     g.drawImage(ic.img, Math.round(l.x - ic.w / 2), Math.round(l.y - ic.h + 2 + bob));
+    g.globalAlpha = 1;
   }
-  // dash ghosts
-  for (const gh of ghosts) { g.globalAlpha = 0.4 * (1 - gh.t / 0.25); drawSprite(g, bank.hero[1], gh.x, gh.y, gh.flip, true); }
+  for (const gh of ghosts) { g.globalAlpha = 0.4 * (1 - gh.t / 0.25); drawSprite(g, heroFrames(gh.cls)[1], gh.x, gh.y, gh.flip, true); }
   g.globalAlpha = 1;
-  // entities, y-sorted
   type D = { y: number; f: () => void };
   const list: D[] = [];
   for (const e of s.enemies) {
-    if (e.dead) continue;
-    if (e.x < sx - 40 || e.x > sx + W + 40 || e.y < sy - 40 || e.y > sy + H + 60) continue;
+    if (e.dead || !onScreen(e.x, e.y, 60)) continue;
     const ex = lerp(e.px, e.x, alpha), ey = lerp(e.py, e.y, alpha);
     list.push({ y: ey, f: () => drawEnemy(g, e, ex, ey, t) });
   }
   for (const m of s.summons) {
+    if (!onScreen(m.x, m.y)) continue;
     const mx = lerp(m.px, m.x, alpha), my = lerp(m.py, m.y, alpha);
-    list.push({ y: my, f: () => { shadow(g, mx, my, 3); g.globalAlpha = m.life < 1.5 && Math.floor(t * 10) % 2 ? 0.5 : 1; drawSprite(g, bank.imp[Math.floor(t * 8 + m.id) % 2], mx, my, m.fx < 0, false); g.globalAlpha = 1; } });
+    list.push({ y: my, f: () => {
+      const frames = m.kind === "raven" ? bank.raven : bank.imp;
+      const fr = frames[Math.floor(t * 8 + m.id) % 2];
+      const yy = m.kind === "raven" ? my - 8 + Math.sin(t * 6 + m.id) * 2 : my;
+      shadow(g, mx, my, 3 * m.size);
+      g.globalAlpha = m.life < 1.5 && Math.floor(t * 10) % 2 ? 0.5 : 1;
+      drawSprite(g, fr, mx, yy, m.fx < 0, false, m.size);
+      g.globalAlpha = 1;
+    } });
   }
-  if (!p.dead) list.push({ y: py, f: () => drawHero(g, s, px, py, t) });
+  for (const q of s.players) {
+    if (q.dead) continue;
+    const qx = lerp(q.px, q.x, alpha), qy = lerp(q.py, q.y, alpha);
+    list.push({ y: qy, f: () => drawHero(g, q, qx, qy, t) });
+    const pt = pets.get(q.pid);
+    if (pt && bank.pets[q.pet]) list.push({ y: pt.y, f: () => { shadow(g, pt.x, pt.y, 3); drawSprite(g, bank.pets[q.pet][Math.floor(t * 6) % 2], pt.x, pt.y - (q.pet === "bat" ? 8 + Math.sin(t * 5) * 2 : 0), pt.flip, false); } });
+  }
   list.sort((a, b) => a.y - b.y);
   for (const d of list) d.f();
-  // projectiles
   for (const pr of s.projectiles) {
+    if (!onScreen(pr.x, pr.y)) continue;
     const x = lerp(pr.px, pr.x, alpha), y = lerp(pr.py, pr.y, alpha);
     const [nx, ny] = norm2(pr.vx, pr.vy);
-    if (pr.kind === "lance") {
-      g.strokeStyle = pr.returning ? "#7fd8ff" : "#ff5a1f"; g.lineWidth = 3;
-      g.beginPath(); g.moveTo(x - nx * 12, y - ny * 12); g.lineTo(x + nx * 3, y + ny * 3); g.stroke();
-      g.strokeStyle = "#ffe9a0"; g.lineWidth = 1;
-      g.beginPath(); g.moveTo(x - nx * 9, y - ny * 9); g.lineTo(x + nx * 4, y + ny * 4); g.stroke();
-      if (Math.random() < 0.6) particles.push({ x, y, vx: -nx * 20 + (Math.random() - 0.5) * 20, vy: -ny * 20 + (Math.random() - 0.5) * 20, life: 0.3, max: 0.3, color: "#ff8a1f", size: 1, grav: 0 });
+    if (pr.kind === "lance" || pr.kind === "bolt") {
+      const col = pr.returning ? "#7fd8ff" : pr.cold && !pr.fire ? "#9be0ff" : pr.fire ? "#ff5a1f" : "#d8d0f0";
+      const L = pr.kind === "lance" ? 12 : 7;
+      g.strokeStyle = col; g.lineWidth = pr.kind === "lance" ? Math.max(3, pr.r * 0.6) : 2;
+      g.beginPath(); g.moveTo(x - nx * L, y - ny * L); g.lineTo(x + nx * 3, y + ny * 3); g.stroke();
+      g.strokeStyle = "#fff8e0"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(x - nx * (L - 3), y - ny * (L - 3)); g.lineTo(x + nx * 4, y + ny * 4); g.stroke();
+      if (pr.kind === "lance" && Math.random() < 0.5) particles.push({ x, y, vx: -nx * 20 + (Math.random() - 0.5) * 20, vy: -ny * 20 + (Math.random() - 0.5) * 20, life: 0.3, max: 0.3, color: col, size: 1, grav: 0 });
     } else if (pr.kind === "wave") {
       g.strokeStyle = "#ff8a1f"; g.lineWidth = 3; g.globalAlpha = Math.min(1, pr.life * 3);
       const a = Math.atan2(ny, nx);
       g.beginPath(); g.arc(x - nx * 6, y - ny * 6, 10, a - 1, a + 1); g.stroke();
-      g.strokeStyle = "#ffd23f"; g.lineWidth = 1; g.beginPath(); g.arc(x - nx * 6, y - ny * 6, 10, a - 0.8, a + 0.8); g.stroke();
       g.globalAlpha = 1;
     } else if (pr.kind === "arrow") {
       g.strokeStyle = "#f2ead3"; g.lineWidth = 1;
@@ -386,15 +489,14 @@ function render(alpha: number, dt: number) {
     }
   }
   g.lineWidth = 1;
-  // swing arcs
   for (const a of arcs) {
     const k2 = a.t / 0.13;
     g.globalAlpha = 1 - k2;
     g.strokeStyle = a.ring ? "#ffd23f" : "#ffffff"; g.lineWidth = 3;
-    const ang = Math.atan2(a.fy, a.fx);
+    const ang = Math.atan2(a.fy, a.fx), half = Math.acos(Math.max(-1, Math.min(1, a.arcCos)));
     g.beginPath();
     if (a.ring) g.arc(a.x, a.y, a.r * (0.6 + 0.4 * k2), 0, Math.PI * 2);
-    else g.arc(a.x, a.y, a.r * (0.7 + 0.3 * k2), ang - 1.15 + k2 * 0.3, ang + 1.15 + k2 * 0.3);
+    else g.arc(a.x, a.y, a.r * (0.7 + 0.3 * k2), ang - half + k2 * 0.3, ang + half + k2 * 0.3);
     g.stroke();
     g.globalAlpha = 1; g.lineWidth = 1;
   }
@@ -402,40 +504,41 @@ function render(alpha: number, dt: number) {
     const k2 = r.t / r.max;
     g.globalAlpha = 1 - k2; g.strokeStyle = r.color; g.lineWidth = 2;
     g.beginPath(); g.arc(r.x, r.y, r.r * (0.4 + 0.6 * k2), 0, Math.PI * 2); g.stroke();
+    if (r.fill) { g.globalAlpha = 0.25 * (1 - k2); g.fillStyle = r.color; g.fill(); }
     g.globalAlpha = 1; g.lineWidth = 1;
   }
   for (const pa of particles) {
-    g.globalAlpha = Math.min(1, pa.life / pa.max * 1.5);
+    g.globalAlpha = Math.min(1, (pa.life / pa.max) * 1.5);
     g.fillStyle = pa.color; g.fillRect(Math.round(pa.x), Math.round(pa.y), pa.size, pa.size);
   }
   g.globalAlpha = 1;
   g.restore();
-
-  // darkness vignette around the hero
-  if (!vignette || vignette.width !== W) {
-    vignette = document.createElement("canvas"); vignette.width = W; vignette.height = H;
+  const dark = s.rift.mods.includes("gloom");
+  if (!vignette || vignette.width !== W || vignette.height !== H || vignetteDark !== dark) {
+    vignette = document.createElement("canvas"); vignette.width = W; vignette.height = H; vignetteDark = dark;
     const v = vignette.getContext("2d")!;
-    const gr = v.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.7);
-    gr.addColorStop(0, "rgba(5,2,10,0)"); gr.addColorStop(1, "rgba(5,2,10,0.75)");
+    const gr = v.createRadialGradient(W / 2, H / 2, Math.min(W, H) * (dark ? 0.12 : 0.25), W / 2, H / 2, Math.max(W, H) * (dark ? 0.45 : 0.7));
+    gr.addColorStop(0, "rgba(5,2,10,0)"); gr.addColorStop(1, `rgba(5,2,10,${dark ? 0.95 : 0.75})`);
     v.fillStyle = gr; v.fillRect(0, 0, W, H);
   }
   g.drawImage(vignette, 0, 0);
-
-  // blit
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(wb, 0, 0, W * pix, H * pix);
   drawHud(s, sx, sy, t);
 }
+const RARITY_IDX: Record<string, number> = { common: 0, magic: 1, rare: 2, legendary: 3, set: 4, mythic: 5 };
+const RARITY_ORDER_IDX = (r: string) => RARITY_IDX[r] ?? 0;
 
 function norm2(x: number, y: number): [number, number] { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; }
 function shadow(g: CanvasRenderingContext2D, x: number, y: number, r: number) {
   g.fillStyle = "rgba(0,0,0,0.4)"; g.beginPath(); g.ellipse(Math.round(x), Math.round(y) + 1, r + 1, r * 0.5, 0, 0, Math.PI * 2); g.fill();
 }
-function drawSprite(g: CanvasRenderingContext2D, sp: Sprite, x: number, y: number, flip: boolean, white: boolean) {
+function drawSprite(g: CanvasRenderingContext2D, sp: Sprite, x: number, y: number, flip: boolean, white: boolean, scale = 1) {
   const img = white ? sp.flash : sp.img;
-  const dx = Math.round(x - sp.w / 2), dy = Math.round(y - sp.h + 2);
-  if (flip) { g.save(); g.translate(dx + sp.w, dy); g.scale(-1, 1); g.drawImage(img, 0, 0); g.restore(); }
-  else g.drawImage(img, dx, dy);
+  const w = sp.w * scale, h = sp.h * scale;
+  const dx = Math.round(x - w / 2), dy = Math.round(y - h + 2);
+  if (flip) { g.save(); g.translate(dx + w, dy); g.scale(-1, 1); g.drawImage(img, 0, 0, w, h); g.restore(); }
+  else g.drawImage(img, dx, dy, w, h);
 }
 function telegraphCircle(g: CanvasRenderingContext2D, x: number, y: number, r: number, k: number) {
   g.fillStyle = "rgba(255,40,40,0.18)"; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
@@ -445,59 +548,76 @@ function telegraphCircle(g: CanvasRenderingContext2D, x: number, y: number, r: n
 
 function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, t: number) {
   const moving = Math.abs(e.x - e.px) + Math.abs(e.y - e.py) > 0.05;
-  const frames = e.kind === "ghoul" ? bank.ghoul : e.kind === "archer" ? bank.archer : e.kind === "brute" ? bank.brute : bank.guardian;
+  const frames = e.kind === "ghoul" ? bank.ghoul : e.kind === "archer" ? bank.archer : e.kind === "brute" ? bank.brute : e.kind === "pylon" ? bank.pylon : bank.guardian;
   const fr = frames[moving ? Math.floor(t * 8 + e.id) % frames.length : 0];
-  const flip = sim!.player.x < e.x;
+  const tgt = sim!.players.find((q) => q.pid === e.target);
+  const flip = tgt ? tgt.x < e.x : false;
+  const scale = e.kind === "king" ? 1.4 : e.scale;
   shadow(g, x, y, e.r);
   let yy = y;
-  if (e.state === "windup" || e.state === "slam" || e.state === "nova" || e.state === "chargeWind") yy -= Math.floor(t * 20) % 2; // tremble
-  if (e.kind === "guardian") yy += Math.sin(t * 2) * 1.5 - 2;
-  if (e.kind === "guardian" && e.state === "intro") g.globalAlpha = 1 - Math.max(0, e.t / 1.6) * 0.7;
-  if (e.kind === "guardian" && e.state === "stun") { g.fillStyle = "#9be0ff"; for (let i = 0; i < 3; i++) g.fillRect(Math.round(x + Math.cos(t * 6 + i * 2) * 10), Math.round(yy - fr.h - 2 + Math.sin(t * 6 + i * 2) * 2), 2, 2); }
-  drawSprite(g, fr, x, yy, flip, e.flash > 0);
-  if (e.kind === "guardian" && e.enraged) { g.globalAlpha = 0.25 + 0.15 * Math.sin(t * 12); drawSprite(g, fr, x, yy, flip, true); }
+  if (["windup", "slam", "nova", "chargeWind", "fire"].includes(e.state)) yy -= Math.floor(t * 20) % 2;
+  if (e.kind === "guardian" || e.kind === "king") yy += Math.sin(t * 2) * 1.5 - 2;
+  if ((e.kind === "guardian" || e.kind === "king") && e.state === "intro") g.globalAlpha = 1 - Math.max(0, e.t / 2) * 0.7;
+  if (e.elite) {
+    g.globalAlpha = 0.35 + 0.15 * Math.sin(t * 6);
+    g.fillStyle = e.affixes.includes("molten") ? "#ff5a1f" : e.affixes.includes("shielded") ? "#9be0ff" : "#c9a0ff";
+    g.beginPath(); g.ellipse(x, y, e.r + 4, (e.r + 4) * 0.5, 0, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = 1;
+  }
+  if (e.state === "stun" || e.state === "tomb") { g.fillStyle = e.state === "tomb" ? "#ffd23f" : "#9be0ff"; for (let i = 0; i < 3; i++) g.fillRect(Math.round(x + Math.cos(t * 6 + i * 2) * 12), Math.round(yy - fr.h * scale - 2 + Math.sin(t * 6 + i * 2) * 2), 2, 2); }
+  drawSprite(g, fr, x, yy, flip, e.flash > 0, scale);
+  if (e.kind === "king") { g.globalAlpha = 0.25; g.fillStyle = "#ff3b6b"; g.fillRect(Math.round(x - fr.w * scale / 2), Math.round(yy - fr.h * scale + 2), Math.round(fr.w * scale), Math.round(fr.h * scale)); }
+  if (e.enraged || e.state === "tomb") { g.globalAlpha = 0.25 + 0.15 * Math.sin(t * 12); drawSprite(g, fr, x, yy, flip, true, scale); }
+  if (e.slowT > 0) { g.globalAlpha = 0.3; g.fillStyle = "#9be0ff"; g.fillRect(Math.round(x - e.r), Math.round(yy - fr.h * scale + 2), e.r * 2, Math.round(fr.h * scale)); }
   g.globalAlpha = 1;
+  if (e.shieldT > 0) { g.strokeStyle = "#9be0ff"; g.globalAlpha = 0.7; g.beginPath(); g.arc(x, yy - fr.h * scale / 2, e.r + 5, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1; }
   if (e.burnT > 0 && Math.random() < 0.3) particles.push({ x: x + (Math.random() - 0.5) * e.r * 2, y: yy - Math.random() * fr.h, vx: 0, vy: -25, life: 0.35, max: 0.35, color: Math.random() < 0.5 ? "#ff8a1f" : "#ffd23f", size: 1, grav: 0 });
-  if (e.hp < e.maxHp && e.kind !== "guardian") {
+  if ((e.hp < e.maxHp || e.elite) && e.kind !== "guardian" && e.kind !== "king") {
     const w = e.r * 2 + 2;
-    g.fillStyle = "#140c1c"; g.fillRect(Math.round(x - w / 2) - 1, Math.round(yy - fr.h - 3), w + 2, 3);
-    g.fillStyle = "#d93a3a"; g.fillRect(Math.round(x - w / 2), Math.round(yy - fr.h - 2), Math.max(1, Math.round(w * e.hp / e.maxHp)), 1);
+    g.fillStyle = "#140c1c"; g.fillRect(Math.round(x - w / 2) - 1, Math.round(yy - fr.h * scale - 3), w + 2, 3);
+    g.fillStyle = e.elite ? "#c9a0ff" : "#d93a3a"; g.fillRect(Math.round(x - w / 2), Math.round(yy - fr.h * scale - 2), Math.max(1, Math.round((w * e.hp) / e.maxHp)), 1);
   }
 }
 
-function drawHero(g: CanvasRenderingContext2D, s: SimState, x: number, y: number, t: number) {
-  const p = s.player;
+function drawHero(g: CanvasRenderingContext2D, p: Player, x: number, y: number, t: number) {
+  const frames = heroFrames(p.cls);
   const fr = p.moving ? 1 + (Math.floor(p.walk / 7) % 2) : 0;
   shadow(g, x, y, 5);
-  const blink = p.invuln > 0 && p.dashT <= 0 && Math.floor(t * 15) % 2 === 0;
-  if (blink) g.globalAlpha = 0.5;
+  if (p.buff.t > 0) { g.globalAlpha = 0.3 + 0.1 * Math.sin(t * 8); g.strokeStyle = p.buff.armorPct ? "#ffd23f" : "#7dff9a"; g.beginPath(); g.ellipse(x, y, 9, 4, 0, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1; }
+  if (p.invuln > 0 && p.dashT <= 0 && Math.floor(t * 15) % 2 === 0) g.globalAlpha = 0.5;
   const flip = p.fx < 0;
-  // sword, swung behind/in front depending on facing
-  const swingK = Math.max(0, p.swingTimer / SKILL.cleave.interval!);
-  const ang = Math.atan2(p.fy, p.fx) + (swingK > 0.5 ? (swingK - 0.5) * 3 : -0.6);
-  const hx = x + (flip ? -3 : 3), hy = y - 6;
-  const drawSword = () => {
-    g.strokeStyle = "#cfd6e6"; g.lineWidth = 2;
-    g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx + Math.cos(ang) * 11, hy + Math.sin(ang) * 11); g.stroke();
-    g.fillStyle = "#ff8a1f"; g.fillRect(Math.round(hx + Math.cos(ang) * 11) - 1, Math.round(hy + Math.sin(ang) * 11) - 1, 2, 2);
-    g.lineWidth = 1;
-  };
-  if (p.fy < 0) drawSword();
-  drawSprite(g, bank.hero[fr], x, y, flip, false);
-  if (p.fy >= 0) drawSword();
-  if (hurtFlash > 0.2) { g.globalAlpha = 0.6; drawSprite(g, bank.hero[fr], x, y, flip, true); }
+  if (p.cls === "ashknight") {
+    const swingK = Math.max(0, p.swingT / (p.sk.cleave?.p.interval || 0.38));
+    const ang = Math.atan2(p.fy, p.fx) + (swingK > 0.5 ? (swingK - 0.5) * 3 : -0.6);
+    const hx = x + (flip ? -3 : 3), hy = y - 6;
+    const sword = () => {
+      g.strokeStyle = "#cfd6e6"; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx + Math.cos(ang) * 11, hy + Math.sin(ang) * 11); g.stroke();
+      g.fillStyle = "#ff8a1f"; g.fillRect(Math.round(hx + Math.cos(ang) * 11) - 1, Math.round(hy + Math.sin(ang) * 11) - 1, 2, 2);
+      g.lineWidth = 1;
+    };
+    if (p.fy < 0) sword();
+    drawSprite(g, frames[fr], x, y, flip, false);
+    if (p.fy >= 0) sword();
+  } else {
+    drawSprite(g, frames[fr], x, y, flip, false);
+    const ang = Math.atan2(p.fy, p.fx);
+    g.strokeStyle = "#8a5a2a"; g.lineWidth = 1;
+    g.beginPath(); g.arc(x + p.fx * 4, y - 7 + p.fy * 2, 6, ang - 1.1, ang + 1.1); g.stroke();
+  }
+  if (p.pid === ME && hurtFlash > 0.2) { g.globalAlpha = 0.6; drawSprite(g, frames[fr], x, y, flip, true); }
   g.globalAlpha = 1;
 }
 
-// ------------------------------------------------------------------ HUD (drawn at screen resolution)
+// ------------------------------------------------------------------ HUD
+const SHORT: Record<string, string> = { cleave: "Cleave", ember_lance: "Lance", ash_dash: "Dash", warcry: "Warcry", flame_nova: "Nova", cinderlings: "Imps", hex_bolt: "Bolt", volley: "Volley", tumble: "Tumble", frost_snare: "Snare", rally_banner: "Banner", raven_swarm: "Ravens" };
 function drawHud(s: SimState, sx: number, sy: number, t: number) {
-  const c = ctx;
-  const S = dpr;
+  const c = ctx, S = dpr;
   c.save();
   c.scale(S, S);
-  const W = cssW, H = cssH;
+  const W = cssW, H = cssH, ins = input.insets;
+  const L = 10 + ins.left, T = 10 + ins.top;
   const font = (px: number) => `${px}px "Pixelify Sans", ui-monospace, monospace`;
-  // damage numbers
   c.textAlign = "center"; c.textBaseline = "middle";
   for (const n of nums) {
     const k = n.t / 0.8;
@@ -509,103 +629,125 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
     c.fillStyle = n.color; c.fillText(n.text, px, py);
   }
   c.globalAlpha = 1;
-  // loot labels
   c.font = font(11);
   for (const l of s.loot) {
-    if (l.item.rarity === "common") continue;
+    if (l.owner !== ME || l.item.rarity === "common" || RARITY_ORDER_IDX(l.item.rarity) < RARITY_ORDER_IDX(profile.filter)) continue;
     const px = ((l.x - sx) * pix) / S, py = ((l.y - sy - 14) * pix) / S;
     if (px < -50 || px > W + 50 || py < -20 || py > H + 20) continue;
-    c.lineWidth = 3; c.strokeStyle = "#000"; c.strokeText(l.item.name, px, py);
-    c.fillStyle = RARITY_COLOR[l.item.rarity]; c.fillText(l.item.name, px, py);
+    const name = (l.item.quality ? l.item.quality[0].toUpperCase() + l.item.quality.slice(1) + " " : "") + l.item.name;
+    c.lineWidth = 3; c.strokeStyle = "#000"; c.strokeText(name, px, py);
+    c.fillStyle = RARITY_COLOR[l.item.rarity]; c.fillText(name, px, py);
   }
-  // top-left: life
-  const p = s.player;
+  // elite names
+  c.font = font(10);
+  for (const e of s.enemies) {
+    if (e.dead || !e.elite) continue;
+    const px = ((e.x - sx) * pix) / S, py = ((e.y - sy - e.r * 2 - 14) * pix) / S;
+    if (px < -50 || px > W + 50 || py < -20 || py > H + 20) continue;
+    const txt = e.affixes.map((a) => a[0].toUpperCase() + a.slice(1)).join(" · ");
+    c.lineWidth = 3; c.strokeStyle = "#000"; c.strokeText(txt, px, py); c.fillStyle = "#c9a0ff"; c.fillText(txt, px, py);
+  }
+  const p = me();
   c.textAlign = "left";
-  const lw = Math.min(180, W * 0.38);
-  panel(c, 10, 10, lw + 12, 28);
-  c.fillStyle = "#3a1018"; c.fillRect(16, 16, lw, 16);
+  const lw = Math.min(170, W * 0.36);
+  panel(c, L, T, lw + 12, 50);
+  c.fillStyle = "#3a1018"; c.fillRect(L + 6, T + 6, lw, 16);
   c.fillStyle = p.hp / p.stats.maxHp < 0.3 && Math.floor(t * 4) % 2 ? "#ff6a6a" : "#d93a3a";
-  c.fillRect(16, 16, lw * Math.max(0, p.hp / p.stats.maxHp), 16);
-  c.fillStyle = "#fff"; c.font = font(12); c.fillText(`${Math.ceil(p.hp)} / ${p.stats.maxHp}`, 22, 25);
-  // top-centre: timer + progress / guardian bar
+  c.fillRect(L + 6, T + 6, lw * Math.max(0, p.hp / p.stats.maxHp), 16);
+  c.fillStyle = "#fff"; c.font = font(12); c.fillText(`${Math.ceil(p.hp)} / ${p.stats.maxHp}`, L + 12, T + 15);
+  c.fillStyle = "#1b1424"; c.fillRect(L + 6, T + 26, lw, 6);
+  c.fillStyle = "#7dff9a"; c.fillRect(L + 6, T + 26, lw * (p.level >= RIFT.levels.max ? 1 : p.xp / xpForLevel(p.level)), 6);
+  c.fillStyle = "#b8a8d0"; c.font = font(10); { let lv = `Lv ${p.level}${p.boons.length ? " · " + p.boons.join(", ") : ""}`; while (lv.length > 4 && c.measureText(lv).width > lw) lv = lv.slice(0, -2) + "…"; c.fillText(lv, L + 6, T + 41); }
   const r = s.rift;
-  const bw = Math.min(300, W - 2 * lw - 60 > 160 ? W - 2 * lw - 60 : W * 0.5);
-  const bx = W / 2 - bw / 2;
-  const topY = W < 600 ? 46 : 10;
-  panel(c, bx - 6, topY, bw + 12, 40);
+  const narrow = W < 600;
+  const bw = narrow ? Math.min(W - 2 * L - 4, 300) : Math.min(320, W - 2 * lw - 80);
+  const bx = narrow ? W / 2 - bw / 2 : W / 2 - bw / 2;
+  const topY = narrow ? T + 58 : T;
+  panel(c, bx - 6, topY, bw + 12, 46);
   const left = r.limit - (r.done ? r.doneAt : r.time);
   c.textAlign = "center"; c.font = font(14);
   c.fillStyle = left < 0 ? "#ff7a3c" : left < 60 ? (Math.floor(t * 2) % 2 ? "#ffd23f" : "#fff") : "#fff";
-  c.fillText(left >= 0 ? fmtTime(left) : "+" + fmtTime(-left), W / 2, topY + 12);
-  const g = s.enemies.find((e) => e.id === r.guardianId && !e.dead);
-  c.fillStyle = "#1b1424"; c.fillRect(bx, topY + 22, bw, 12);
-  if (r.guardianSpawned && g) {
-    c.fillStyle = g.enraged ? "#ff3b3b" : "#ffd23f"; c.fillRect(bx, topY + 22, bw * g.hp / g.maxHp, 12);
-    c.fillStyle = "#140c1c"; c.font = font(10); c.fillText(g.enraged ? "THE HOLLOW WARDEN — ENRAGED" : "THE HOLLOW WARDEN", W / 2, topY + 28);
+  c.fillText((left >= 0 ? fmtTime(left) : "+" + fmtTime(-left)) + `  ·  T${r.tier}`, W / 2, topY + 11);
+  const gd = s.enemies.find((e) => e.id === r.guardianId && !e.dead);
+  c.fillStyle = "#1b1424"; c.fillRect(bx, topY + 20, bw, 12);
+  if (r.guardianSpawned && gd) {
+    c.fillStyle = gd.enraged ? "#ff3b3b" : gd.kind === "king" ? "#ff3b6b" : "#ffd23f"; c.fillRect(bx, topY + 20, (bw * gd.hp) / gd.maxHp, 12);
+    c.fillStyle = "#140c1c"; c.font = font(10); c.fillText((gd.kind === "king" ? "THE OSSUARY KING" : "THE HOLLOW WARDEN") + (gd.enraged ? " — ENRAGED" : ""), W / 2, topY + 26);
   } else {
-    c.fillStyle = r.done ? "#7dff9a" : "#8a5cff"; c.fillRect(bx, topY + 22, bw * r.progress / r.need, 12);
-    c.fillStyle = "#fff"; c.font = font(10); c.fillText(r.done ? "RIFT CLEARED" : `${Math.floor((r.progress / r.need) * 100)}%`, W / 2, topY + 28);
+    c.fillStyle = r.done ? "#7dff9a" : "#8a5cff"; c.fillRect(bx, topY + 20, (bw * r.progress) / r.need, 12);
+    for (const at of RIFT.boonsAt) { c.fillStyle = "#ffd23f"; c.fillRect(bx + (bw * at) / 100, topY + 20, 1, 12); }
+    c.fillStyle = "#fff"; c.font = font(10); c.fillText(r.done ? "CLEARED" : `${Math.floor((r.progress / r.need) * 100)}%`, W / 2, topY + 26);
   }
-  // minimap (top-right, under the buttons)
+  c.fillStyle = "#b8a8d0"; c.font = font(9); c.fillText(r.kind === "chase" ? "chase boss" : modsLine(r.mods), W / 2, topY + 40);
   if (miniCanvas) {
-    const ms = Math.min(96, W * 0.22), mx = W - ms - 10, my = W < 600 ? topY + 50 : 48;
+    const ms = Math.min(90, W * 0.22), mx = W - ms - 10 - ins.right, my = narrow ? topY + 54 : T + 40;
     c.globalAlpha = 0.85; panel(c, mx - 3, my - 3, ms + 6, ms + 6);
     c.imageSmoothingEnabled = false; c.drawImage(miniCanvas, mx, my, ms, ms);
     const k = ms / (s.map.w * s.map.ts);
-    c.fillStyle = "#d93a3a";
-    for (const e of s.enemies) if (!e.dead && e.kind !== "guardian") c.fillRect(mx + e.x * k - 1, my + e.y * k - 1, 2, 2);
-    if (g) { c.fillStyle = "#ffd23f"; c.fillRect(mx + g.x * k - 3, my + g.y * k - 3, 6, 6); }
-    for (const l of s.loot) if (l.item.rarity === "legendary" || l.item.rarity === "rare") { c.fillStyle = RARITY_COLOR[l.item.rarity]; c.fillRect(mx + l.x * k - 2, my + l.y * k - 2, 4, 4); }
-    c.fillStyle = "#fff"; c.fillRect(mx + p.x * k - 2, my + p.y * k - 2, 4, 4);
+    for (const e of s.enemies) if (!e.dead && e.kind !== "guardian" && e.kind !== "king") { c.fillStyle = e.elite ? "#c9a0ff" : "#d93a3a"; c.fillRect(mx + e.x * k - 1, my + e.y * k - 1, e.elite ? 3 : 2, e.elite ? 3 : 2); }
+    if (gd) { c.fillStyle = "#ffd23f"; c.fillRect(mx + gd.x * k - 3, my + gd.y * k - 3, 6, 6); }
+    for (const l of s.loot) if (l.owner === ME && RARITY_ORDER_IDX(l.item.rarity) >= 2) { c.fillStyle = RARITY_COLOR[l.item.rarity]; c.fillRect(mx + l.x * k - 2, my + l.y * k - 2, 4, 4); }
+    for (const q of s.players) { c.fillStyle = q.pid === ME ? "#fff" : "#7dff9a"; c.fillRect(mx + q.x * k - 2, my + q.y * k - 2, 4, 4); }
     c.globalAlpha = 1;
   }
   // skills
-  const skills = [
-    { id: "cleave", key: "LMB", label: "Cleave", cd: Math.max(0, p.swingTimer) / SKILL.cleave.interval!, held: "primary" as const, color: "#cfd6e6" },
-    { id: "ember_lance", key: "RMB", label: "Lance", cd: (p.cds.ember_lance ?? 0) / SKILL.ember_lance.cooldown, held: "secondary" as const, color: "#ff8a1f" },
-    { id: "ash_dash", key: "SPC", label: "Dash", cd: p.dashCharges > 0 ? 0 : p.dashRecharge / SKILL.ash_dash.cooldown, held: "dash" as const, color: "#9be0ff", charges: maxDashCharges(p) > 1 ? p.dashCharges : undefined },
-    { id: "cinderlings", key: "Q", label: "Imps", cd: (p.cds.cinderlings ?? 0) / SKILL.cinderlings.cooldown, held: "ult" as const, color: "#ffd23f" },
-  ];
+  const skills = p.skills.map((id, slot) => {
+    const sk = p.sk[id], d = SKILL[id];
+    const locked = d.unlock > p.level;
+    let cd = 0;
+    if (sk.p.interval) cd = Math.max(0, p.swingT) / sk.p.interval;
+    else if ((p.charges[id] ?? 0) <= 0) cd = Math.max(0, p.chargeT[id] ?? 0) / Math.max(0.1, sk.p.cooldown);
+    const maxC = sk.p.charges ?? 1;
+    return { slot, label: SHORT[id] ?? d.name.slice(0, 7), cd: locked ? 1 : cd, locked, color: SKILL_COLOR(sk.tags), charges: maxC > 1 ? p.charges[id] ?? 0 : undefined, unlock: d.unlock };
+  });
   if (input.touchMode) {
     for (const b of input.buttons) {
-      const sk = skills.find((q) => q.held === b.id)!;
-      c.globalAlpha = input.isHeld(b.id) ? 0.85 : 0.55;
+      const sk = skills[b.slot];
+      if (!sk) continue;
+      c.globalAlpha = input.isHeld(b.slot) ? 0.85 : 0.5;
       c.fillStyle = "#1b1424"; c.beginPath(); c.arc(b.x, b.y, b.r, 0, Math.PI * 2); c.fill();
-      c.strokeStyle = sk.color; c.lineWidth = 3; c.beginPath(); c.arc(b.x, b.y, b.r, 0, Math.PI * 2); c.stroke();
+      c.strokeStyle = sk.locked ? "#4a3b5a" : sk.color; c.lineWidth = 3; c.beginPath(); c.arc(b.x, b.y, b.r, 0, Math.PI * 2); c.stroke();
       if (sk.cd > 0) { c.fillStyle = "rgba(0,0,0,0.6)"; c.beginPath(); c.moveTo(b.x, b.y); c.arc(b.x, b.y, b.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, sk.cd)); c.fill(); }
-      c.globalAlpha = 1; c.fillStyle = "#fff"; c.textAlign = "center"; c.font = font(Math.round(b.r * 0.42)); c.fillText(sk.label + (sk.charges !== undefined ? ` ${sk.charges}` : ""), b.x, b.y);
+      c.globalAlpha = sk.locked ? 0.5 : 1; c.fillStyle = "#fff"; c.textAlign = "center"; c.font = font(Math.round(b.r * 0.42));
+      c.fillText(sk.locked ? `Lv${sk.unlock}` : sk.label + (sk.charges !== undefined ? ` ${sk.charges}` : ""), b.x, b.y);
+      c.globalAlpha = 1;
     }
     if (input.stick) {
       const st = input.stick;
-      c.globalAlpha = 0.35; c.fillStyle = "#fff"; c.beginPath(); c.arc(st.ox, st.oy, 50, 0, Math.PI * 2); c.fill();
+      c.globalAlpha = 0.3; c.fillStyle = "#fff"; c.beginPath(); c.arc(st.ox, st.oy, 50, 0, Math.PI * 2); c.fill();
       c.globalAlpha = 0.7; const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), m = Math.min(d, 50) / (d || 1);
       c.beginPath(); c.arc(st.ox + dx * m, st.oy + dy * m, 22, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1;
     } else {
-      c.globalAlpha = 0.25; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.arc(90, H - 100, 50, 0, Math.PI * 2); c.stroke(); c.globalAlpha = 1;
+      c.globalAlpha = 0.2; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath(); c.arc(90 + ins.left, H - 110 - ins.bottom, 50, 0, Math.PI * 2); c.stroke(); c.globalAlpha = 1;
     }
   } else {
-    const size = 46, gap = 8, total = skills.length * size + (skills.length - 1) * gap;
+    const size = 46, gap = 6, total = skills.length * size + (skills.length - 1) * gap;
     let x0 = W / 2 - total / 2;
-    const y0 = H - size - 14;
+    const y0 = H - size - 14 - ins.bottom;
     for (const sk of skills) {
       panel(c, x0 - 2, y0 - 2, size + 4, size + 4);
       c.fillStyle = "#241b30"; c.fillRect(x0, y0, size, size);
-      c.strokeStyle = sk.color; c.lineWidth = 2; c.strokeRect(x0 + 1, y0 + 1, size - 2, size - 2);
-      c.fillStyle = "#fff"; c.textAlign = "center"; c.font = font(12); c.fillText(sk.label, x0 + size / 2, y0 + size / 2 + 2);
-      c.font = font(9); c.fillStyle = "#b8a8d0"; c.fillText(sk.key, x0 + size / 2, y0 + 9);
+      c.strokeStyle = sk.locked ? "#4a3b5a" : sk.color; c.lineWidth = 2; c.strokeRect(x0 + 1, y0 + 1, size - 2, size - 2);
+      c.fillStyle = sk.locked ? "#6a5a7e" : "#fff"; c.textAlign = "center"; c.font = font(11); c.fillText(sk.locked ? `Lv ${sk.unlock}` : sk.label, x0 + size / 2, y0 + size / 2 + 3);
+      c.font = font(9); c.fillStyle = "#b8a8d0"; c.fillText(KEY_LABELS[sk.slot], x0 + size / 2, y0 + 9);
       if (sk.charges !== undefined) { c.fillStyle = "#9be0ff"; c.fillText("×" + sk.charges, x0 + size - 9, y0 + size - 7); }
-      if (sk.cd > 0) { c.fillStyle = "rgba(0,0,0,0.65)"; c.fillRect(x0, y0 + size * (1 - Math.min(1, sk.cd)), size, size * Math.min(1, sk.cd)); }
+      if (sk.cd > 0 && !sk.locked) { c.fillStyle = "rgba(0,0,0,0.65)"; c.fillRect(x0, y0 + size * (1 - Math.min(1, sk.cd)), size, size * Math.min(1, sk.cd)); }
       x0 += size + gap;
     }
   }
-  // banner
   if (banner) {
     const a = Math.min(1, banner.t * 2);
     c.globalAlpha = a; c.textAlign = "center";
-    const by = H * 0.3;
-    c.font = font(Math.min(40, W / 12)); c.lineWidth = 6; c.strokeStyle = "#000";
+    const by = H * 0.32;
+    let fs = Math.min(40, W / 11); c.font = font(fs);
+    while (fs > 14 && c.measureText(banner.text).width > W - 24) { fs -= 2; c.font = font(fs); }
+    c.lineWidth = 6; c.strokeStyle = "#000";
     c.strokeText(banner.text, W / 2, by); c.fillStyle = banner.color; c.fillText(banner.text, W / 2, by);
-    if (banner.sub) { c.font = font(Math.min(16, W / 28)); c.lineWidth = 4; c.strokeText(banner.sub, W / 2, by + 32); c.fillStyle = "#fff"; c.fillText(banner.sub, W / 2, by + 32); }
+    if (banner.sub) {
+      c.font = font(Math.min(16, W / 26)); c.lineWidth = 4;
+      const sub = banner.sub.length > 60 && W < 500 ? banner.sub.slice(0, 58) + "…" : banner.sub;
+      c.strokeText(sub, W / 2, by + 30); c.fillStyle = "#fff"; c.fillText(sub, W / 2, by + 30);
+    }
     c.globalAlpha = 1;
   }
   if (p.dead) { c.fillStyle = "rgba(60,0,0,0.35)"; c.fillRect(0, 0, W, H); }
@@ -614,7 +756,7 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
     gr.addColorStop(0, "rgba(255,0,0,0)"); gr.addColorStop(1, `rgba(255,0,0,${hurtFlash})`);
     c.fillStyle = gr; c.fillRect(0, 0, W, H);
   }
-  if (flash > 0) { c.globalAlpha = Math.min(0.6, flash); c.fillStyle = flashColor; c.fillRect(0, 0, W, H); c.globalAlpha = 1; }
+  if (flash > 0) { c.globalAlpha = Math.min(0.5, flash); c.fillStyle = flashColor; c.fillRect(0, 0, W, H); c.globalAlpha = 1; }
   if (paused) { c.fillStyle = "rgba(0,0,0,0.4)"; c.fillRect(0, 0, W, H); }
   c.restore();
 }
@@ -624,28 +766,33 @@ function panel(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: 
   c.strokeStyle = "#4a3b5a"; c.lineWidth = 2; c.strokeRect(x + 1, y + 1, w - 2, h - 2);
 }
 
-// animated backdrop behind hub screens
+let hubBg: number | null = null;
 function drawHubBackdrop(t: number) {
+  // the hub is static DOM; redraw the backdrop at ~10 fps to save battery
+  if (hubBg !== null && t - hubBg < 0.1) return;
+  hubBg = t;
   const W = wb.width, H = wb.height, g = wctx;
   g.fillStyle = "#0e0a14"; g.fillRect(0, 0, W, H);
   for (let i = 0; i < 40; i++) {
-    const x = (i * 97 + t * (8 + (i % 5) * 3)) % (W + 20) - 10;
+    const x = ((i * 97 + t * (8 + (i % 5) * 3)) % (W + 20)) - 10;
     const y = H - ((i * 53 + t * (10 + (i % 7) * 4)) % (H + 20));
     g.fillStyle = i % 3 ? "#ff8a1f" : "#ffd23f"; g.globalAlpha = 0.3 + (i % 4) * 0.15;
     g.fillRect(Math.round(x), Math.round(y), 1, 1);
   }
   g.globalAlpha = 1;
-  const hero = bank.hero[Math.floor(t * 3) % 2 ? 1 : 2];
-  drawSprite(g, hero, W / 2, H - 20, false, false);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(wb, 0, 0, W * pix, H * pix);
 }
 
 // ------------------------------------------------------------------ boot
+resize();
 if (!OFFLINE_TEST) {
   mode = "blocked";
-  document.getElementById("ui")!.className = "screen";
-  document.getElementById("ui")!.innerHTML = `<div class="panel hub"><h1>RIFT ARPG</h1><p>Live build: sign-in is required and the backend isn't built yet (Milestone 4). Use an OFFLINE_TEST build to play the solo slice.</p></div>`;
+  if (onlineAvailable()) startOnline(document.getElementById("ui")!);
+  else {
+    document.getElementById("ui")!.className = "screen";
+    document.getElementById("ui")!.innerHTML = `<div class="panel hub"><h1>RIFT ARPG</h1><p>Live build: sign-in is required. Start the server with <code>npm run server</code> and open the page it serves.</p></div>`;
+  }
 } else goHub();
 requestAnimationFrame(frame);
-(window as any).__rift = { get sim() { return sim; }, startRift, get profile() { return profile; } };
+(window as any).__rift = { get sim() { return sim; }, startRun, get profile() { return profile; }, endRun, MODIFIER };

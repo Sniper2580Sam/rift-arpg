@@ -89,3 +89,17 @@ export function flowField(m: TileMap, px: number, py: number, maxDist = 40): Int
   }
   return d;
 }
+
+/** Chase boss arena: a big round hall with a few pillars to break line of sight and charges. */
+export function genArena(r: Rng, w: number, h: number, ts: number): TileMap {
+  const t = new Array(w * h).fill(1);
+  const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 3;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+    if (dx * dx + dy * dy < R * R) t[y * w + x] = 0;
+  }
+  const pillars = [[-8, -6], [8, -6], [-8, 6], [8, 6]];
+  for (const [px, py] of pillars) for (let y = -1; y <= 0; y++) for (let x = -1; x <= 0; x++) t[(cy + py + y) * w + cx + px + x] = 1;
+  next(r);
+  return { w, h, ts, tiles: t };
+}

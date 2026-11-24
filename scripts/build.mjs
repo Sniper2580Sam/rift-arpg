@@ -7,7 +7,8 @@ const res = await build({
   define: { OFFLINE_TEST: live ? "false" : "true" },
 });
 const js = res.outputFiles[0].text.replace(/<\/script/g, "<\\/script");
-const html = readFileSync("index.html", "utf8").replace("<script>/*GAME*/</script>", () => `<script>${js}</script>`);
+const font = readFileSync("assets/pixelify-latin.woff2").toString("base64");
+const html = readFileSync("index.html", "utf8").replace("/*FONT*/", font).replace("<script>/*GAME*/</script>", () => `<script>${js}</script>`);
 mkdirSync("dist", { recursive: true });
 const out = live ? "dist/index.live.html" : "dist/index.html";
 writeFileSync(out, html);
@@ -19,7 +20,7 @@ if (!live) {
     .replace(/<!doctype html>\s*/i, "").replace(/<html[^>]*>\s*/i, "").replace(/<\/html>\s*/i, "")
     .replace(/<head>\s*/i, "").replace(/<\/head>\s*/i, "").replace(/<body>\s*/i, "").replace(/<\/body>\s*/i, "")
     .replace(/<meta charset[^>]*>\s*/i, "").replace(/<meta name="viewport"[^>]*>\s*/i, "")
-    .replace(":root {", ":root { color-scheme:dark;");
+    .replace(":root {", ":root { color-scheme:dark;").replace('<meta name="apple-mobile-web-app-capable" content="yes">\n', "");
   writeFileSync("dist/artifact.html", art);
   console.log("dist/artifact.html");
 }

@@ -1,0 +1,12 @@
+{
+  "ashknight": {
+    "name": "Ashknight", "role": "Tank / DPS", "desc": "Melee fire knight. Holds the line, shouts to protect the party.",
+    "baseHp": 210, "hpPerLevel": 14, "speed": 80, "fists": [5, 8],
+    "skills": ["cleave", "ember_lance", "ash_dash", "warcry", "flame_nova", "cinderlings"]
+  },
+  "gloomstalker": {
+    "name": "Gloomstalker", "role": "DPS / Support", "desc": "Ranged hunter. Kites with bolts and traps, heals the party with a banner.",
+    "baseHp": 170, "hpPerLevel": 11, "speed": 84, "fists": [5, 8],
+    "skills": ["hex_bolt", "volley", "tumble", "frost_snare", "rally_banner", "raven_swarm"]
+  }
+}

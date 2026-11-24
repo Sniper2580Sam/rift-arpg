@@ -1,0 +1,9 @@
+[
+  { "id": "volatile",  "name": "Volatile",  "desc": "Enemies explode a moment after dying." },
+  { "id": "swarming",  "name": "Swarming",  "desc": "Packs are 40% larger.", "packMult": 1.4 },
+  { "id": "hasted",    "name": "Hasted",    "desc": "Enemies move 25% faster.", "enemySpeed": 1.25 },
+  { "id": "fortified", "name": "Fortified", "desc": "Enemies have 35% more life. +25% item drops.", "enemyHp": 1.35, "dropMult": 1.25 },
+  { "id": "glass",     "name": "Glass Cannon", "desc": "You deal 30% more damage and take 30% more.", "playerDmg": 1.3, "playerTaken": 1.3 },
+  { "id": "champions", "name": "Champions", "desc": "Elite packs are twice as common.", "eliteMult": 2 },
+  { "id": "gloom",     "name": "Gloom",     "desc": "Darkness closes in. +15% XP.", "dark": true, "xpMult": 1.15 }
+]
