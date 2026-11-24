@@ -301,7 +301,7 @@ export function applyInvCmd(h: Holder, cmd: InvCmd): boolean {
     const keep: Item[] = [];
     for (const it of h.bag) { if (RARITY_ORDER.indexOf(it.rarity) < lim) h.materials += scrapValue(it); else keep.push(it); }
     const changed = keep.length !== h.bag.length;
-    h.bag = keep;
+    h.bag.splice(0, h.bag.length, ...keep); // in place: the hub passes a holder view whose bag is the character's own array
     return changed;
   }
   return false;

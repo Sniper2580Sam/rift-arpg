@@ -65,5 +65,11 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   check("unknown cosmetic refused", applyHubOp(p, { t: "setting", k: "cos.wings", v: "golden_dragon" }) === false && p.cos.wings === "ember");
   check("unknown cosmetic kind refused", applyHubOp(p, { t: "setting", k: "cos.hat", v: "default" }) === false);
 }
+{ // hub "scrap common+magic" really empties them from the character's bag
+  const p = newProfile(); const c = p.chars.ashknight; const r = makeRng(3);
+  c.bag = [mintItem(r, "a", { rarity: "common" }), mintItem(r, "b", { rarity: "magic" }), mintItem(r, "c", { rarity: "rare" })];
+  applyHubOp(p, { t: "inv", cmd: { type: "scrapBelow", rarity: "rare" } });
+  check("hub scrap below removes items from the bag", c.bag.length === 1 && c.bag[0].rarity === "rare" && p.materials > 0);
+}
 if (fails) { console.log(`${fails} ledger checks failed`); process.exit(1); }
 console.log("ledger: all checks passed");
