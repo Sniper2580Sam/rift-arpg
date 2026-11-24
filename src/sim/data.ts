@@ -125,6 +125,22 @@ export function rewardName(key: string) {
   const c = COSMETICS[kind as CosKind]?.find((x) => x.id === id);
   return c ? `${c.name} ${({ armor: "armour", wings: "", weapon: "weapon", petSkin: "pet skin", dye: "dye" } as Record<string, string>)[kind] ?? ""}`.trim() : key;
 }
+/** What one run adds to the feat and journey counters. The client builds it in solo and phone co-op; the live server builds it from what it saw. */
+export interface RunTally {
+  kind: string; boss?: string; tier: number; completed: boolean; inTime: boolean;
+  kills: number; elites: number; legendaries: number; mythics: number; ancestrals: number;
+  deaths: number; party: number; wave: number;
+}
+export function bumpLife(L: Life, t: RunTally): Life {
+  L.kills += t.kills; L.elites += t.elites; L.legendaries += t.legendaries; L.mythics += t.mythics; L.ancestrals += t.ancestrals;
+  if (t.completed) {
+    if (t.kind === "rift") { L.rifts++; if (t.inTime) L.tier = Math.max(L.tier, t.tier); if (t.inTime && t.tier >= 8 && !t.deaths) L.flawless++; if (t.party >= 6) L.party6++; }
+    if (t.kind === "chase") { if (t.boss === "seraph") L.seraphs++; else L.kings++; }
+    if (t.kind === "endless") L.wave = Math.max(L.wave, t.wave);
+  }
+  return L;
+}
+
 /** Achievements reached but not yet in the done list. */
 export function newFeats(p: UnlockCtx): Achievement[] {
   const L = lifeStats(p), done = new Set(p.feats ?? []);

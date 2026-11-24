@@ -1,6 +1,6 @@
 // Server-side item authority: minting drops for a run, and validating what a player brings back.
 // Pure functions (no I/O) so they can be unit tested.
-import { CLASSES, RIFT , tierJump } from "../sim/data";
+import { CLASSES, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
 import { Item, MintOpts, mintItem, scrapValue, shardValue } from "../sim/items";
 import { Rng, next } from "../sim/rng";
 import type { CharSave, Profile } from "../client/profile";
@@ -10,6 +10,8 @@ export interface RunMember {
   pity: { ancestral: boolean; primal: boolean };
   pending: Map<string, Item>; // minted for this player, not yet saved into their profile
   forced: number; usedAnc: boolean; usedPri: boolean; drops: number; mythic: boolean;
+  /** good items minted for this player this run (feat counters), and whether the run's counters were already added */
+  finds?: { legendaries: number; mythics: number; ancestrals: number }; counted?: boolean;
 }
 export interface RunInfo { kind: "rift" | "chase" | "endless"; boss?: "king" | "seraph"; tier: number; completed: boolean; inTime: boolean; time: number }
 
@@ -46,6 +48,10 @@ export function mintFor(rng: Rng, m: RunMember, opts: MintOpts): Item {
   const id = `s${Date.now().toString(36)}${(counter++).toString(36)}${Math.floor(next(rng) * 1e6).toString(36)}`;
   const it = mintItem(rng, id, opts);
   m.pending.set(id, it); m.drops++;
+  if (it.rarity === "legendary" || it.rarity === "set" || it.rarity === "mythic") {
+    const f = (m.finds ??= { legendaries: 0, mythics: 0, ancestrals: 0 });
+    f.legendaries++; if (it.rarity === "mythic") f.mythics++; if (it.quality === "ancestral") f.ancestrals++;
+  }
   return it;
 }
 
@@ -57,6 +63,8 @@ export interface SaveReport {
   level: number; xp: number; sigils: number; feathers?: number; uses: Record<string, number>; paragon?: number; pxp?: number;
   highestTier: number; pityAnc: number; pityPri: number; bestTimes: Record<string, number>; riftsCleared: number;
   weeklyBest?: number;
+  /** the player's own count of this run (kills and elites are trusted within limits; finds come from the server's mint) */
+  tally?: { kills: number; elites: number; deaths: number; wave: number };
 }
 
 /**
@@ -64,7 +72,7 @@ export interface SaveReport {
  * unchanged. Materials can only grow by the scrap value of items that really left. Everything else is clamped.
  * Returns a list of problems (empty = clean); the save still applies with offending parts dropped.
  */
-export function applySave(p: Profile, cls: string, rep: SaveReport, m: RunMember | null, run: RunInfo | null): string[] {
+export function applySave(p: Profile, cls: string, rep: SaveReport, m: RunMember | null, run: RunInfo | null, party = 1): string[] {
   const problems: string[] = [];
   const c = p.chars[cls];
   if (!c) return ["no such class"];
@@ -116,5 +124,25 @@ export function applySave(p: Profile, cls: string, rep: SaveReport, m: RunMember
     const key = String(run.tier);
     if (run.inTime && rep.bestTimes?.[key] && Math.abs(rep.bestTimes[key] - run.time) < 1 && (!c.bestTimes[key] || run.time < c.bestTimes[key])) c.bestTimes[key] = run.time;
   }
+  if (m && run && !m.counted) { m.counted = true; countRun(p, c, rep, m, run, party); }
   return problems;
+}
+
+/** Feat and season-journey counters for one run, added once per player per run. */
+function countRun(p: Profile, c: CharSave, rep: SaveReport, m: RunMember, run: RunInfo, party: number) {
+  const t = rep.tally, f = m.finds ?? { legendaries: 0, mythics: 0, ancestrals: 0 };
+  const secs = Math.max(run.time, 60);
+  // a fast party clears a few enemies a second; anything above this is clamped
+  const kills = Math.max(0, Math.min((t?.kills ?? 0) | 0, Math.ceil(secs * 25)));
+  const elites = Math.max(0, Math.min((t?.elites ?? 0) | 0, Math.ceil(secs * 1.5), kills));
+  const wave = run.kind === "endless" ? Math.max(0, Math.min((t?.wave ?? 0) | 0, Math.floor(secs / 4) + 1)) : 0; // a wave takes at least the 3 s breather plus clearing
+  const tally = { kind: run.kind, boss: run.boss, tier: run.tier, completed: run.completed, inTime: run.inTime, kills, elites, ...f, deaths: t ? Math.max(0, t.deaths | 0) : 1, party, wave };
+  // counters first (they read the heroes' records), then the hero's own records (boss kills, best wave)
+  const season = lifeStats({ chars: p.chars, life: p.journey?.season === p.season.n ? p.journey.stats : {} });
+  p.life = bumpLife(lifeStats(p), tally);
+  p.journey = { season: p.season.n, stats: bumpLife(season, tally) };
+  if (run.completed && run.kind === "chase") { if (run.boss === "seraph") c.seraphs = (c.seraphs ?? 0) + 1; else c.kings = (c.kings ?? 0) + 1; }
+  if (wave > (c.bestWave ?? 0)) c.bestWave = wave;
+  const fe = newFeats(p), ch = newChapters(p, p.journey.stats as any);
+  if (fe.length || ch.length) p.feats = [...(p.feats ?? []), ...fe.map((a) => a.id), ...ch.map(chapterKey)];
 }

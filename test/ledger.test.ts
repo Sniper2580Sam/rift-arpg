@@ -111,6 +111,27 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   const st0 = computeStats({ weapon: w }, { cls: c.cls, level: 1 }), st5 = computeStats({ weapon: w }, { cls: c.cls, level: 1, slotPlus: c.slotPlus });
   check("+5 slot scales weapon damage by 50%", st5.dmgMax === Math.round(st0.dmgMax * 1.5) || Math.abs(st5.dmgMax - st0.dmgMax * 1.5) <= 1)
 }
+{ // feat and journey counters: added once per run, kills clamped, finds counted from the server's own mint, boss kills recorded
+  const p = newProfile(), m = member();
+  const r: RunInfo = { kind: "rift", tier: 9, completed: true, inTime: true, time: 200 };
+  const leg = mintFor(rng, m, { tier: 9, rarity: "legendary", forceAncestral: true });
+  const rep: any = base(p); rep.bag = [leg]; rep.tally = { kills: 999999, elites: 40, deaths: 0, wave: 0 };
+  applySave(p, "ashknight", rep, m, r, 6);
+  const L = p.life!;
+  check("kills clamped to a sane rate", L.kills === 200 * 25 && L.elites === 40);
+  check("finds come from the mint", L.legendaries === 1 && L.ancestrals === 1 && L.mythics === 0);
+  check("rift, tier, flawless and party counted", L.rifts === 1 && L.tier === 9 && L.flawless === 1 && L.party6 === 1);
+  check("feats recorded on the server", (p.feats ?? []).includes("first_rift") && (p.feats ?? []).includes("flawless8") && (p.feats ?? []).includes("full_house"));
+  check("journey counters this season", p.journey?.season === p.season.n && p.journey.stats.rifts === 1);
+  const rep2: any = base(p); rep2.tally = { kills: 500, elites: 0, deaths: 0, wave: 0 };
+  applySave(p, "ashknight", rep2, m, r, 6);
+  check("a second save of the same run adds nothing", p.life!.kills === 200 * 25 && p.life!.rifts === 1);
+  const m2 = member(), c: RunInfo = { kind: "chase", boss: "seraph", tier: 9, completed: true, inTime: true, time: 120 };
+  applySave(p, "ashknight", base(p) as any, m2, c, 1);
+  check("Seraph kill recorded on the hero and the account", p.chars.ashknight.seraphs === 1 && p.life!.seraphs === 1 && (p.feats ?? []).includes("seraph"));
+  check("old clients (no tally) never count as flawless", (() => { const p3 = newProfile(); applySave(p3, "ashknight", base(p3) as any, member(), r, 1); return p3.life!.flawless === 0 && p3.life!.rifts === 1; })());
+}
+
 if (fails) { console.log(`${fails} ledger checks failed`); process.exit(1); }
 console.log("ledger: all checks passed");
 

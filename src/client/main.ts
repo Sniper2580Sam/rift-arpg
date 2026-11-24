@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { Life, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
@@ -64,6 +64,7 @@ let acc = 0, hitstop = 0, shake = 0, flash = 0, flashColor = "#fff", hurtFlash =
 let camX = 0, camY = 0;
 let banner: { text: string; sub: string; color: string; t: number } | null = null;
 let found: Record<string, number> = {}, foundLegs: { name: string; rarity: Rarity; quality?: string }[] = [];
+let runTally: RunTally | null = null;
 let gotAncestral = false, gotPrimal = false, gotSigil = 0, gotFeather = 0, runElites = 0, startLevel = 1;
 let completeInfo: { inTime: boolean; time: number } | null = null;
 let run: { kind: RunKind; tier: number; weekly: boolean; seed: number; boss?: ChaseBoss } | null = null;
@@ -323,19 +324,14 @@ function endRun() {
   if (gotSigil) lines.push(`Bone Sigil found (${c.sigils} owned). The Ossuary King awaits.`);
   if (gotFeather) lines.push(`Pale Feather found (${c.feathers ?? 0} owned). The Pale Seraph awaits.`);
   // counters for feats (lifetime, kept across seasons) and the season journey (this season only)
-  const bump = (L: Life) => {
-    const r = run!;
-    L.kills += s.rift.kills; L.elites += runElites;
-    for (const f of foundLegs) { L.legendaries++; if (f.rarity === "mythic") L.mythics++; if (f.quality === "ancestral") L.ancestrals++; }
-    if (completeInfo) {
-      if (r.kind === "rift") { L.rifts++; if (completeInfo.inTime) L.tier = Math.max(L.tier, r.tier); if (completeInfo.inTime && r.tier >= 8 && !(p.deaths ?? 0)) L.flawless++; if (s.players.length >= 6) L.party6++; }
-      if (r.kind === "chase") { if (r.boss === "seraph") L.seraphs++; else L.kings++; }
-      if (r.kind === "endless") L.wave = Math.max(L.wave, s.rift.wave ?? 0);
-    }
-    return L;
+  const tally: RunTally = {
+    kind: run.kind, boss: run.boss, tier: run.tier, completed: !!completeInfo, inTime: !!completeInfo?.inTime,
+    kills: s.rift.kills, elites: runElites, legendaries: foundLegs.length, mythics: foundLegs.filter((f) => f.rarity === "mythic").length, ancestrals: foundLegs.filter((f) => f.quality === "ancestral").length,
+    deaths: p.deaths ?? 0, party: s.players.length, wave: s.rift.wave ?? 0,
   };
-  profile.life = bump(lifeStats(profile));
-  profile.journey = { season: profile.season.n, stats: bump(seasonStats(profile)) };
+  runTally = tally; // the live build sends it with the save; the server keeps its own count
+  profile.life = bumpLife(lifeStats(profile), tally);
+  profile.journey = { season: profile.season.n, stats: bumpLife(seasonStats(profile), tally) };
   if (completeInfo) {
     c.riftsCleared++;
     if (run.kind === "rift") {
@@ -393,7 +389,7 @@ function finishOnline() {
     online.send({ t: "complete", inTime: completeInfo?.inTime, time: completeInfo?.time });
     for (const pid of coop.live) online.sendR(pid, { t: "end" });
   }
-  online.send({ t: "save", report: { equipment: c.equipment, bag: c.bag, scrapped, materials: profile.materials, shards: profile.shards ?? 0, level: c.level, xp: c.xp, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, sigils: c.sigils, feathers: c.feathers ?? 0, uses: c.uses, highestTier: c.highestTier, pityAnc: c.pityAnc, pityPri: c.pityPri, bestTimes: c.bestTimes, riftsCleared: c.riftsCleared }, week: isoWeek(), weeklyBest: run.weekly });
+  online.send({ t: "save", report: { equipment: c.equipment, bag: c.bag, scrapped, materials: profile.materials, shards: profile.shards ?? 0, level: c.level, xp: c.xp, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, sigils: c.sigils, feathers: c.feathers ?? 0, uses: c.uses, highestTier: c.highestTier, pityAnc: c.pityAnc, pityPri: c.pityPri, bestTimes: c.bestTimes, riftsCleared: c.riftsCleared, tally: runTally ? { kills: runTally.kills, elites: runTally.elites, deaths: runTally.deaths, wave: runTally.wave } : undefined }, week: isoWeek(), weeklyBest: run.weekly });
   if (coop?.role === "host") online.send({ t: "runEnd" });
   else if (coop?.role === "guest" && !hostEnded && online.lobby) online.leave(); // a guest who leaves on their own leaves the party
   hostEnded = false;

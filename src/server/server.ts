@@ -192,7 +192,7 @@ wss.on("connection", (ws) => {
       case "save": {
         const run = r ? r.run ?? r.lastRun : null;
         const mem = run?.members.get(c.pid!) ?? null;
-        const problems = applySave(p, p.active, m.report as SaveReport, mem && mem.account === c.name ? mem : null, run);
+        const problems = applySave(p, p.active, m.report as SaveReport, mem && mem.account === c.name ? mem : null, run, run?.members.size ?? 1);
         if (m.weeklyBest && m.week) { if (p.weekly.week !== m.week) p.weekly = { week: m.week, best: 0 }; if (run?.completed && run.inTime && (!p.weekly.best || run.time < p.weekly.best)) p.weekly.best = run.time; }
         if (problems.length) console.log(`[save] ${c.name}: ${problems.join("; ")}`);
         putProfile(c.name, p);
