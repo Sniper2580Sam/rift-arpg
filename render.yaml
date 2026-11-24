@@ -1,0 +1,28 @@
+# One-click deploy on Render (Dashboard → New → Blueprint → pick this repo). See DEPLOY.md.
+services:
+  - type: web
+    name: rift-arpg
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci --include=dev && npm run build:live && npm run build:server
+    startCommand: node dist/server.mjs
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # saves: free hosts wipe their disk, so the server keeps saves in a free Upstash Redis database
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      # lets phones find each other across networks
+      - key: ICE_STUN
+        value: stun:stun.l.google.com:19302
+      # relay (TURN) for friends on mobile data or other home networks; optional but recommended
+      - key: TURN_URLS
+        sync: false
+      - key: TURN_USERNAME
+        sync: false
+      - key: TURN_CREDENTIAL
+        sync: false

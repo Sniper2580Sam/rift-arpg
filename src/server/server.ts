@@ -1,9 +1,9 @@
-// Local backend for the live build: accounts, saves, item minting, co-op room signalling.
-// Runs on this machine only (npm run server). JSON files in ./server-data. No external services.
+// Backend for the live build: accounts, saves, item minting, co-op room signalling.
+// Local: npm run server (JSON files in ./server-data). Hosted: see DEPLOY.md (saves in Upstash Redis).
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
-import { join } from "path";
+import { readFileSync } from "fs";
+import { KV, fileKV, fileProfileNames, upstashKV, writer } from "./store";
 import { WebSocketServer, WebSocket } from "ws";
 import { RIFT } from "../sim/data";
 import { Affix, rerollOptions } from "../sim/items";
@@ -16,21 +16,33 @@ import { RunInfo, RunMember, SaveReport, applySave, mintFor, sanitizeOpts } from
 const PORT = Number(process.env.PORT ?? 8787);
 const DATA = process.env.DATA_DIR ?? "server-data";
 const PAGE = process.env.PAGE ?? "dist/index.live.html";
-mkdirSync(join(DATA, "profiles"), { recursive: true });
 
-// ------------------------------------------------------------------ storage
-function readJson<T>(f: string, d: T): T { try { return JSON.parse(readFileSync(f, "utf8")); } catch { return d; } }
-function writeJson(f: string, v: unknown) { const tmp = f + ".tmp"; writeFileSync(tmp, JSON.stringify(v)); renameSync(tmp, f); }
-const accounts = readJson<Record<string, { salt: string; hash: string }>>(join(DATA, "accounts.json"), {});
-const sessions = readJson<Record<string, string>>(join(DATA, "sessions.json"), {});
+// ------------------------------------------------------------------ storage (everything in memory, written through)
+const kv: KV = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+  ? upstashKV(process.env.UPSTASH_REDIS_REST_URL, process.env.UPSTASH_REDIS_REST_TOKEN)
+  : fileKV(DATA);
+const out = writer(kv);
+const parse = <T>(s: string | null | undefined, d: T): T => { try { return s ? JSON.parse(s) : d; } catch { return d; } };
+const [accRaw, sesRaw] = await kv.get(["accounts", "sessions"]);
+const accounts = parse<Record<string, { salt: string; hash: string }>>(accRaw, {});
+const sessions = parse<Record<string, string>>(sesRaw, {});
 const profiles = new Map<string, Profile>();
-const profFile = (name: string) => join(DATA, "profiles", encodeURIComponent(name) + ".json");
+{
+  const names = [...new Set([...Object.keys(accounts), ...(kv.name.startsWith("files") ? fileProfileNames(DATA) : [])])];
+  const raws = await kv.get(names.map((n) => "profile:" + n));
+  names.forEach((n, i) => { const p = raws[i] && migrate(parse(raws[i], null)); if (p) profiles.set(n, p); });
+}
 function getProfile(name: string): Profile {
   let p = profiles.get(name);
-  if (!p) { p = (existsSync(profFile(name)) && migrate(readJson(profFile(name), null))) || newProfile(); profiles.set(name, p); }
+  if (!p) { p = newProfile(); profiles.set(name, p); }
   return p;
 }
-function putProfile(name: string, p: Profile) { profiles.set(name, p); writeJson(profFile(name), p); }
+function putProfile(name: string, p: Profile) { profiles.set(name, p); out.put("profile:" + name, p); }
+const ICE: RTCIceServerLike[] = [
+  ...(process.env.ICE_STUN ?? "").split(",").filter(Boolean).map((u) => ({ urls: u.trim() })),
+  ...(process.env.TURN_URLS ? [{ urls: process.env.TURN_URLS.split(",").map((u) => u.trim()), username: process.env.TURN_USERNAME ?? "", credential: process.env.TURN_CREDENTIAL ?? "" }] : []),
+];
+interface RTCIceServerLike { urls: string | string[]; username?: string; credential?: string }
 
 const rng = makeRng(randomBytes(4).readUInt32LE(0));
 const hashPw = (pw: string, salt: string) => scryptSync(pw, salt, 32).toString("hex");
@@ -48,6 +60,8 @@ const http = createServer(async (req, res) => {
   if (req.method === "GET" && (req.url === "/" || req.url?.startsWith("/?"))) {
     try { return send(res, 200, readFileSync(PAGE, "utf8"), "text/html; charset=utf-8"); } catch { return send(res, 500, "Build the live page first: npm run build:live", "text/plain"); }
   }
+  if (req.method === "GET" && req.url === "/healthz") return send(res, 200, "ok", "text/plain");
+  if (req.method === "GET" && req.url === "/api/ice") return send(res, 200, { iceServers: ICE });
   if (req.method === "POST" && req.url === "/api/login") {
     const { name, password } = await body(req);
     if (typeof name !== "string" || !NAME_RE.test(name) || typeof password !== "string" || password.length < 4) return send(res, 400, { error: "Name 2–16 letters/numbers, password 4+ characters." });
@@ -58,11 +72,11 @@ const http = createServer(async (req, res) => {
     } else {
       const salt = randomBytes(16).toString("hex");
       accounts[name] = { salt, hash: hashPw(password, salt) };
-      writeJson(join(DATA, "accounts.json"), accounts);
+      out.put("accounts", accounts);
       putProfile(name, newProfile());
     }
     const token = randomBytes(24).toString("hex");
-    sessions[token] = name; writeJson(join(DATA, "sessions.json"), sessions);
+    sessions[token] = name; out.put("sessions", sessions);
     return send(res, 200, { token, name, created: !a });
   }
   send(res, 404, { error: "not found" });
@@ -205,4 +219,6 @@ function sanitizeOp(c: Conn, op: HubOp): HubOp {
   return op;
 }
 
-http.listen(PORT, () => console.log(`Rift ARPG local server on http://localhost:${PORT}  (data: ${DATA})`));
+http.listen(PORT, () => console.log(`Rift ARPG server on port ${PORT} (saves: ${kv.name}; ${ICE.length ? "relay/STUN configured" : "no STUN/TURN: same network only"})`));
+// hosts stop the server with SIGTERM on every deploy or sleep: finish writing saves first
+for (const sig of ["SIGTERM", "SIGINT"] as const) process.on(sig, async () => { await out.flush(); process.exit(0); });

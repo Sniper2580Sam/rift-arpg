@@ -16,7 +16,7 @@ export function signIn(root: HTMLElement, msg = ""): Promise<string> {
   if (saved && !msg) return Promise.resolve(saved);
   return new Promise((done) => {
     root.className = "screen";
-    root.innerHTML = `<div class="panel hub signin"><h1>RIFT ARPG</h1><div class="sub">live test build · local server</div>
+    root.innerHTML = `<div class="panel hub signin"><h1>RIFT ARPG</h1><div class="sub">live test build</div>
       <p class="dim small">New name = new account. Your items are created and stored by the server.</p>
       <input id="nm" placeholder="name" maxlength="16" autocomplete="username" aria-label="Name">
       <input id="pw" placeholder="password" type="password" autocomplete="current-password" aria-label="Password">
@@ -67,7 +67,11 @@ export class Online {
     if (q) this.iceServers = [{ urls: q }];
   }
 
-  connect(token: string): Promise<boolean> {
+  async connect(token: string): Promise<boolean> {
+    // relay / STUN servers come from the server's settings (DEPLOY.md); ?stun= still overrides for testing
+    if (!this.iceServers.length) {
+      try { const r = await fetch("/api/ice"); if (r.ok) this.iceServers = (await r.json()).iceServers ?? []; } catch { /* same-network play still works */ }
+    }
     return new Promise((res) => {
       this.ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
       let first = true;
