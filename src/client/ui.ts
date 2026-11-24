@@ -1,4 +1,5 @@
 // DOM screens: hub (play / gear / skills / settings), inventory with compare + reroll, boon picker, results.
+import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { BOON, CLASSES, COSMETICS, CosKind, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix } from "../sim/items";
 import { makeRng } from "../sim/rng";
@@ -328,8 +329,9 @@ export class UI {
       return cols.length ? `<i class="sw">${cols.map((x) => `<i style="background:${x}"></i>`).join("")}</i>` : "";
     };
     const group = (kind: CosKind, title: string, note: string) => `<div class="setting"><b>${title}</b>${note ? ` <span class="dim small">${note}</span>` : ""}
-      <div class="opts">${COSMETICS[kind].map((c, i) => { const on = (cur[kind] ?? COSMETICS[kind][0].id) === c.id; return `<button class="${on ? "on" : ""}" data-cos="${kind}:${c.id}">${swatch(c as any)}${esc(c.name)}</button>`; }).join("")}</div></div>`;
-    return `<div class="look-prev"><canvas id="lookPrev" width="96" height="64"></canvas><div class="dim small">Cosmetics only change how you look. Other players see them in co-op. All of them are free in this test build.</div></div>
+      <div class="opts">${COSMETICS[kind].map((c, i) => { const on = (cur[kind] ?? COSMETICS[kind][0].id) === c.id; return `<button class="${on ? "on" : ""}" data-cos="${kind}:${c.id}">${swatch(c as any)}${esc(c.name)}</button>`; }).join("")}</div>
+      <div class="dim small">${esc(String((COSMETICS[kind].find((c) => c.id === (cur[kind] ?? COSMETICS[kind][0].id)) as any)?.desc ?? ""))}</div></div>`;
+    return `<div class="look-prev"><canvas id="lookPrev" width="64" height="40"></canvas><div class="dim small">Cosmetics only change how you look. Other players see them in co-op. All of them are free in this test build.</div></div>
       ${group("armor", "Armour", "")}${group("wings", "Wings", "")}${group("weapon", "Weapon", "")}${group("petSkin", "Pet skin", p.pet === "none" ? "pick a pet in Settings to see it" : "")}`;
   }
   private bindLooks(p: Profile, H: HubHandlers, re: () => void) {
@@ -338,21 +340,22 @@ export class UI {
     if (!cv) return;
     const g = cv.getContext("2d")!; g.imageSmoothingEnabled = false;
     const cls = char(p).cls, cos = p.cos ?? {};
-    const hero = this.bank.heroSkin(cls, cos.armor, cos.weapon), wings = this.bank.wings(cos.wings), pet = p.pet !== "none" ? this.bank.pet(p.pet, cos.petSkin) : null;
-    const ghost = (COSMETICS.petSkin.find((c) => c.id === cos.petSkin) as any)?.ghost;
-    const S = 3, t0 = performance.now();
-    const blit = (sp: { img: HTMLCanvasElement; w: number; h: number }, x: number, y: number, flip = false) => {
-      const w = sp.w * S, h = sp.h * S, dx = Math.round(x - w / 2), dy = Math.round(y - h);
-      if (flip) { g.save(); g.translate(dx + w, dy); g.scale(-1, 1); g.drawImage(sp.img, 0, 0, w, h); g.restore(); } else g.drawImage(sp.img, dx, dy, w, h);
-    };
+    const parts: { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string }[] = [];
+    const emit: Emit = (x, y, vx, vy, life, color) => { if (parts.length < 120) parts.push({ x, y, vx, vy, life, max: life, color }); };
+    const t0 = performance.now(); let last = t0;
     const frame = () => {
       if (!cv.isConnected) return;
-      const t = (performance.now() - t0) / 1000;
+      const now = performance.now(), t = (now - t0) / 1000, dt = Math.min(0.05, (now - last) / 1000); last = now;
       g.clearRect(0, 0, cv.width, cv.height);
-      const x = 40, y = 58;
-      if (wings) blit(wings[Math.floor(t * 3) % 2], x, y - 5 * S + Math.round(Math.sin(t * 2)) * S);
-      blit(hero[1 + (Math.floor(t * 4) % 2)], x, y);
-      if (pet) { g.globalAlpha = ghost ? 0.6 : 1; blit(pet[Math.floor(t * 6) % 2], 80, y - (p.pet === "bat" ? 10 + Math.sin(t * 5) * 4 : 0), true); g.globalAlpha = 1; }
+      const turn = Math.floor(t / 3) % 3; // face right, face the camera, walk away
+      const fx = turn === 0 ? 1 : turn === 1 ? 0.2 : 0.1, fy = turn === 0 ? 0.2 : turn === 1 ? 1 : -1;
+      drawHeroCos(g, this.bank, { pid: 0, cls, cos, fx, fy, moving: true, walk: t * 30, swingK: (t % 1.2) < 0.3 ? 1 - (t % 1.2) / 0.3 : 0 }, 26, 36, t, emit);
+      if (p.pet !== "none") drawPetCos(g, this.bank, p.pet, cos.petSkin, 48, 36, true, t, emit);
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const q = parts[i]; q.life -= dt; if (q.life <= 0) { parts.splice(i, 1); continue; }
+        q.x += q.vx * dt; q.y += q.vy * dt; g.globalAlpha = Math.min(1, q.life / q.max * 1.5); g.fillStyle = q.color; g.fillRect(Math.round(q.x), Math.round(q.y), 1, 1);
+      }
+      g.globalAlpha = 1;
       requestAnimationFrame(frame);
     };
     frame();

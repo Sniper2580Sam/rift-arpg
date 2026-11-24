@@ -80,3 +80,19 @@ export function validLoadout(cls: string, want: string[] | undefined): string[] 
   for (const id of C.loadout) if (out.length < LOADOUT_SIZE && !out.includes(id)) out.push(id);
   return out;
 }
+
+/** Smart loot: how much a class wants gear for a tag. 1 = its skills have it, 0.35 = only a rune adds it, 0.05 = no use. */
+const affinityCache: Record<string, Record<string, number>> = {};
+export function classAffinity(cls: string, tag: string | undefined): number {
+  if (!tag || tag === "any" || !CLASSES[cls]) return 1;
+  let a = affinityCache[cls];
+  if (!a) {
+    a = affinityCache[cls] = {};
+    for (const id of CLASSES[cls].skills) {
+      const d = SKILL[id];
+      for (const r of d.runes) for (const t of r.addTags ?? []) a[t] = Math.max(a[t] ?? 0, 0.35);
+      for (const t of d.tags) a[t] = 1;
+    }
+  }
+  return a[tag] ?? 0.05;
+}

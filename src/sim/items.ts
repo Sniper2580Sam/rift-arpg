@@ -1,6 +1,6 @@
 import {
   AFFIX, AFFIXES, BOON, CLASSES, EquipSlot, ITEMS, LEGENDARIES, LEGENDARY, MODIFIER, ModDef, MYTHICS, Num, RARITY_ORDER, RIFT,
-  Rarity, SET, SETS, SKILL, SlotType, levelPower, slotTypeOf,
+  Rarity, SET, SETS, SKILL, SlotType, classAffinity, levelPower, slotTypeOf,
 } from "./data";
 import { Rng, int, next, pick } from "./rng";
 
@@ -23,6 +23,8 @@ export interface MintOpts {
   legendaryWeightMult?: number; ancestralChance?: number; primalChance?: number;
   forceAncestral?: boolean; forcePrimal?: boolean;
   equipment?: Holder["equipment"]; // smart loot
+  /** smart loot: the class the drop is for (legendaries, sets, affixes and base names lean towards it) */
+  cls?: string;
 }
 
 function rollRarity(r: Rng, o: MintOpts): Rarity {
@@ -54,7 +56,7 @@ export function mintItem(r: Rng, id: string, o: MintOpts = {}): Item {
     let pool = rarity === "mythic" ? MYTHICS : LEGENDARIES;
     if (o.slot) pool = pool.filter((l) => l.slot === o.slot);
     // smart loot: favour slots that don't have a legendary yet
-    const leg = weightedPick(r, pool, (l) => (hasLegInSlot(eq, l.slot) ? 1 : 2.5));
+    const leg = weightedPick(r, pool, (l) => (hasLegInSlot(eq, l.slot) ? 1 : 2.5) * (o.cls ? classAffinity(o.cls, l.tag) : 1));
     legendary = leg.id; slot = leg.slot;
   } else if (rarity === "set") {
     const counts: Record<string, number> = {};
@@ -62,7 +64,7 @@ export function mintItem(r: Rng, id: string, o: MintOpts = {}): Item {
     const opts: { set: string; slot: SlotType }[] = [];
     for (const s of SETS) for (const sl of Object.keys(s.pieces) as SlotType[]) if (!o.slot || o.slot === sl) opts.push({ set: s.id, slot: sl });
     // smart loot: strongly favour missing pieces of the set you're building
-    const choice = weightedPick(r, opts, (c) => 1 + (counts[c.set] ?? 0) * 3 * (pieceOwned(eq, c.set, c.slot) ? 0.2 : 1));
+    const choice = weightedPick(r, opts, (c) => (1 + (counts[c.set] ?? 0) * 3 * (pieceOwned(eq, c.set, c.slot) ? 0.2 : 1)) * (o.cls ? classAffinity(o.cls, SET[c.set].tag) : 1));
     set = choice.set; slot = choice.slot; setName = SET[set].pieces[slot]!;
   }
   const ilvl = Math.max(1, Math.min(RIFT.levels.max, o.ilvl ?? 1));
@@ -85,11 +87,15 @@ export function mintItem(r: Rng, id: string, o: MintOpts = {}): Item {
   let count = (ITEMS.rarities as Record<string, { affixes: number }>)[rarity].affixes;
   if (ITEMS.jewelry.includes(slot)) count++;
   const pool = AFFIXES.filter((a) => a.slots.includes(slot));
+  // "+% fire damage" style affixes lean towards tags the class's skills use
+  const affW = (a: { id: string }) => (o.cls && a.id.startsWith("tag_") ? Math.max(0.15, classAffinity(o.cls, a.id.slice(4))) : 1);
   for (let i = 0; i < count && pool.length; i++) {
-    const a = pool.splice(Math.floor(next(r) * pool.length), 1)[0];
+    const a = o.cls ? weightedPick(r, pool, affW) : pool[Math.floor(next(r) * pool.length)];
+    pool.splice(pool.indexOf(a), 1);
     item.affixes.push(rollAffix(r, a.id, ilvl, qm, quality === "primal"));
   }
-  const baseName = pick(r, base.names as string[]);
+  const classNames = o.cls ? ((ITEMS as any).classBases?.[o.cls]?.[slot] as string[] | undefined) : undefined;
+  const baseName = pick(r, classNames ?? (base.names as string[]));
   if (legendary) item.name = LEGENDARY[legendary].name;
   else if (set) item.name = setName;
   else if (rarity === "rare") item.name = `${pick(r, ITEMS.rareWords1)} ${pick(r, ITEMS.rareWords2)} ${baseName}`;

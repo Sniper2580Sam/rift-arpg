@@ -21,7 +21,8 @@ Saves are stored in Safari for that page. Clearing Safari website data wipes the
 - [ ] Switching away from Safari and back opens the bag (paused), and nothing is lost.
 - [ ] Gear tab: reroll an affix at the Mystic. After the first reroll, only that affix can be rerolled.
 - [ ] Skills tab: pick any 4 skills (at most one ultimate). Try the new Stormcaller. Every skill has 5 runes now. Do any feel useless or too strong?
-- [ ] Looks tab: try armour, wings, weapon and pet skins. Do they read well at phone size, in the rift?
+- [ ] Looks tab: try armour, wings, weapon and pet skins. Do they read well at phone size, in the rift? Does the aura get too busy in a fight?
+- [ ] Drops: do legendaries and sets feel like they're for your class now?
 - [ ] Settings: loot filter hides and auto-scraps junk, pets pick up from further away, sound toggle, screen shake toggle.
 - [ ] Battery: how much does a 15-minute session use?
 

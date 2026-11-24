@@ -42,7 +42,7 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - **Bigger hero on phones:** touch screens zoom in about a third more (pixel scale divisor 165 instead of 210). Desktop is unchanged.
 
 ## Cosmetics (Samuel, 2026-11-24)
-- New **Looks** tab: 7 armour skins, 5 wings, 5 weapon skins and 5 pet skins, all drawn in code (palette swaps plus a wing sprite and small glow effects). Other players see them in co-op. They never touch the sim's numbers.
+- New **Looks** tab: 6 armour sets, 5 wings, 5 weapons and 5 pet skins, all drawn in code. Each one has its own shape, not just a colour: armour adds horns, antlers, crowns, spikes or skull pauldrons, a cape on some, and an aura (snow, embers, leaves, sparkles, wisps, soul-fire). Wings come in 5 shapes (bat, feathered with a halo, flame, floating shards, ice). Weapons change shape per class: sword becomes scythe, cleaver, crystal blade or bone club; bows and staff tops change too. Pet skins add a crown, horns or ice spikes, a trail, or a ghost float. Other players see them in co-op. They never touch the sim's numbers.
 - One look per account, shared by all classes (like pets). Each armour skin recolours every class in its own way.
 - **All cosmetics are free in this test build.** How they're earned or sold (the brief's cosmetics-only monetisation) is a later slice: a store, season rewards, or achievements. The server already refuses unknown cosmetic ids, so adding ownership later is one check.
 
@@ -52,3 +52,9 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Rune patterns: element swaps (fire, cold, lightning), area or single-target conversions (e.g. Spark "Fork" and Bone Shot "Splinter" become area skills, so the area affix applies), resource builders or cost cuts, and vulnerability or control.
 - Lava pools, rain and storms can now apply a rune's "take more damage" effect.
 - Rune numbers are untuned. A test runs every rune for 12 seconds to check none is broken.
+
+## Class-aligned drops (Samuel, 2026-11-24)
+- Legendaries, set pieces and "+% tag damage" affixes are weighted towards the class you're playing: full weight if your class's skills use that tag, about a third if only a rune adds it, almost none otherwise. In a test, 89–96% of legendary/set drops were for tags the class's skills use.
+- Weapon and offhand base names match the class (swords and shields, bows and quivers, staves and orbs).
+- Two Stormcaller sets added: Stormweaver (lightning) and Arcanist (arcane). Their numbers are untuned, like the other sets.
+- Scrap materials are currently only used for Mystic rerolls. More uses are an open item.

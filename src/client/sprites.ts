@@ -399,7 +399,29 @@ const WING: Record<string, string[][]> = {
     ["k........", "kUk......", "kXXk.....", "kXxXk....", "kXxXXkk..", "kXxXxXXkk", "kXkXxXXXk", "k.kkXkXk.", "....k.k.."],
     [".........", ".........", "kk.......", "kUXk.....", "kXxXXk...", "kXxXxXXkk", "kXxXxXXXk", ".kkXkXkk.", "...k.k..."],
   ],
+  flame: [
+    ["U........", "XU.......", "xXU...U..", ".xXU.XU..", ".xxXUXUU.", "..xxXXUUX", "...xxXUX.", "....xxX..", ".....x..."],
+    [".........", "U........", "XU....U..", "xXU..XU..", ".xXUxXUU.", "..xxXXUUX", "...xxXUX.", "....xxX..", "....x...."],
+  ],
+  shards: [
+    ["U........", "Xk.......", "xk..U....", "...XXk...", "...xk..U.", ".......Xk", "..U...xXk", ".XXk.....", ".xk......"],
+    [".........", "U........", "Xk..U....", "xk.XXk...", "...xk..U.", "......XXk", "..U...xk.", ".XXk.....", ".xk......"],
+  ],
+  crystal: [
+    ["k........", "Uk.......", "UXk......", "UXUk.....", ".UXXk....", ".UXUXkk..", "..UXXUXkk", "..xUXXXk.", "...xxXk..", "....kk..."],
+    [".........", ".........", "k........", "Ukk......", "UXUkk....", ".UXXUkk..", ".UXUXXUkk", "..xUXXXk.", "...xxXk..", "....kk..."],
+  ],
 };
+// armour overlays: 12 wide, 4 rows above the head then the hero's rows 0-9 (shoulders around rows 6-9)
+const OVERLAY: Record<string, string[]> = {
+  spikes: [".....k......", "....kUk.....", "....kXk.....", "...kXXXk....", "............", "............", "............", "............", "............", "k..........k", "Uk........kU", "kXk......kXk", ".kXk....kXk.", "..kk....kk.."],
+  crown: ["............", "...y.y.y....", "...yyyyy....", "...yUyUy....", "...kkkkk....", "............", "............", "............", "............", "............", "............", "yyk......kyy", "kyyk....kyyk", ".kk......kk."],
+  ice: [".....C......", "....CZC.....", ".....Z......", "............", "............", "............", "............", "............", "............", "Z..........Z", "ZZ........ZZ", "CZk......kZC", ".Zk......kZ.", "............"],
+  horns: ["X..........X", "Xk........kX", "XUk......kUX", ".XUk....kUX.", "..XUk..kUX..", "...kk..kk...", "............", "............", "............", "............", "............", "............", "............", "............"],
+  antlers: [".X.X....X.X.", ".XX......XX.", "..X......X..", "..XX....XX..", "...X....X...", "............", "............", "............", "............", "............", "gU........Ug", "UUk......kUU", ".gk......kg.", "............"],
+  skulls: ["............", "...w.w.w....", "...wwwww....", "............", "............", "............", "............", "............", "............", "............", "wwk......kww", "kwwk....kwwk", "wUwk....kwUw", ".kk......kk."],
+};
+const CAPE = ["...kCCCCk...", "..kCCCCCCk..", "..kCCCCCCk..", ".kCCCCCCCCk.", ".kCCCCCCCCk.", ".kCcCCCCcCk.", "kCCcCCCCcCCk", "kCcCCcCCcCck", "kkkkkkkkkkkk"];
 const WING_GAP = 4;
 function wingPair(left: string[], gap: number): string[] {
   const h = left.length, w = Math.max(...left.map((r) => r.length));
@@ -428,6 +450,9 @@ export interface SpriteBank {
   /** wing pair frames (up, down), or null for none */
   wings: (id?: string) => Sprite[] | null;
   pet: (pet: string, skin?: string) => Sprite[] | null;
+  /** armour overlay (crests, horns, pauldrons) and cape, or null */
+  overlay: (armor?: string) => Sprite | null;
+  cape: (armor?: string) => Sprite | null;
 }
 
 export function buildSprites(): SpriteBank {
@@ -454,6 +479,14 @@ export function buildSprites(): SpriteBank {
         const pal = { ...BASE, ...(a?.m ? (HERO_KEYS[cls] ?? HERO_KEYS.ashknight)(a) : {}), ...(w?.wood ? { n: w.wood, Z: w.gem } : {}) };
         return heroRows(cls).map((r) => make(r, pal));
       })!;
+    },
+    overlay(armor) {
+      const c = cosOf("armor", armor);
+      return c?.overlay ? cached(`o:${armor}`, () => [make(OVERLAY[c.overlay], { ...BASE, X: c.X, U: c.U })])![0] : null;
+    },
+    cape(armor) {
+      const c = cosOf("armor", armor);
+      return c?.cape ? cached(`c:${armor}`, () => [make(CAPE, { ...BASE, C: c.cape[0], c: c.cape[1] })])![0] : null;
     },
     wings(id) {
       return cached(`w:${id}`, () => {

@@ -672,7 +672,7 @@ function grantXp(s: SimState, base: number) {
 function lootOpts(s: SimState, p: Player, extra: MintOpts): MintOpts {
   const t = s.rift.tier, T = RIFT.tiers;
   return {
-    tier: t, ilvl: Math.min(RIFT.levels.max, p.level + Math.floor(t / 4)), equipment: p.equipment,
+    tier: t, ilvl: Math.min(RIFT.levels.max, p.level + Math.floor(t / 4)), equipment: p.equipment, cls: p.cls,
     ancestralChance: t >= T.ancestralFrom ? Math.min(T.ancestralCap, T.ancestralBase + T.ancestralPerTier * (t - T.ancestralFrom)) : 0,
     primalChance: t >= T.primalFrom ? T.primalChance : 0,
     ...extra,

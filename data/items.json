@@ -1,34 +1,282 @@
 {
-  "slots": ["weapon", "offhand", "helm", "shoulders", "chest", "bracers", "gloves", "belt", "pants", "boots", "amulet", "ring"],
-  "equipSlots": ["weapon", "offhand", "helm", "shoulders", "chest", "bracers", "gloves", "belt", "pants", "boots", "amulet", "ring1", "ring2"],
+  "slots": [
+    "weapon",
+    "offhand",
+    "helm",
+    "shoulders",
+    "chest",
+    "bracers",
+    "gloves",
+    "belt",
+    "pants",
+    "boots",
+    "amulet",
+    "ring"
+  ],
+  "equipSlots": [
+    "weapon",
+    "offhand",
+    "helm",
+    "shoulders",
+    "chest",
+    "bracers",
+    "gloves",
+    "belt",
+    "pants",
+    "boots",
+    "amulet",
+    "ring1",
+    "ring2"
+  ],
   "bases": {
-    "weapon":    { "names": ["Iron Blade", "Grave Axe", "Ashen Sword", "Bone Bow", "Gloom Crossbow"], "dmgMin": [7, 10], "dmgSpread": [3, 6] },
-    "offhand":   { "names": ["Kite Shield", "Bone Buckler", "Quiver", "Ward"], "armor": [8, 14] },
-    "helm":      { "names": ["Sallet", "Bone Helm", "Hood"], "armor": [8, 14] },
-    "shoulders": { "names": ["Pauldrons", "Spaulders", "Mantle"], "armor": [6, 12] },
-    "chest":     { "names": ["Hauberk", "Ribcage Mail", "Jerkin"], "armor": [14, 24] },
-    "bracers":   { "names": ["Bracers", "Vambraces", "Cuffs"], "armor": [4, 8] },
-    "gloves":    { "names": ["Gauntlets", "Grips", "Wraps"], "armor": [5, 10] },
-    "belt":      { "names": ["Girdle", "Sash", "Belt"], "armor": [4, 8] },
-    "pants":     { "names": ["Legplates", "Breeches", "Chausses"], "armor": [10, 18] },
-    "boots":     { "names": ["Greaves", "Sabatons", "Treads"], "armor": [5, 10] },
-    "amulet":    { "names": ["Amulet", "Talisman", "Pendant"] },
-    "ring":      { "names": ["Ring", "Band", "Loop"] }
+    "weapon": {
+      "names": [
+        "Iron Blade",
+        "Grave Axe",
+        "Ashen Sword",
+        "Bone Bow",
+        "Gloom Crossbow"
+      ],
+      "dmgMin": [
+        7,
+        10
+      ],
+      "dmgSpread": [
+        3,
+        6
+      ]
+    },
+    "offhand": {
+      "names": [
+        "Kite Shield",
+        "Bone Buckler",
+        "Quiver",
+        "Ward"
+      ],
+      "armor": [
+        8,
+        14
+      ]
+    },
+    "helm": {
+      "names": [
+        "Sallet",
+        "Bone Helm",
+        "Hood"
+      ],
+      "armor": [
+        8,
+        14
+      ]
+    },
+    "shoulders": {
+      "names": [
+        "Pauldrons",
+        "Spaulders",
+        "Mantle"
+      ],
+      "armor": [
+        6,
+        12
+      ]
+    },
+    "chest": {
+      "names": [
+        "Hauberk",
+        "Ribcage Mail",
+        "Jerkin"
+      ],
+      "armor": [
+        14,
+        24
+      ]
+    },
+    "bracers": {
+      "names": [
+        "Bracers",
+        "Vambraces",
+        "Cuffs"
+      ],
+      "armor": [
+        4,
+        8
+      ]
+    },
+    "gloves": {
+      "names": [
+        "Gauntlets",
+        "Grips",
+        "Wraps"
+      ],
+      "armor": [
+        5,
+        10
+      ]
+    },
+    "belt": {
+      "names": [
+        "Girdle",
+        "Sash",
+        "Belt"
+      ],
+      "armor": [
+        4,
+        8
+      ]
+    },
+    "pants": {
+      "names": [
+        "Legplates",
+        "Breeches",
+        "Chausses"
+      ],
+      "armor": [
+        10,
+        18
+      ]
+    },
+    "boots": {
+      "names": [
+        "Greaves",
+        "Sabatons",
+        "Treads"
+      ],
+      "armor": [
+        5,
+        10
+      ]
+    },
+    "amulet": {
+      "names": [
+        "Amulet",
+        "Talisman",
+        "Pendant"
+      ]
+    },
+    "ring": {
+      "names": [
+        "Ring",
+        "Band",
+        "Loop"
+      ]
+    }
   },
-  "jewelry": ["amulet", "ring"],
+  "jewelry": [
+    "amulet",
+    "ring"
+  ],
   "rarities": {
-    "common":    { "weight": 50, "affixes": 1 },
-    "magic":     { "weight": 30, "affixes": 2 },
-    "rare":      { "weight": 15, "affixes": 4 },
-    "legendary": { "weight": 3,  "affixes": 3 },
-    "set":       { "weight": 2,  "affixes": 3 },
-    "mythic":    { "weight": 0,  "affixes": 4 }
+    "common": {
+      "weight": 50,
+      "affixes": 1
+    },
+    "magic": {
+      "weight": 30,
+      "affixes": 2
+    },
+    "rare": {
+      "weight": 15,
+      "affixes": 4
+    },
+    "legendary": {
+      "weight": 3,
+      "affixes": 3
+    },
+    "set": {
+      "weight": 2,
+      "affixes": 3
+    },
+    "mythic": {
+      "weight": 0,
+      "affixes": 4
+    }
   },
-  "magicPrefixes": ["Sharp", "Grim", "Sturdy", "Burning", "Hollow", "Keen", "Frosted"],
-  "rareWords1": ["Dread", "Ember", "Gloom", "Bone", "Ash", "Rot", "Dusk", "Grave", "Rime"],
-  "rareWords2": ["Bite", "Ward", "Shroud", "Call", "Fang", "Veil", "Mark", "Howl", "Song"],
-  "scrapValue": { "common": 1, "magic": 2, "rare": 5, "legendary": 20, "set": 25, "mythic": 100 },
-  "reroll": { "baseCost": 10, "costGrowth": 1.5, "maxCost": 400 },
+  "magicPrefixes": [
+    "Sharp",
+    "Grim",
+    "Sturdy",
+    "Burning",
+    "Hollow",
+    "Keen",
+    "Frosted"
+  ],
+  "rareWords1": [
+    "Dread",
+    "Ember",
+    "Gloom",
+    "Bone",
+    "Ash",
+    "Rot",
+    "Dusk",
+    "Grave",
+    "Rime"
+  ],
+  "rareWords2": [
+    "Bite",
+    "Ward",
+    "Shroud",
+    "Call",
+    "Fang",
+    "Veil",
+    "Mark",
+    "Howl",
+    "Song"
+  ],
+  "scrapValue": {
+    "common": 1,
+    "magic": 2,
+    "rare": 5,
+    "legendary": 20,
+    "set": 25,
+    "mythic": 100
+  },
+  "reroll": {
+    "baseCost": 10,
+    "costGrowth": 1.5,
+    "maxCost": 400
+  },
   "ilvlScale": 0.06,
-  "ancestralMult": 1.25
+  "ancestralMult": 1.25,
+  "classBases": {
+    "ashknight": {
+      "weapon": [
+        "Iron Blade",
+        "Grave Axe",
+        "Ashen Sword",
+        "Warhammer",
+        "Cinder Maul"
+      ],
+      "offhand": [
+        "Kite Shield",
+        "Bone Buckler",
+        "Tower Shield"
+      ]
+    },
+    "gloomstalker": {
+      "weapon": [
+        "Bone Bow",
+        "Gloom Crossbow",
+        "Hunting Bow",
+        "Raven Longbow"
+      ],
+      "offhand": [
+        "Quiver",
+        "Bone Quiver",
+        "Hunter's Pouch"
+      ]
+    },
+    "stormcaller": {
+      "weapon": [
+        "Ashwood Staff",
+        "Storm Wand",
+        "Rune Staff",
+        "Conduit Rod"
+      ],
+      "offhand": [
+        "Orb",
+        "Tome",
+        "Focus Crystal"
+      ]
+    }
+  }
 }

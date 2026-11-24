@@ -1,6 +1,6 @@
 // Server-side item authority: minting drops for a run, and validating what a player brings back.
 // Pure functions (no I/O) so they can be unit tested.
-import { RIFT } from "../sim/data";
+import { CLASSES, RIFT } from "../sim/data";
 import { Item, MintOpts, mintItem, scrapValue } from "../sim/items";
 import { Rng, next } from "../sim/rng";
 import type { CharSave, Profile } from "../client/profile";
@@ -20,7 +20,7 @@ export function sanitizeOpts(run: RunInfo, m: RunMember, o: MintOpts, rng: Rng, 
   if (m.drops >= MAX_DROPS) return null;
   const t = run.tier, T = RIFT.tiers;
   const out: MintOpts = {
-    tier: t, equipment,
+    tier: t, equipment, cls: o.cls && CLASSES[o.cls] ? o.cls : undefined, // smart loot only; gives no power
     ilvl: Math.max(1, Math.min(RIFT.levels.max, o.ilvl ?? 1, m.level + 6 + Math.floor(t / 4))),
     ancestralChance: t >= T.ancestralFrom ? Math.min(T.ancestralCap, T.ancestralBase + T.ancestralPerTier * (t - T.ancestralFrom)) : 0,
     primalChance: t >= T.primalFrom ? T.primalChance : 0,
