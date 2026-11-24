@@ -1,5 +1,6 @@
 // DOM screens: hub (play / gear / skills / settings), inventory with compare + reroll, boon picker, results.
 import { AFFIX as AFFIX_DEF } from "../sim/data";
+import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { BOON, CLASSES, COSMETICS, CosKind, VFX, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
@@ -88,7 +89,7 @@ function isUpgrade(h: Holder, it: Item, ctx: { cls: string; level: number }): bo
 
 type Tab = "play" | "gear" | "skills" | "looks" | "settings";
 export interface HubHandlers {
-  enter: (o: { tier: number; seed: number | null; kind: "rift" | "chase"; weekly?: boolean }) => void;
+  enter: (o: { tier: number; seed: number | null; kind: RunKind; weekly?: boolean }) => void;
   invCmd: (c: InvCmd) => void;
   setClass: (cls: string) => void;
   setRune: (skill: string, rune: string) => void;
@@ -183,6 +184,8 @@ export class UI {
         <input id="seed" placeholder="rift code (optional)" maxlength="8" autocomplete="off" aria-label="Rift code">
         <button id="weekly">Weekly rift ${week.slice(5)} · T${WEEKLY_TIER} · best ${wbest}</button>
       </div>
+      <button id="endless" class="endless">Endless waves from tier ${t} · best wave ${c.bestWave ?? 0}</button>
+      <div class="dim small">Waves keep coming and get stronger, and faster quickly when you clear them fast. The party shares ${RIFT.endless.lives} lives. Loot comes at the end, more the further you get.</div>
       <button id="chase" class="chase" ${c.sigils > 0 ? "" : "disabled"}>Challenge the Ossuary King (uses 1 Bone Sigil · you have ${c.sigils})</button>
       <div class="dim small">Bone Sigils drop from guardians at tier ${T.sigilFrom}+. The King is a 3-phase fight with a ${Math.round(RIFT.chase.mythicChance * 100)}% mythic chance.</div>
       <div class="help">
@@ -236,6 +239,7 @@ export class UI {
       H.enter({ tier: this.tier, seed: Number.isFinite(n) ? n >>> 0 : null, kind: "rift" });
     };
     $("#weekly").onclick = () => H.enter({ tier: WEEKLY_TIER, seed: null, kind: "rift", weekly: true });
+    $("#endless").onclick = () => H.enter({ tier: this.tier, seed: null, kind: "endless" });
     $("#chase").onclick = () => H.enter({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase" });
   }
 

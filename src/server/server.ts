@@ -167,7 +167,7 @@ wss.on("connection", (ws) => {
       case "runStart": {
         if (!r || c !== r.host) return;
         const ch = char(p);
-        const kind = m.kind === "chase" ? "chase" : "rift";
+        const kind = m.kind === "chase" ? "chase" : m.kind === "endless" ? "endless" : "rift";
         let tier = Math.max(1, Math.min(m.tier | 0, ch.highestTier));
         if (kind === "chase") { if (ch.sigils <= 0) return tx(c, { t: "runFail", reason: "No Bone Sigil." }); ch.sigils--; putProfile(c.name, p); tier = Math.max(3, ch.highestTier); }
         r.run = { kind, tier, completed: false, inTime: false, time: 0, members: new Map() };

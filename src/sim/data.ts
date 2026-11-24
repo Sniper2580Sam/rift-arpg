@@ -50,7 +50,7 @@ export function tierJump(time: number): number {
 }
 export interface MapTheme { floor: string[]; speck: string[]; wallTop: string; wallFace: string; wallLight: string; wallLine: string; void: string; deco: string }
 export interface MapDef {
-  id: string; name: string; layout: "cave" | "linear" | "open" | "rooms" | "ring"; w: number; h: number; weight: number; desc: string; egg?: boolean;
+  id: string; name: string; layout: "cave" | "linear" | "open" | "rooms" | "ring" | "arena"; w: number; h: number; weight: number; desc: string; egg?: boolean;
   packMult?: number; dropMult?: number; legendaryWeightMult?: number; density?: [number, number]; enemyCap?: number; theme: MapTheme;
 }
 export const MAPS = mapsJson as MapDef[];

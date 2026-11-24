@@ -16,7 +16,7 @@ export interface CharSave {
   equipment: Holder["equipment"]; bag: Item[];
   runes: Record<string, string>; uses: Record<string, number>;
   loadout?: string[];
-  highestTier: number; pityAnc: number; pityPri: number; sigils: number;
+  highestTier: number; bestWave?: number; pityAnc: number; pityPri: number; sigils: number;
   riftsCleared: number; bestTimes: Record<string, number>;
   /** arsenal: saved builds (equipped item ids, skill bar, runes) */
   builds?: (Build | null)[];

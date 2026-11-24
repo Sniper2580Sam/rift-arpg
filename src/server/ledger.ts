@@ -11,7 +11,7 @@ export interface RunMember {
   pending: Map<string, Item>; // minted for this player, not yet saved into their profile
   forced: number; usedAnc: boolean; usedPri: boolean; drops: number; mythic: boolean;
 }
-export interface RunInfo { kind: "rift" | "chase"; tier: number; completed: boolean; inTime: boolean; time: number }
+export interface RunInfo { kind: "rift" | "chase" | "endless"; tier: number; completed: boolean; inTime: boolean; time: number }
 
 const MAX_DROPS = 500;
 

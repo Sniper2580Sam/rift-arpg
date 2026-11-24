@@ -90,10 +90,14 @@ export type SimEvent =
   | { type: "levelUp"; pid: number; level: number }
   | { type: "boonOffer"; pid: number } | { type: "boonTaken"; pid: number; id: string }
   | { type: "sigil"; pid: number } | { type: "teleport"; x: number; y: number } | { type: "chain"; x1: number; y1: number; x2: number; y2: number; pid?: number; skill?: string }
+  | { type: "waveStart"; wave: number; count: number; boss: boolean } | { type: "waveClear"; wave: number; secs: number; jump: number; cleared: boolean } | { type: "endlessOver"; wave: number; time: number }
   | { type: "equipChanged"; pid: number } | { type: "ambush"; x: number; y: number; n: number };
 
+export type RunKind = "rift" | "chase" | "endless";
 export interface RiftState {
-  kind: "rift" | "chase"; tier: number; mods: string[];
+  kind: RunKind; tier: number; mods: string[];
+  /** Endless mode: wave number, difficulty level (rises faster on quick clears), when the next wave comes (0 = a wave is up) and when the current one started */
+  wave?: number; level?: number; waveAt?: number; waveStart?: number;
   /** which map (data/maps.json) and, for the Good Luck map, its density multiplier */
   map?: string; density?: number;
   time: number; limit: number; progress: number; need: number;
@@ -102,7 +106,7 @@ export interface RiftState {
   nextWave?: number;
 }
 export interface SimConfig {
-  seed: number; kind?: "rift" | "chase"; tier?: number; mods?: string[]; players: PlayerSetup[];
+  seed: number; kind?: RunKind; tier?: number; mods?: string[]; players: PlayerSetup[];
   /** force a map (tests); otherwise it's picked from the seed */
   map?: string;
   mint?: "local" | "external"; pity?: Record<number, { ancestral?: boolean; primal?: boolean }>;
@@ -127,6 +131,7 @@ export function rollModifiers(seed: number, tier: number): string[] {
 }
 const modVal = (s: SimState, k: "packMult" | "enemySpeed" | "enemyHp" | "dropMult" | "eliteMult" | "xpMult") => {
   let v = 1; for (const m of s.rift.mods) v *= (MODIFIER[m] as any)[k] ?? 1;
+  if (k === "dropMult" && s.rift.kind === "endless") v *= RIFT.endless.dropMult;
   // map-wide loot bonus (the Gilded Vault)
   if (k === "dropMult" && s.rift.map) v *= MAP[s.rift.map]?.dropMult ?? 1;
   return v;
@@ -145,8 +150,9 @@ export function createSim(cfg: SimConfig): SimState {
   const kind = cfg.kind ?? "rift";
   const tier = Math.max(1, cfg.tier ?? 1);
   const rng = makeRng(cfg.seed);
-  const md = kind === "chase" ? undefined : MAP[cfg.map ?? ""] ?? pickMap(cfg.seed);
+  const md = kind === "chase" ? undefined : kind === "endless" ? MAP.endless : MAP[cfg.map ?? ""] ?? pickMap(cfg.seed);
   const map = !md ? genArena(rng, 44, 44, RIFT.tileSize)
+    : md.layout === "arena" ? genArena(rng, md.w, md.h, RIFT.tileSize)
     : md.layout === "linear" ? genLinear(rng, md.w, md.h, RIFT.tileSize)
     : md.layout === "open" ? genOpen(rng, md.w, md.h, RIFT.tileSize)
     : md.layout === "ring" ? genRing(rng, md.w, md.h, RIFT.tileSize)
@@ -158,20 +164,25 @@ export function createSim(cfg: SimConfig): SimState {
   for (let i = 0; i < map.tiles.length; i++) if (map.tiles[i] === 0 && openness(map, i) >= 8) floors.push(i);
   let startX: number, startY: number;
   if (kind === "chase") { startX = (map.w / 2) * ts; startY = (map.h / 2 + 10) * ts; }
+  else if (kind === "endless") { startX = (map.w / 2) * ts; startY = (map.h / 2) * ts; }
   else { const st = floors[Math.floor(next(rng) * floors.length)]; startX = (st % map.w) * ts + ts / 2; startY = Math.floor(st / map.w) * ts + ts / 2; }
-  const mods = kind === "chase" ? [] : cfg.mods ?? rollModifiers(cfg.seed, tier);
+  const mods = kind !== "rift" ? [] : cfg.mods ?? rollModifiers(cfg.seed, tier);
   const s: SimState = {
     seed: cfg.seed, tick: 0, rng, map, mint: cfg.mint ?? "local",
     players: [], enemies: [], projectiles: [], summons: [], hazards: [], zones: [], loot: [], pending: [],
     nextId: 1, itemCounter: 0, startX, startY,
     rift: {
-      kind, tier, mods, map: md?.id, density, time: 0, limit: kind === "chase" ? RIFT.chase.timeLimit : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier) * Math.max(1, density / 5)),
+      kind, tier, mods, map: md?.id, density, time: 0, limit: kind === "chase" ? RIFT.chase.timeLimit : kind === "endless" ? 1e9 : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier) * Math.max(1, density / 5)),
       guardianSpawned: false, guardianId: 0, done: false, doneAt: 0, kills: 0, timeUpSent: false, boonIdx: 0, nextWave: RIFT.waves.first,
     },
     boonOffers: {}, boonPending: {}, pity: cfg.pity ?? {}, events: [], _flows: [], _flowTick: -999,
   };
   for (const ps of cfg.players) addPlayer(s, ps);
   const n = Math.max(1, s.players.length);
+  if (kind === "endless") {
+    Object.assign(s.rift, { wave: 0, level: 0, waveAt: RIFT.endless.firstDelay, waveStart: 0, need: 1e9, nextWave: undefined });
+    return s;
+  }
   if (kind === "chase") {
     const k = spawnEnemy(s, "king", (map.w / 2) * ts, (map.h / 2 - 4) * ts, n);
     k.aggro = true; k.state = "intro"; k.t = 2.5;
@@ -903,6 +914,9 @@ function damagePlayer(s: SimState, p: Player, raw: number) {
     const D = RIFT.deathPenalty;
     p.hp = 0; p.dead = true; p.deadT = Math.min(D.max, D.base + D.perDeath * (p.deaths - 1)); p.dashT = 0;
     s.events.push({ type: "playerDeath", pid: p.pid });
+    // Endless: the run ends when the whole party is down at once
+    // Endless: the party shares a pool of lives (3, +1 per extra player); the run ends when it runs out
+    if (s.rift.kind === "endless" && !s.rift.done && endlessLivesLeft(s) <= 0) endEndless(s);
   }
 }
 
@@ -1406,6 +1420,7 @@ function updateRift(s: SimState) {
   if (r.done) return;
   r.time += DT;
   if (!r.timeUpSent && r.time >= r.limit) { r.timeUpSent = true; s.events.push({ type: "timeUp" }); }
+  if (r.kind === "endless") { updateEndless(s); return; }
   if (r.kind === "rift" && !r.guardianSpawned && r.nextWave !== undefined && r.time >= r.nextWave) ambush(s);
   // boons: pick 1 of 3 at progress thresholds (lost at the end of the run)
   const at = RIFT.boonsAt;
@@ -1437,6 +1452,89 @@ function updateRift(s: SimState) {
     for (const e of s.enemies) if (e !== g && !e.dead && len(e.x - gx, e.y - gy) < 120) { e.dead = true; s.events.push({ type: "kill", x: e.x, y: e.y, kind: e.kind, elite: e.elite }); }
     s.events.push({ type: "guardianSpawn", x: gx, y: gy, kind: "guardian" });
   }
+}
+
+// ------------------------------------------------------------------ endless
+export function endlessLivesLeft(s: SimState) {
+  const E = RIFT.endless, used = s.players.reduce((a, q) => a + (q.deaths ?? 0), 0);
+  return E.lives + E.livesPerExtra * (s.players.length - 1) - used;
+}
+function updateEndless(s: SimState) {
+  const r = s.rift, E = RIFT.endless;
+  if (r.waveAt! > 0) { if (r.time >= r.waveAt!) spawnWave(s); return; }
+  const alive = s.enemies.some((e) => !e.dead);
+  const secs = r.time - r.waveStart!;
+  if (alive && secs < E.maxWaveSecs) return;
+  // wave cleared (or dragged on too long): quick clears push the difficulty up faster
+  let jump = 1;
+  if (!alive) for (const [t, n] of E.fastClear as [number, number][]) if (secs < t) { jump = n; break; }
+  r.level! += jump;
+  s.events.push({ type: "waveClear", wave: r.wave!, secs, jump, cleared: !alive });
+  if (r.wave! % E.boonEvery === 0) for (const p of s.players) { if (s.boonOffers[p.pid]) s.boonPending[p.pid] = (s.boonPending[p.pid] ?? 0) + 1; else offerBoon(s, p); }
+  r.waveAt = r.time + (alive ? 0.5 : E.breather);
+}
+
+function spawnWave(s: SimState) {
+  const r = s.rift, E = RIFT.endless, n = Math.max(1, s.players.length), L = r.level!;
+  r.wave! += 1; r.waveAt = 0; r.waveStart = r.time;
+  const count = Math.min(E.maxCount, Math.round((E.baseCount + E.countPerLevel * L) * (1 + E.partyCount * (n - 1))));
+  const tierEff = r.tier + Math.floor(L / E.tierPerLevels);
+  const hpM = Math.pow(E.hpPerLevel, L), dmgM = Math.pow(E.dmgPerLevel, L);
+  const p = s.players.find((q) => !q.dead) ?? s.players[0];
+  const m = s.map, cx = (m.w / 2) * m.ts, cy = (m.h / 2) * m.ts;
+  // 3–4 groups come in from the arena's edge, away from the player
+  const groups = 3 + (r.wave! % 2);
+  let made = 0, g = 0;
+  const boss = r.wave! % E.bossEvery === 0;
+  while (made < count && g < 40) {
+    const a = (Math.PI * 2 * g) / groups + r.wave! * 0.7;
+    const rad = Math.min(m.w, m.h) * m.ts * 0.38;
+    let gx = cx + Math.cos(a) * rad, gy = cy + Math.sin(a) * rad;
+    if (len(gx - p.x, gy - p.y) < 90) { gx = cx * 2 - gx; gy = cy * 2 - gy; }
+    const pack = weighted(s.rng, packsFor(tierEff));
+    for (const [ek, lo, hi] of pack.members as [EnemyKind, number, number][]) {
+      const cnt = int(s.rng, lo, hi);
+      for (let i = 0; i < cnt && made < count; i++) {
+        const d = DIR_TABLE[int(s.rng, 0, 31)], rr = range(s.rng, 0, 24);
+        let ex = gx + d[0] * rr, ey = gy + d[1] * rr;
+        if (isWall(m, ex, ey)) { ex = gx; ey = gy; }
+        if (isWall(m, ex, ey)) { ex = cx; ey = cy; }
+        const e = spawnEnemy(s, ek, ex, ey, n);
+        e.hp = e.maxHp = Math.round(e.maxHp * hpM); e.dmgMult *= dmgM; e.aggro = true;
+        if (chance(s.rng, RIFT.eliteChance * 0.25)) makeElite(s, e);
+        made++;
+      }
+    }
+    g++;
+  }
+  if (boss) {
+    // every 5th wave: an elite brute leads the charge
+    const e = spawnEnemy(s, "brute", cx + Math.cos(r.wave!) * 120, cy + Math.sin(r.wave!) * 120, n);
+    if (isWall(m, e.x, e.y)) { e.x = e.px = cx; e.y = e.py = cy - 60; }
+    e.hp = e.maxHp = Math.round(e.maxHp * hpM); e.dmgMult *= dmgM; e.aggro = true; makeElite(s, e);
+  }
+  s.events.push({ type: "waveStart", wave: r.wave!, count: made + (boss ? 1 : 0), boss });
+}
+
+/** Endless run over: everyone stands back up and the reward chest opens, sized by the wave reached. */
+function endEndless(s: SimState) {
+  const r = s.rift, R = RIFT.endless.rewards, w = r.wave ?? 0;
+  r.done = true; r.doneAt = r.time;
+  for (const e of s.enemies) if (!e.dead) { e.dead = true; s.events.push({ type: "kill", x: e.x, y: e.y, kind: e.kind, elite: e.elite }); }
+  for (const p of s.players) {
+    p.dead = false; p.deadT = 0; p.hp = p.stats.maxHp; p.invuln = 999;
+    const pity = s.pity[p.pid] ?? {};
+    const n = Math.min(R.max, R.base + Math.floor(w / R.perWaves));
+    const legs = Math.min(n, Math.floor(w / R.legendaryPerWaves));
+    for (let i = 0; i < n; i++) {
+      const d = DIR_TABLE[Math.floor((i * 32) / n) % 32];
+      const extra: MintOpts = i < legs ? { rarity: chance(s.rng, 0.3) ? "set" : "legendary", forceAncestral: i === 0 && !!pity.ancestral, forcePrimal: i === 0 && !!pity.primal } : { legendaryWeightMult: 2 + w / 5 };
+      dropFor(s, p, p.x + d[0] * 20, p.y + d[1] * 20, extra);
+    }
+    if (w >= R.sigilFromWave && chance(s.rng, RIFT.tiers.sigilChance * 2)) { p.sigils++; s.events.push({ type: "sigil", pid: p.pid }); }
+  }
+  s.events.push({ type: "endlessOver", wave: w, time: r.time });
+  s.events.push({ type: "riftComplete", inTime: false, time: r.time });
 }
 
 function completeRift(s: SimState, g: Enemy) {

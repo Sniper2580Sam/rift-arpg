@@ -131,3 +131,9 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Enemies move 3% faster per tier (up to +40%).
 - New Bone Hound (fast, fragile pack hunter, speed 104 vs heroes' ~80) in packs from tier 4.
 - Maps: the Flooded Cavern is now a round, irregular cavern instead of a box. New ring map, the Hollow Pit, loops around a central chasm. Normal maps now have about equal odds.
+
+## Endless mode (Samuel's idea, 2026-11-24)
+- Play tab → Endless, starting at the chosen tier. A round arena (the Endless Ossuary). Waves of 8+ enemies come from the edges, with a 3 s breather between waves.
+- Each cleared wave raises the difficulty level by 1, or by 2 or 3 for a clear under 20 s or under 10 s. Per level: enemy HP ×1.06, damage ×1.04, a bigger wave (up to 70), and every 4 levels harder pack types (Bone Hounds and so on). Every 5th wave an elite brute leads, and a boon is offered. A wave that drags past 60 s lets the next one in anyway.
+- The party shares 3 lives (+1 per extra player). When they're gone, everyone stands up and a chest drops: 2 items + 1 per 3 waves (max 16), with 1 guaranteed legendary/set per 5 waves and a Bone Sigil chance from wave 15. Normal drops during the run are ×0.35. Best wave is saved per character.
+- Untuned: bots die around wave 5–6, but they stand still. Watch how far real play gets.
