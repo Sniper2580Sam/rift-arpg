@@ -259,12 +259,12 @@ export class UI {
     const cost = rerollCost(it);
     if (this.rerollState) {
       const cur = it.affixes[this.rerollState.idx];
-      return `<div class="reroll"><b>Reroll:</b> pick one<div class="opts">
+      return `<div class="reroll"><b>Reroll:</b> pick one <span class="mats">Materials: ${mats}</span><div class="opts">
         <button data-pick="-1">Keep: ${esc(affixText(cur))}</button>
         ${this.rerollState.options.map((a, i) => `<button data-pick="${i}">${esc(affixText(a))} <small>${a.min}–${a.max}</small></button>`).join("")}</div></div>`;
     }
     const lock = it.rerollIdx;
-    return `<div class="reroll"><b>Mystic:</b> reroll one stat for ${cost} materials${lock !== undefined ? " (only the stat you rerolled before)" : ""}.
+    return `<div class="reroll"><b>Mystic:</b> reroll one stat for ${cost} materials${lock !== undefined ? " (only the stat you rerolled before)" : ""}. <span class="mats ${mats < cost ? "short" : ""}">You have ${mats}${mats < cost ? ` · need ${cost - mats} more (scrap items to get materials)` : ""}</span>
       <div class="opts">${it.affixes.map((a, i) => (lock === undefined || lock === i ? `<button data-reroll="${i}" ${mats < cost ? "disabled" : ""}>↻ ${esc(affixText(a))}</button>` : "")).join("")}</div></div>`;
   }
 

@@ -26,7 +26,7 @@ export interface Profile {
 }
 
 export function newChar(cls: string): CharSave {
-  const starter = mintItem(makeRng(20261124 + cls.length), "starter-" + cls, { rarity: "common", slot: "weapon", ilvl: 1 });
+  const starter = mintItem(makeRng(20261124 + cls.length), "starter-" + cls, { rarity: "common", slot: "weapon", ilvl: 1, cls });
   starter.name = cls === "gloomstalker" ? "Bone Bow" : cls === "stormcaller" ? "Ashwood Staff" : "Iron Blade";
   return { cls, level: 1, xp: 0, equipment: { weapon: starter }, bag: [], runes: {}, uses: {}, highestTier: 1, pityAnc: 0, pityPri: 0, sigils: 0, riftsCleared: 0, bestTimes: {} };
 }

@@ -16,6 +16,7 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Extra classes beyond the two in the brief: none added. Boons: kept, since they were cheap.
 
 ## Calls within the brief
+- **Rift pacing (Samuel, 2026-11-24: clears took about a minute):** the guardian needs 3.2× the old progress, there are 58 packs instead of 42 with bigger packs, and ambush waves spawn just off-screen every 22–30 seconds (from 35 s), growing over time and with party size. The time limit is 7 minutes (was 5). Bot runs now reach the guardian in 2–4 minutes. A level-30 kit at T10 reaches it in about 2 minutes, where it took about 1 before. Untuned for real hands.
 - **Equip slots:** the 12 slot types give 13 equip positions (two rings).
 - **6 skills per class, fixed bar.** Builds come from runes (5 per skill, unlocked by use), sets and legendaries. The skills unlock at levels 1, 2, 3, 5, 7 and 9.
 - **Tier scaling:** enemy HP ×1.4 per tier, damage ×1.14 per tier, legendary odds +15% per tier. Ancestral drops from T5, primal from T10. Pity: an ancestral is guaranteed after 12 rifts without one, a primal after 80. Tier 1 is eased (enemy HP ×0.85, damage ×0.75), so a fresh level-1 character can clear it.

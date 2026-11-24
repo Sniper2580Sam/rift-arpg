@@ -338,6 +338,7 @@ function handleEvent(e: SimEvent) {
       break;
     case "scrapped": if (mine(e.pid)) scrappedIds.push(e.id); if (mine(e.pid) && nums.length < 70) { const p = me(); nums.push({ x: p.x, y: p.y - 18, text: `+${e.mats} mat`, color: "#b8a8d0", size: 0.7, t: 0, vx: 0 }); } break;
     case "bagFull": if (mine(e.pid)) ui.toast("Bag full! Open the Bag and scrap something.", "#ff6a6a"); break;
+    case "ambush": ui.toast("Ambush! Enemies close in", "#ff8a5a", 1600); addShake(3); break;
     case "guardianSpawn": showBanner(e.kind === "king" ? "THE OSSUARY KING" : "THE HOLLOW WARDEN", "rises from the bone pit", "#ffd23f", 3); addShake(8); sfx.guardian(); burst(e.x, e.y, 60, ["#2b1f3a", "#ffd23f", "#f2ead3"], 140, 2, 0.9); break;
     case "enrage": showBanner("ENRAGED", "Faster and deadlier", "#ff4a4a", 2); sfx.guardian(); break;
     case "guardianStun": showBanner("STUNNED", "", "#9be0ff", 1); break;

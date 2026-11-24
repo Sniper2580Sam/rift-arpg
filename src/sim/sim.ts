@@ -86,12 +86,14 @@ export type SimEvent =
   | { type: "levelUp"; pid: number; level: number }
   | { type: "boonOffer"; pid: number } | { type: "boonTaken"; pid: number; id: string }
   | { type: "sigil"; pid: number } | { type: "teleport"; x: number; y: number } | { type: "chain"; x1: number; y1: number; x2: number; y2: number }
-  | { type: "equipChanged"; pid: number };
+  | { type: "equipChanged"; pid: number } | { type: "ambush"; x: number; y: number; n: number };
 
 export interface RiftState {
   kind: "rift" | "chase"; tier: number; mods: string[];
   time: number; limit: number; progress: number; need: number;
   guardianSpawned: boolean; guardianId: number; done: boolean; doneAt: number; kills: number; timeUpSent: boolean; boonIdx: number;
+  /** rift time of the next ambush wave (enemies that spawn nearby and hunt the party) */
+  nextWave?: number;
 }
 export interface SimConfig {
   seed: number; kind?: "rift" | "chase"; tier?: number; mods?: string[]; players: PlayerSetup[];
@@ -137,7 +139,7 @@ export function createSim(cfg: SimConfig): SimState {
     nextId: 1, itemCounter: 0, startX, startY,
     rift: {
       kind, tier, mods, time: 0, limit: kind === "chase" ? RIFT.chase.timeLimit : RIFT.timeLimit, progress: 0, need: RIFT.progressNeeded,
-      guardianSpawned: false, guardianId: 0, done: false, doneAt: 0, kills: 0, timeUpSent: false, boonIdx: 0,
+      guardianSpawned: false, guardianId: 0, done: false, doneAt: 0, kills: 0, timeUpSent: false, boonIdx: 0, nextWave: RIFT.waves.first,
     },
     boonOffers: {}, pity: cfg.pity ?? {}, events: [], _flows: [], _flowTick: -999,
   };
@@ -156,7 +158,7 @@ export function createSim(cfg: SimConfig): SimState {
     const ti = floors[Math.floor(next(rng) * floors.length)];
     const x = (ti % map.w) * ts + ts / 2, y = Math.floor(ti / map.w) * ts + ts / 2;
     if (len(x - startX, y - startY) < 220) continue;
-    if (packs.some(([px, py]) => len(px - x, py - y) < 110)) continue;
+    if (packs.some(([px, py]) => len(px - x, py - y) < RIFT.packSpacing)) continue;
     packs.push([x, y]);
     const pack = weighted(rng, RIFT.packs);
     const elitePack = chance(rng, eliteChance);
@@ -1140,11 +1142,41 @@ function updateLoot(s: SimState) {
 }
 
 // ------------------------------------------------------------------ rift
+/** Ambush: a pack spawns just off-screen around a random living player and hunts the party. */
+function ambush(s: SimState) {
+  const r = s.rift, W = RIFT.waves;
+  r.nextWave = r.time + range(s.rng, W.every[0], W.every[1]);
+  const alive = s.players.filter((p) => !p.dead);
+  if (!alive.length) return;
+  const p = alive[Math.floor(next(s.rng) * alive.length)];
+  let x = 0, y = 0, ok = false;
+  for (let i = 0; i < 40 && !ok; i++) {
+    const a = next(s.rng) * Math.PI * 2, d = range(s.rng, W.distance[0], W.distance[1]);
+    x = p.x + Math.cos(a) * d; y = p.y + Math.sin(a) * d;
+    ok = !isWall(s.map, x, y);
+  }
+  if (!ok) return;
+  const n = s.players.length;
+  const count = Math.round((W.base + W.perMinute * (r.time / 60)) * (1 + 0.5 * (n - 1)) * modVal(s, "packMult"));
+  const pack = weighted(s.rng, RIFT.packs);
+  const kinds = (pack.members as [EnemyKind, number, number][]).map((m) => m[0]);
+  for (let i = 0; i < count; i++) {
+    const k = i === 0 && kinds.includes("brute") && r.time > 120 ? "brute" : kinds[i % kinds.length] === "brute" ? "ghoul" : kinds[i % kinds.length];
+    const d = DIR_TABLE[int(s.rng, 0, 31)], rr = range(s.rng, 0, 26);
+    let ex = x + d[0] * rr, ey = y + d[1] * rr;
+    if (isWall(s.map, ex, ey)) { ex = x; ey = y; }
+    const e = spawnEnemy(s, k, ex, ey, n);
+    e.aggro = true;
+  }
+  s.events.push({ type: "ambush", x, y, n: count });
+}
+
 function updateRift(s: SimState) {
   const r = s.rift;
   if (r.done) return;
   r.time += DT;
   if (!r.timeUpSent && r.time >= r.limit) { r.timeUpSent = true; s.events.push({ type: "timeUp" }); }
+  if (r.kind === "rift" && !r.guardianSpawned && r.nextWave !== undefined && r.time >= r.nextWave) ambush(s);
   // boons: pick 1 of 3 at progress thresholds (lost at the end of the run)
   const at = RIFT.boonsAt;
   if (r.kind === "rift" && r.boonIdx < at.length && (r.progress / r.need) * 100 >= at[r.boonIdx]) {
