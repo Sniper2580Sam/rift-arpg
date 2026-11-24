@@ -1,4 +1,4 @@
-import {
+import { talentStats,
   gemVals, AFFIX, AFFIXES, BOON, CLASSES, EquipSlot, ITEMS, LEGENDARIES, LEGENDARY, MODIFIER, ModDef, MYTHICS, Num, RARITY_ORDER, RIFT,
   Rarity, SET, SETS, SKILL, SlotType, classAffinity, levelPower, slotTypeOf,
 } from "./data";
@@ -224,7 +224,7 @@ export interface Stats {
   speed: number; dmgMult: number; takenMult: number;
 }
 
-export interface StatCtx { cls: string; level: number; paragon?: Partial<Record<string, number>>; /** equipped rift gems and their levels */ gems?: Record<string, number>; /** legendary powers worn in the reliquary */ relics?: string[]; effLevel?: number; boons?: string[]; riftMods?: string[]; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"] }
+export interface StatCtx { cls: string; level: number; paragon?: Partial<Record<string, number>>; /** equipped rift gems and their levels */ gems?: Record<string, number>; /** legendary powers worn in the reliquary */ relics?: string[]; /** talent ranks (node id -> rank) */ talents?: Record<string, number>; effLevel?: number; boons?: string[]; riftMods?: string[]; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"] }
 
 export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
   const cd = CLASSES[c.cls];
@@ -299,6 +299,17 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
   if (pv("vitality")) s.maxHp = Math.round(s.maxHp * (1 + pv("vitality") / 100));
   if (pv("toughness")) s.takenMult *= 1 - pv("toughness") / 100;
   if (pv("haste")) { s.cdr += pv("haste"); s.moveSpeed += pv("haste"); }
+  // talents (points from Trials)
+  for (const [k, v] of Object.entries(talentStats(c.cls, c.talents))) {
+    if (k.startsWith("tag:")) { const t = k.slice(4); s.tagDmg[t] = (s.tagDmg[t] ?? 0) + v; continue; }
+    switch (k) {
+      case "hpPct": s.maxHp = Math.round(s.maxHp * (1 + v / 100)); break;
+      case "armorPct": s.armor = Math.round(s.armor * (1 + v / 100)); break;
+      case "takenPct": s.takenMult *= 1 - v / 100; break;
+      case "regenPct": s.regen += Math.round((s.maxHp * v) / 100); break;
+      case "dmgPct": case "critChance": case "critDmg": case "atkSpeed": case "moveSpeed": case "cdr": case "lifeOnHit": case "eliteDmg": case "areaPct": case "resRegen": case "costRed": case "resMax": (s as any)[k] += v; break;
+    }
+  }
   if (echoLife) s.maxHp = Math.round(s.maxHp * (1 + echoLife / 100));
   // rift gems
   for (const [id, lvl] of Object.entries(c.gems ?? {})) {

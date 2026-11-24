@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { nextTrial, talentPoints, coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
@@ -155,6 +155,7 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   riftButtons();
   const party = sim.players.length > 1 ? ` · party of ${sim.players.length}` : "";
   if (info.kind === "hideout") { const host = sim.players.find((q) => q.pid === 0); showBanner(host && host.pid !== ME ? `${host.name}'s hideout` : "Your hideout", "Walk to a station or portal", "#c9b8ff", 2.2); }
+  else if (info.kind === "trial") showBanner(`TRIAL ${info.tier}`, `Clear ${RIFT.trial.waves} waves in ${fmtTime(RIFT.trial.timeLimit)} for a talent point`, "#7dd8ff", 3.5);
   else if (info.kind === "bounty") showBanner("BOUNTIES", `Tier ${info.tier} · four tasks on one map · gold markers on the minimap`, "#ffd23f", 3.5);
   else if (info.kind === "endless") showBanner("ENDLESS", `Tier ${info.tier} start · ${RIFT.endless.lives} lives · clear waves fast to climb faster`, "#ff8a5a", 3.5);
   else if (info.kind === "chase" && sim.rift.boss === "seraph") showBanner(RIFT.seraph.name, "Dodge the shard rings, then survive her Judgement.", "#bfe8ff", 3.5);
@@ -169,7 +170,7 @@ function hideoutButtons() {
   root.className = "hudbtns";
   const n = hideNear;
   const guest = coop?.role === "guest";
-  const act = !n ? "" : n.kind ? `<button id="h-act" class="h-act">${guest ? `${esc(n.name)} · host opens` : `Enter ${esc(n.name)}${n.kind === "chase" ? ` (${n.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`})` : n.kind === "rift" || n.kind === "endless" ? ` · T${ui.tier}` : ""}`}</button>` : `<button id="h-act" class="h-act">${esc(n.name)}</button>`;
+  const act = !n ? "" : n.kind ? `<button id="h-act" class="h-act">${guest ? `${esc(n.name)} · host opens` : `Enter ${esc(n.name)}${n.kind === "chase" ? ` (${n.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`})` : n.kind === "trial" ? ` ${nextTrial(char(profile).trialBest)}` : n.kind === "rift" || n.kind === "endless" ? ` · T${ui.tier}` : ""}`}</button>` : `<button id="h-act" class="h-act">${esc(n.name)}</button>`;
   root.innerHTML = `${act}<button id="h-menu">Menu</button>${guest ? `<button id="h-leave">Leave room</button>` : ""}`;
   const a = document.getElementById("h-act"); if (a) a.onclick = () => useSpot(n!);
   document.getElementById("h-menu")!.onclick = () => openMenu();
@@ -181,6 +182,7 @@ function useSpot(n: HideoutSpot) {
     const c = char(profile);
     if (n.kind === "chase" && n.id === "seraph") { if ((c.feathers ?? 0) <= 0) { ui.toast(`You need a Pale Feather (the King leaves one, and guardians drop them at tier ${RIFT.seraph.featherFrom}+).`, "#bfe8ff"); return; } startRun({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase", boss: "seraph" }); }
     else if (n.kind === "chase") { if (c.sigils <= 0) { ui.toast("You need a Bone Sigil (they drop from guardians at tier 3+).", "#ffd23f"); return; } startRun({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase" }); }
+    else if (n.kind === "trial") startRun({ tier: nextTrial(c.trialBest), seed: null, kind: "trial" });
     else startRun({ tier: Math.min(Math.max(1, ui.tier), c.highestTier), seed: null, kind: n.kind as RunKind });
     return;
   }
@@ -345,7 +347,7 @@ function endRun() {
   const runAether = aetherForRun(tally);
   if (runAether) { profile.aether = (profile.aether ?? 0) + runAether; lines.push(`+${runAether} ${SHOP.symbol} ${SHOP.currency}`); }
   if (completeInfo) {
-    c.riftsCleared++;
+    if (run.kind !== "trial") c.riftsCleared++;
     if (run.kind === "rift") {
       const up = Math.min(T.max, run.tier + tierJump(completeInfo.time));
       if (completeInfo.inTime && up > c.highestTier) { const was = c.highestTier; c.highestTier = up; lines.push(up - Math.max(was, run.tier) > 1 ? `Fast clear! Tier ${up} unlocked (+${up - run.tier})` : `Tier ${up} unlocked!`); }
@@ -361,12 +363,16 @@ function endRun() {
     }
     if (run.kind === "chase" && run.boss === "seraph") c.seraphs = (c.seraphs ?? 0) + 1;
     else if (run.kind === "chase") c.kings = (c.kings ?? 0) + 1;
+    if (run.kind === "trial" && completeInfo.inTime && run.tier > (c.trialBest ?? 0)) {
+      c.trialBest = Math.min(run.tier, (c.trialBest ?? 0) + 1);
+      lines.push(`Trial ${run.tier} passed! +1 talent point (${talentPoints(c.trialBest)} total). Spend it under Skills.`);
+    } else if (run.kind === "trial") lines.push(completeInfo.inTime ? "Already passed: no new point. Try the next level." : `Not in time. Clear all ${RIFT.trial.waves} waves within ${fmtTime(RIFT.trial.timeLimit)}.`);
     const wave = s.rift.wave ?? 0;
     if (run.kind === "endless" && wave > (c.bestWave ?? 0)) { c.bestWave = wave; lines.push(`New best: wave ${wave}`); }
     checkFeats(lines);
     saveProfile(profile);
-    const title = run.kind === "bounty" ? "Bounties complete" : run.kind === "endless" ? `Endless: wave ${wave}` : run.kind === "chase" ? (run.boss === "seraph" ? "The Pale Seraph falls" : "The Ossuary King falls") : completeInfo.inTime ? "Rift cleared in time!" : "Guardian slain";
-    const sub = run.kind === "endless" ? `Reached difficulty level ${s.rift.level ?? 0} from tier ${run.tier}. The chest grows every ${RIFT.endless.rewards.perWaves} waves.` : completeInfo.inTime ? "Bonus loot for time remaining." : "The timer ran out, so the rewards were smaller.";
+    const title = run.kind === "trial" ? (completeInfo.inTime ? `Trial ${run.tier} passed` : `Trial ${run.tier} failed`) : run.kind === "bounty" ? "Bounties complete" : run.kind === "endless" ? `Endless: wave ${wave}` : run.kind === "chase" ? (run.boss === "seraph" ? "The Pale Seraph falls" : "The Ossuary King falls") : completeInfo.inTime ? "Rift cleared in time!" : "Guardian slain";
+    const sub = run.kind === "trial" ? (completeInfo.inTime ? "Talent points make your hero stronger in every activity." : "No talent point this time.") : run.kind === "endless" ? `Reached difficulty level ${s.rift.level ?? 0} from tier ${run.tier}. The chest grows every ${RIFT.endless.rewards.perWaves} waves.` : completeInfo.inTime ? "Bonus loot for time remaining." : "The timer ran out, so the rewards were smaller.";
     finishOnline();
     screen = "results";
     ui.showResults({ title, sub, time: completeInfo.time, kills: s.rift.kills, found, legendaries: foundLegs, lines }, goHub);
@@ -576,7 +582,7 @@ function handleEvent(e: SimEvent) {
     case "enrage": showBanner("ENRAGED", "Faster and deadlier", "#ff4a4a", 2); sfx.guardian(); break;
     case "guardianStun": showBanner("STUNNED", "", "#9be0ff", 1); break;
     case "phase": showBanner(`PHASE ${Math.min(3, e.n)}`, e.text, "#ff3b6b", 3); sfx.guardian(); addShake(6); break;
-    case "timeUp": showBanner("TIME'S UP", "Finish for reduced rewards", "#ff7a3c", 2.5); break;
+    case "timeUp": if (run?.kind === "trial") break; showBanner("TIME'S UP", "Finish for reduced rewards", "#ff7a3c", 2.5); break;
     case "paragonUp":
       if (!mine(e.pid)) break;
       sfx.complete(); burst(me().x, me().y - 8, 40, ["#c9a0ff", "#fff", "#ffd23f"], 120, 1, 0.8);
@@ -603,7 +609,8 @@ function handleEvent(e: SimEvent) {
     case "riftComplete":
       completeInfo = { inTime: e.inTime, time: e.time };
       sfx.complete();
-      if (run?.kind === "endless") showBanner(`WAVE ${sim?.rift.wave ?? 0}`, "Out of lives · grab your chest, then Finish", "#ff8a5a", 4);
+      if (run?.kind === "trial") showBanner(e.inTime ? "TRIAL PASSED" : "TRIAL FAILED", e.inTime ? `${fmtTime(e.time)} · tap Finish` : "The timer ran out · tap Finish to try again", e.inTime ? "#7dff9a" : "#ff7a3c", 4);
+      else if (run?.kind === "endless") showBanner(`WAVE ${sim?.rift.wave ?? 0}`, "Out of lives · grab your chest, then Finish", "#ff8a5a", 4);
       else showBanner(run?.kind === "chase" ? (run.boss === "seraph" ? "SERAPH SLAIN" : "KING SLAIN") : e.inTime ? "RIFT CLEARED" : "GUARDIAN SLAIN", `${fmtTime(e.time)} · grab your loot, then Finish`, "#7dff9a", 4);
       riftButtons();
       syncFromSim(profile, sim!, ME);
@@ -799,7 +806,7 @@ function render(alpha: number, dt: number) {
   if (hth) {
     for (const d of s.rift.hideout?.decor ?? []) { const x = (d.x + 0.5) * s.map.ts, y = (d.y + 1) * s.map.ts - 2; list.push({ y: d.id === "rug" ? -1e9 : y, f: () => drawDecor(g, d.id, x, y, t) }); }
     for (const st of HIDEOUT.stations) { const [x, y] = spotPos(s.map, hth, st); list.push({ y, f: () => drawStation(g, st, x, y, t, hideNear === st) }); }
-    for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : `tier ${Math.min(ui.tier, char(profile).highestTier)}`) }); }
+    for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : po.kind === "trial" ? `trial ${nextTrial(char(profile).trialBest)}` : `tier ${Math.min(ui.tier, char(profile).highestTier)}`) }); }
   }
   for (const q of s.players) {
     if (q.dead) continue;
@@ -1125,7 +1132,14 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
   c.textAlign = "center"; c.font = font(14);
   c.fillStyle = left < 0 ? "#ff7a3c" : left < 60 ? (Math.floor(t * 2) % 2 ? "#ffd23f" : "#fff") : "#fff";
   const gd = s.enemies.find((e) => e.id === r.guardianId && !e.dead && (e.kind === "guardian" || e.kind === "king"));
-  if (r.kind === "endless") {
+  if (r.kind === "trial") {
+    const alive = s.enemies.reduce((a, e) => a + (e.dead ? 0 : 1), 0), TR = RIFT.trial;
+    c.fillText(`Trial ${r.tier}  ·  wave ${Math.min(r.wave ?? 0, TR.waves)}/${TR.waves}  ·  ${fmtTime(Math.max(0, left))}`, W / 2, topY + 11);
+    c.fillStyle = "#1b1424"; c.fillRect(bx, topY + 20, bw, 12);
+    c.fillStyle = left < 20 ? "#ff7a3c" : "#7dd8ff"; c.fillRect(bx, topY + 20, (bw * Math.max(0, left)) / r.limit, 12);
+    c.fillStyle = "#140c1c"; c.font = font(10);
+    c.fillText(r.done ? (completeInfo?.inTime ? "PASSED" : "FAILED") : r.waveAt! > 0 ? `wave ${(r.wave ?? 0) + 1} in ${Math.ceil(r.waveAt! - r.time)}` : `${alive} left`, W / 2, topY + 26);
+  } else if (r.kind === "endless") {
     c.fillStyle = "#fff"; c.fillText(`Wave ${r.wave ?? 0}  ·  Lv ${r.level ?? 0}  ·  ${fmtTime(r.done ? r.doneAt : r.time)}`, W / 2, topY + 11);
     const alive = s.enemies.reduce((a, e) => a + (e.dead ? 0 : 1), 0), lives = Math.max(0, endlessLivesLeft(s));
     c.fillStyle = "#1b1424"; c.fillRect(bx, topY + 20, bw, 12);

@@ -13,7 +13,7 @@ export interface RunMember {
   /** good items minted for this player this run (feat counters), and whether the run's counters were already added */
   finds?: { legendaries: number; mythics: number; ancestrals: number }; counted?: boolean;
 }
-export interface RunInfo { kind: "rift" | "chase" | "endless" | "bounty"; boss?: "king" | "seraph"; tier: number; completed: boolean; inTime: boolean; time: number }
+export interface RunInfo { kind: "rift" | "chase" | "endless" | "bounty" | "trial"; boss?: "king" | "seraph"; tier: number; completed: boolean; inTime: boolean; time: number }
 
 const MAX_DROPS = 500;
 
@@ -154,6 +154,7 @@ function countRun(p: Profile, c: CharSave, rep: SaveReport, m: RunMember, run: R
   p.journey = { season: p.season.n, stats: bumpLife(season, tally) };
   if (run.completed && run.kind === "chase") { if (run.boss === "seraph") c.seraphs = (c.seraphs ?? 0) + 1; else c.kings = (c.kings ?? 0) + 1; }
   if (wave > (c.bestWave ?? 0)) c.bestWave = wave;
+  if (run.kind === "trial" && run.completed && run.inTime && run.tier > (c.trialBest ?? 0)) c.trialBest = Math.min(run.tier, (c.trialBest ?? 0) + 1);
   const fe = newFeats(p), ch = newChapters(p, p.journey.stats as any);
   const keys = [...fe.map((a) => a.id), ...ch.map(chapterKey)];
   if (keys.length) p.feats = [...(p.feats ?? []), ...keys];

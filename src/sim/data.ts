@@ -19,6 +19,7 @@ import cosmeticsJson from "../../data/cosmetics.json";
 import achievementsJson from "../../data/achievements.json";
 import seasonJson from "../../data/season.json";
 import gemsJson from "../../data/gems.json";
+import talentsJson from "../../data/talents.json";
 import shopJson from "../../data/shop.json";
 
 export type SlotType = "weapon" | "offhand" | "helm" | "shoulders" | "chest" | "bracers" | "gloves" | "belt" | "pants" | "boots" | "amulet" | "ring";
@@ -120,6 +121,44 @@ export function gemVals(id: string, level: number): [number, number] {
   return [v(g.a), v(g.b)];
 }
 export const gemText = (id: string, level: number) => { const [a, b] = gemVals(id, level); return GEM[id]?.text.replace("{a}", String(a)).replace("{b}", String(b)) ?? ""; };
+// ------------------------------------------------------------------ talents (points from Trials)
+export interface TalentNode { id: string; name: string; max: number; stat: string; per: number; text: string }
+export interface TalentBranch { name: string; color: string; nodes: TalentNode[] }
+export const TALENTS = talentsJson as { gate: number; note: string; classes: Record<string, TalentBranch[]> };
+/** The Trial level you face next: one past your best, up to the cap. */
+export const nextTrial = (best: number | undefined) => Math.min(RIFT.trial.maxLevel, (best ?? 0) + 1);
+export const talentSpent = (a: Record<string, number> | undefined) => Object.values(a ?? {}).reduce((x, y) => x + y, 0);
+/** One point per Trial level cleared in time. */
+export const talentPoints = (trialBest: number | undefined) => Math.max(0, Math.min(RIFT.trial.maxLevel, trialBest ?? 0));
+/** Can one more rank go into this node? Rows open at 0, 3, 6, 9 points spent in that branch. */
+export function talentCanAdd(cls: string, a: Record<string, number>, id: string, points: number): boolean {
+  for (const b of TALENTS.classes[cls] ?? []) {
+    const j = b.nodes.findIndex((n) => n.id === id);
+    if (j < 0) continue;
+    const inBranch = b.nodes.reduce((x, n) => x + (a[n.id] ?? 0), 0);
+    return (a[id] ?? 0) < b.nodes[j].max && inBranch >= j * TALENTS.gate && talentSpent(a) < points;
+  }
+  return false;
+}
+/** Can a rank come out of this node without stranding a higher row of its branch? */
+export function talentCanRemove(cls: string, a: Record<string, number>, id: string): boolean {
+  if (!(a[id] > 0)) return false;
+  for (const b of TALENTS.classes[cls] ?? []) {
+    if (!b.nodes.some((n) => n.id === id)) continue;
+    const b2 = { ...a, [id]: a[id] - 1 };
+    let run = 0;
+    for (let j = 0; j < b.nodes.length; j++) { if ((b2[b.nodes[j].id] ?? 0) > 0 && run < j * TALENTS.gate) return false; run += b2[b.nodes[j].id] ?? 0; }
+    return true;
+  }
+  return false;
+}
+/** Talent totals by stat key for a class (ranks outside the tree are ignored). */
+export function talentStats(cls: string, a: Record<string, number> | undefined): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const b of TALENTS.classes[cls] ?? []) for (const n of b.nodes) { const r = Math.min(n.max, a?.[n.id] ?? 0); if (r) out[n.stat] = (out[n.stat] ?? 0) + r * n.per; }
+  return out;
+}
+
 /** The highest level a gem can reach from a timed clear of this tier. */
 export const gemCap = (tier: number) => Math.min(GEMS.maxLevel, tier * GEMS.levelCapPerTier);
 

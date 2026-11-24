@@ -32,6 +32,8 @@ export interface PlayerSetup {
   gems?: Record<string, number>; gemSlots?: string[];
   /** legendary powers worn in the reliquary */
   relics?: string[];
+  /** talent ranks (node id -> rank), points come from Trials */
+  talents?: Record<string, number>;
   /** cosmetics: visual only, never read by the sim */
   cos?: CosChoice;
 }
@@ -44,7 +46,7 @@ export interface Player extends Holder {
   skills: string[]; cds: Num; charges: Num; chargeT: Num; swingT: number; swingCount: number;
   dashT: number; dashDx: number; dashDy: number; dashHit: number[]; dashSkill: string; trailT: number;
   paragon: number; pxp: number; pAlloc: Partial<Record<ParagonStat, number>>;
-  gems: Record<string, number>; gemSlots: string[]; relics: string[];
+  gems: Record<string, number>; gemSlots: string[]; relics: string[]; talents: Record<string, number>;
   /** life-on-hit healed in the current second (capped, so many-hit skills can't out-heal everything) */
   leech: number;
   invuln: number; deaths?: number; chillT?: number; thornT?: number; dead: boolean; deadT: number; buff: Buff; boons: string[]; cheatT: number;
@@ -112,7 +114,7 @@ export type SimEvent =
   | { type: "waveStart"; wave: number; count: number; boss: boolean } | { type: "waveClear"; wave: number; secs: number; jump: number; cleared: boolean } | { type: "endlessOver"; wave: number; time: number }
   | { type: "equipChanged"; pid: number } | { type: "ambush"; x: number; y: number; n: number } | { type: "bountyTask"; text: string; left: number };
 
-export type RunKind = "rift" | "chase" | "endless" | "hideout" | "bounty";
+export type RunKind = "rift" | "chase" | "endless" | "hideout" | "bounty" | "trial";
 /** Bounty runs: four tasks on one map. */
 export interface BountyTask { kind: "elite" | "totems" | "shrine" | "cull"; text: string; x: number; y: number; ids: number[]; have: number; need: number; done: boolean }
 /** chase runs: which boss waits at the end */
@@ -165,6 +167,8 @@ export function rollModifiers(seed: number, tier: number): string[] {
 const modVal = (s: SimState, k: "packMult" | "enemySpeed" | "enemyHp" | "dropMult" | "eliteMult" | "xpMult") => {
   let v = 1; for (const m of s.rift.mods) v *= (MODIFIER[m] as any)[k] ?? 1;
   if (k === "dropMult" && s.rift.kind === "endless") v *= RIFT.endless.dropMult;
+  if (k === "dropMult" && s.rift.kind === "trial") v = 0; // trials pay in talent points, not loot
+  if (k === "xpMult" && s.rift.kind === "trial") v *= RIFT.trial.xpMult;
   // map-wide loot bonus (the Gilded Vault)
   if (k === "dropMult" && s.rift.map) v *= MAP[s.rift.map]?.dropMult ?? 1;
   return v;
@@ -184,7 +188,7 @@ export function createSim(cfg: SimConfig): SimState {
   const tier = Math.max(1, cfg.tier ?? 1);
   const rng = makeRng(cfg.seed);
   const hth = kind === "hideout" ? hideoutTheme(cfg.hideout?.theme) : undefined;
-  const md = kind === "chase" || kind === "hideout" ? undefined : kind === "endless" ? MAP.endless : MAP[cfg.map ?? ""] ?? pickMap(cfg.seed);
+  const md = kind === "chase" || kind === "hideout" ? undefined : kind === "endless" || kind === "trial" ? MAP.endless : MAP[cfg.map ?? ""] ?? pickMap(cfg.seed);
   const map = hth ? genHideout(rng, hth.w, hth.h, RIFT.tileSize, hth.shape)
     : !md ? genArena(rng, 44, 44, RIFT.tileSize)
     : md.layout === "arena" ? genArena(rng, md.w, md.h, RIFT.tileSize)
@@ -200,7 +204,7 @@ export function createSim(cfg: SimConfig): SimState {
   let startX: number, startY: number;
   if (kind === "chase") { startX = (map.w / 2) * ts; startY = (map.h / 2 + 10) * ts; }
   else if (kind === "hideout") { startX = (map.w / 2) * ts; startY = Math.round(map.h * 0.62) * ts; }
-  else if (kind === "endless") { startX = (map.w / 2) * ts; startY = (map.h / 2) * ts; }
+  else if (kind === "endless" || kind === "trial") { startX = (map.w / 2) * ts; startY = (map.h / 2) * ts; }
   else { const st = floors[Math.floor(next(rng) * floors.length)]; startX = (st % map.w) * ts + ts / 2; startY = Math.floor(st / map.w) * ts + ts / 2; }
   const mods = kind !== "rift" ? [] : cfg.mods ?? rollModifiers(cfg.seed, tier);
   const s: SimState = {
@@ -208,7 +212,7 @@ export function createSim(cfg: SimConfig): SimState {
     players: [], enemies: [], projectiles: [], summons: [], hazards: [], zones: [], loot: [], pending: [],
     nextId: 1, itemCounter: 0, startX, startY,
     rift: {
-      kind, tier, mods, map: md?.id, density, time: 0, limit: kind === "bounty" ? RIFT.bounty.timeLimit : kind === "chase" ? (cfg.boss === "seraph" ? RIFT.seraph.timeLimit : RIFT.chase.timeLimit) : kind === "endless" || kind === "hideout" ? 1e9 : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier) * Math.max(1, density / 5)),
+      kind, tier, mods, map: md?.id, density, time: 0, limit: kind === "bounty" ? RIFT.bounty.timeLimit : kind === "trial" ? RIFT.trial.timeLimit : kind === "chase" ? (cfg.boss === "seraph" ? RIFT.seraph.timeLimit : RIFT.chase.timeLimit) : kind === "endless" || kind === "hideout" ? 1e9 : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier) * Math.max(1, density / 5)),
       guardianSpawned: false, guardianId: 0, done: false, doneAt: 0, kills: 0, timeUpSent: false, boonIdx: 0, nextWave: RIFT.waves.first,
     },
     boonOffers: {}, boonPending: {}, pity: cfg.pity ?? {}, events: [], _flows: [], _flowTick: -999,
@@ -216,6 +220,11 @@ export function createSim(cfg: SimConfig): SimState {
   for (const ps of cfg.players) addPlayer(s, ps);
   const n = Math.max(1, s.players.length);
   if (kind === "hideout") { Object.assign(s.rift, { need: 1e9, nextWave: undefined, hideout: cfg.hideout }); return s; }
+  if (kind === "trial") {
+    const T = RIFT.trial;
+    Object.assign(s.rift, { wave: 0, level: Math.round(tier * T.levelPerTrial), waveAt: T.firstDelay, waveStart: 0, need: 1e9, nextWave: undefined });
+    return s;
+  }
   if (kind === "endless") {
     Object.assign(s.rift, { wave: 0, level: 0, waveAt: RIFT.endless.firstDelay, waveStart: 0, need: 1e9, nextWave: undefined });
     return s;
@@ -273,7 +282,7 @@ export function addPlayer(s: SimState, ps: PlayerSetup): Player {
   const cls = ps.cls;
   const p: Player = {
     paragon: ps.paragon ?? 0, pxp: ps.pxp ?? 0, pAlloc: { ...(ps.pAlloc ?? {}) },
-    relics: (ps.relics ?? []).slice(0, 3), gems: { ...(ps.gems ?? {}) }, gemSlots: (ps.gemSlots ?? []).filter((g) => ps.gems?.[g] && GEM[g]).slice(0, GEMS.slots),
+    relics: (ps.relics ?? []).slice(0, 3), talents: { ...(ps.talents ?? {}) }, gems: { ...(ps.gems ?? {}) }, gemSlots: (ps.gemSlots ?? []).filter((g) => ps.gems?.[g] && GEM[g]).slice(0, GEMS.slots),
     pid: ps.pid, name: ps.name, cls, level: ps.level, xp: ps.xp, sigils: ps.sigils, feathers: ps.feathers ?? 0, runes: { ...ps.runes }, pet: ps.pet, filter: ps.filter, cos: { ...ps.cos },
     equipment: clone(ps.equipment), bag: clone(ps.bag), materials: ps.materials, shards: ps.shards ?? 0, slotPlus: { ...(ps.slotPlus ?? {}) }, slotCrit: { ...(ps.slotCrit ?? {}) },
     x: s.startX + (s.players.length % 2) * 12 - 6, y: s.startY + Math.floor(s.players.length / 2) * 12, px: 0, py: 0, r: 5, hp: 1, fx: 1, fy: 0, moving: false, walk: 0,
@@ -300,7 +309,7 @@ export function refreshAll(s: SimState) {
 }
 function refreshPlayer(s: SimState, p: Player, minEff: number) {
   const ratio = p.stats ? p.hp / p.stats.maxHp : 1;
-  p.stats = computeStats(p.equipment, { cls: p.cls, level: p.level, effLevel: Math.max(p.level, minEff), paragon: p.pAlloc, gems: Object.fromEntries(p.gemSlots.map((g) => [g, p.gems[g] ?? 1])), relics: p.relics, boons: p.boons, riftMods: s.rift.mods, slotPlus: p.slotPlus, slotCrit: p.slotCrit });
+  p.stats = computeStats(p.equipment, { cls: p.cls, level: p.level, effLevel: Math.max(p.level, minEff), paragon: p.pAlloc, gems: Object.fromEntries(p.gemSlots.map((g) => [g, p.gems[g] ?? 1])), relics: p.relics, talents: p.talents, boons: p.boons, riftMods: s.rift.mods, slotPlus: p.slotPlus, slotCrit: p.slotCrit });
   p.sk = {};
   for (const id of p.skills) p.sk[id] = resolveSkill(id, p.runes[id], p.stats);
   if (!p.dead) p.hp = Math.max(1, Math.min(p.stats.maxHp, p.stats.maxHp * ratio));
@@ -1699,6 +1708,7 @@ function updateRift(s: SimState) {
   if (!r.timeUpSent && r.time >= r.limit) { r.timeUpSent = true; s.events.push({ type: "timeUp" }); }
   if (r.kind === "hideout") return;
   if (r.kind === "endless") { updateEndless(s); return; }
+  if (r.kind === "trial") { updateTrial(s); return; }
   if (r.kind === "bounty") { updateBounty(s); return; }
   if (r.kind === "rift" && !r.guardianSpawned && r.nextWave !== undefined && r.time >= r.nextWave) ambush(s);
   // boons: pick 1 of 3 at progress thresholds (lost at the end of the run)
@@ -1733,6 +1743,24 @@ function updateRift(s: SimState) {
     for (const e of s.enemies) if (e !== g && !e.dead && len(e.x - gx, e.y - gy) < 120) { e.dead = true; s.events.push({ type: "kill", x: e.x, y: e.y, kind: e.kind, elite: e.elite }); }
     s.events.push({ type: "guardianSpawn", x: gx, y: gy, kind: "guardian", variant: gd.id });
   }
+}
+
+// ------------------------------------------------------------------ trials: 5 waves against the clock; a new level cleared earns a talent point
+function updateTrial(s: SimState) {
+  const r = s.rift, T = RIFT.trial;
+  if (r.time >= r.limit) { endTrial(s, false); return; }
+  if (r.waveAt! > 0) { if (r.time >= r.waveAt!) spawnWave(s); return; }
+  if (s.enemies.some((e) => !e.dead)) return;
+  s.events.push({ type: "waveClear", wave: r.wave!, secs: r.time - r.waveStart!, jump: 0, cleared: true });
+  if (r.wave! >= T.waves) endTrial(s, true);
+  else r.waveAt = r.time + T.breather;
+}
+function endTrial(s: SimState, won: boolean) {
+  const r = s.rift;
+  r.done = true; r.doneAt = r.time;
+  for (const e of s.enemies) if (!e.dead) { e.dead = true; s.events.push({ type: "kill", x: e.x, y: e.y, kind: e.kind, elite: e.elite }); }
+  for (const p of s.players) { p.dead = false; p.deadT = 0; p.hp = p.stats.maxHp; p.invuln = 999; }
+  s.events.push({ type: "riftComplete", inTime: won, time: r.time });
 }
 
 // ------------------------------------------------------------------ endless

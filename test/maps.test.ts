@@ -48,6 +48,14 @@ for (const m of MAPS.filter((m) => m.weight > 0)) {
   check("endless: waves start and clear", waves >= 3 && clears >= 2, `(wave ${s.rift.wave}, level ${s.rift.level}, ${clears} cleared)`);
   check("endless: ends with a reward chest", s.rift.done && s.loot.length >= 2 && !s.players[0].dead, `(${s.loot.length} items on the floor, ${drops} drops, ${s.rift.time.toFixed(0)} s)`);
 }
+// Trials: 5 waves against the clock, no loot. Level 1 is passable; a huge level runs out of time.
+for (const [lvl, want] of [[1, true], [30, false]] as [number, boolean][]) {
+  const s = createSim({ seed: 5, kind: "trial", tier: lvl, players: [{ ...setup, level: 30 }] });
+  let drops = 0, waves = 0;
+  for (let t = 0; t < 30 * 200 && !s.rift.done; t++) { step(s, { 0: bot(s, t) }); for (const e of s.events) { if (e.type === "drop") drops++; if (e.type === "waveStart") waves++; } }
+  const won = s.rift.done && s.rift.time < s.rift.limit && s.rift.wave === 5;
+  check(`trial ${lvl}: ${want ? "passes" : "times out"}`, s.rift.done && won === want && drops === 0, `(wave ${s.rift.wave}, ${s.rift.time.toFixed(0)} s, ${drops} drops)`);
+}
 // how often each map comes up from rift codes
 const counts: Record<string, number> = {};
 for (let i = 0; i < 20000; i++) { const m = pickMap(i * 7919 + 13); counts[m.id] = (counts[m.id] ?? 0) + 1; }

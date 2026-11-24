@@ -268,6 +268,18 @@
       2
     ]
   ],
+  "trial": {
+    "name": "The Proving Grounds",
+    "desc": "Clear 5 waves before the timer runs out. Each new level cleared earns a talent point.",
+    "waves": 5,
+    "timeLimit": 120,
+    "maxLevel": 30,
+    "levelPerTrial": 1.5,
+    "tierPerTrial": 1,
+    "firstDelay": 2.5,
+    "breather": 2,
+    "xpMult": 1.5
+  },
   "endless": {
     "name": "The Endless Ossuary",
     "firstDelay": 3,

@@ -1,0 +1,470 @@
+{
+ "gate": 3,
+ "note": "One talent point per Trial level cleared in time. Node rows open at 0, 3, 6 and 9 points spent in that branch. Free to respec.",
+ "classes": {
+  "ashknight": [
+   {
+    "name": "Pyre",
+    "color": "#ff8a1f",
+    "nodes": [
+     {
+      "id": "ak_kindle",
+      "name": "Kindled Blade",
+      "max": 3,
+      "stat": "dmgPct",
+      "per": 3,
+      "text": "+{v}% damage"
+     },
+     {
+      "id": "ak_sear",
+      "name": "Searing Heat",
+      "max": 3,
+      "stat": "tag:fire",
+      "per": 6,
+      "text": "+{v}% fire damage"
+     },
+     {
+      "id": "ak_brutal",
+      "name": "Brutal Edge",
+      "max": 3,
+      "stat": "critDmg",
+      "per": 8,
+      "text": "+{v}% crit damage"
+     },
+     {
+      "id": "ak_inferno",
+      "name": "Inferno Heart",
+      "max": 3,
+      "stat": "areaPct",
+      "per": 6,
+      "text": "+{v}% area of effect"
+     }
+    ]
+   },
+   {
+    "name": "Bulwark",
+    "color": "#c9b8ff",
+    "nodes": [
+     {
+      "id": "ak_hide",
+      "name": "Ashen Hide",
+      "max": 3,
+      "stat": "armorPct",
+      "per": 6,
+      "text": "+{v}% armour"
+     },
+     {
+      "id": "ak_scar",
+      "name": "Scarred",
+      "max": 3,
+      "stat": "hpPct",
+      "per": 4,
+      "text": "+{v}% life"
+     },
+     {
+      "id": "ak_unbowed",
+      "name": "Unbowed",
+      "max": 3,
+      "stat": "takenPct",
+      "per": 2,
+      "text": "-{v}% damage taken"
+     },
+     {
+      "id": "ak_mend",
+      "name": "Ember Mend",
+      "max": 3,
+      "stat": "lifeOnHit",
+      "per": 2,
+      "text": "+{v} life per hit"
+     }
+    ]
+   },
+   {
+    "name": "Warpath",
+    "color": "#ffd23f",
+    "nodes": [
+     {
+      "id": "ak_momentum",
+      "name": "Momentum",
+      "max": 3,
+      "stat": "moveSpeed",
+      "per": 2,
+      "text": "+{v}% move speed"
+     },
+     {
+      "id": "ak_rhythm",
+      "name": "Battle Rhythm",
+      "max": 3,
+      "stat": "atkSpeed",
+      "per": 2,
+      "text": "+{v}% attack speed"
+     },
+     {
+      "id": "ak_stoke",
+      "name": "Stoked",
+      "max": 3,
+      "stat": "resMax",
+      "per": 6,
+      "text": "+{v} max Embers"
+     },
+     {
+      "id": "ak_warlord",
+      "name": "Warlord",
+      "max": 3,
+      "stat": "cdr",
+      "per": 2,
+      "text": "-{v}% cooldowns"
+     }
+    ]
+   }
+  ],
+  "gloomstalker": [
+   {
+    "name": "Marksman",
+    "color": "#7dff9a",
+    "nodes": [
+     {
+      "id": "gs_aim",
+      "name": "Steady Aim",
+      "max": 3,
+      "stat": "dmgPct",
+      "per": 3,
+      "text": "+{v}% damage"
+     },
+     {
+      "id": "gs_pierce",
+      "name": "Piercing Shots",
+      "max": 3,
+      "stat": "tag:pierce",
+      "per": 6,
+      "text": "+{v}% pierce damage"
+     },
+     {
+      "id": "gs_eye",
+      "name": "Hawk Eye",
+      "max": 3,
+      "stat": "critChance",
+      "per": 1,
+      "text": "+{v}% crit chance"
+     },
+     {
+      "id": "gs_hunter",
+      "name": "Apex Hunter",
+      "max": 3,
+      "stat": "eliteDmg",
+      "per": 5,
+      "text": "+{v}% damage to elites and bosses"
+     }
+    ]
+   },
+   {
+    "name": "Shadow",
+    "color": "#9fa8ff",
+    "nodes": [
+     {
+      "id": "gs_veil",
+      "name": "Veiled",
+      "max": 3,
+      "stat": "takenPct",
+      "per": 2,
+      "text": "-{v}% damage taken"
+     },
+     {
+      "id": "gs_hardy",
+      "name": "Hardy",
+      "max": 3,
+      "stat": "hpPct",
+      "per": 4,
+      "text": "+{v}% life"
+     },
+     {
+      "id": "gs_frost",
+      "name": "Rime Arrows",
+      "max": 3,
+      "stat": "tag:cold",
+      "per": 6,
+      "text": "+{v}% cold damage"
+     },
+     {
+      "id": "gs_leech",
+      "name": "Blood Trail",
+      "max": 3,
+      "stat": "lifeOnHit",
+      "per": 2,
+      "text": "+{v} life per hit"
+     }
+    ]
+   },
+   {
+    "name": "Wild",
+    "color": "#ffd23f",
+    "nodes": [
+     {
+      "id": "gs_fleet",
+      "name": "Fleet Foot",
+      "max": 3,
+      "stat": "moveSpeed",
+      "per": 2,
+      "text": "+{v}% move speed"
+     },
+     {
+      "id": "gs_quick",
+      "name": "Quick Draw",
+      "max": 3,
+      "stat": "atkSpeed",
+      "per": 2,
+      "text": "+{v}% attack speed"
+     },
+     {
+      "id": "gs_calm",
+      "name": "Calm Mind",
+      "max": 3,
+      "stat": "resRegen",
+      "per": 1,
+      "text": "+{v} Focus per second"
+     },
+     {
+      "id": "gs_pack",
+      "name": "Pack Leader",
+      "max": 3,
+      "stat": "tag:summon",
+      "per": 8,
+      "text": "+{v}% summon damage"
+     }
+    ]
+   }
+  ],
+  "stormcaller": [
+   {
+    "name": "Tempest",
+    "color": "#5fb0ff",
+    "nodes": [
+     {
+      "id": "sc_charge",
+      "name": "Charged",
+      "max": 3,
+      "stat": "dmgPct",
+      "per": 3,
+      "text": "+{v}% damage"
+     },
+     {
+      "id": "sc_volt",
+      "name": "High Voltage",
+      "max": 3,
+      "stat": "tag:lightning",
+      "per": 6,
+      "text": "+{v}% lightning damage"
+     },
+     {
+      "id": "sc_arc",
+      "name": "Arc Surge",
+      "max": 3,
+      "stat": "critDmg",
+      "per": 8,
+      "text": "+{v}% crit damage"
+     },
+     {
+      "id": "sc_storm",
+      "name": "Eye of the Storm",
+      "max": 3,
+      "stat": "areaPct",
+      "per": 6,
+      "text": "+{v}% area of effect"
+     }
+    ]
+   },
+   {
+    "name": "Ward",
+    "color": "#c9b8ff",
+    "nodes": [
+     {
+      "id": "sc_ward",
+      "name": "Runeward",
+      "max": 3,
+      "stat": "armorPct",
+      "per": 6,
+      "text": "+{v}% armour"
+     },
+     {
+      "id": "sc_vigor",
+      "name": "Vigour",
+      "max": 3,
+      "stat": "hpPct",
+      "per": 4,
+      "text": "+{v}% life"
+     },
+     {
+      "id": "sc_shell",
+      "name": "Static Shell",
+      "max": 3,
+      "stat": "takenPct",
+      "per": 2,
+      "text": "-{v}% damage taken"
+     },
+     {
+      "id": "sc_arcane",
+      "name": "Arcane Lore",
+      "max": 3,
+      "stat": "tag:arcane",
+      "per": 6,
+      "text": "+{v}% arcane damage"
+     }
+    ]
+   },
+   {
+    "name": "Flow",
+    "color": "#ffd23f",
+    "nodes": [
+     {
+      "id": "sc_wells",
+      "name": "Deep Wells",
+      "max": 3,
+      "stat": "resMax",
+      "per": 8,
+      "text": "+{v} max Mana"
+     },
+     {
+      "id": "sc_thrift",
+      "name": "Thrift",
+      "max": 3,
+      "stat": "costRed",
+      "per": 2,
+      "text": "-{v}% resource cost"
+     },
+     {
+      "id": "sc_haste",
+      "name": "Quickening",
+      "max": 3,
+      "stat": "cdr",
+      "per": 2,
+      "text": "-{v}% cooldowns"
+     },
+     {
+      "id": "sc_glide",
+      "name": "Glide",
+      "max": 3,
+      "stat": "moveSpeed",
+      "per": 2,
+      "text": "+{v}% move speed"
+     }
+    ]
+   }
+  ],
+  "bonewright": [
+   {
+    "name": "Artifice",
+    "color": "#e8dcb0",
+    "nodes": [
+     {
+      "id": "bw_craft",
+      "name": "Fine Craft",
+      "max": 3,
+      "stat": "dmgPct",
+      "per": 3,
+      "text": "+{v}% damage"
+     },
+     {
+      "id": "bw_minion",
+      "name": "Loyal Works",
+      "max": 3,
+      "stat": "tag:summon",
+      "per": 8,
+      "text": "+{v}% summon damage"
+     },
+     {
+      "id": "bw_crit",
+      "name": "Weak Points",
+      "max": 3,
+      "stat": "critChance",
+      "per": 1,
+      "text": "+{v}% crit chance"
+     },
+     {
+      "id": "bw_quake",
+      "name": "Heavy Frames",
+      "max": 3,
+      "stat": "areaPct",
+      "per": 6,
+      "text": "+{v}% area of effect"
+     }
+    ]
+   },
+   {
+    "name": "Ossuary",
+    "color": "#c9b8ff",
+    "nodes": [
+     {
+      "id": "bw_plate",
+      "name": "Bone Plate",
+      "max": 3,
+      "stat": "armorPct",
+      "per": 6,
+      "text": "+{v}% armour"
+     },
+     {
+      "id": "bw_marrow",
+      "name": "Marrow Deep",
+      "max": 3,
+      "stat": "hpPct",
+      "per": 4,
+      "text": "+{v}% life"
+     },
+     {
+      "id": "bw_brace",
+      "name": "Braced",
+      "max": 3,
+      "stat": "takenPct",
+      "per": 2,
+      "text": "-{v}% damage taken"
+     },
+     {
+      "id": "bw_knit",
+      "name": "Knit Bone",
+      "max": 3,
+      "stat": "regenPct",
+      "per": 0.3,
+      "text": "{v}% life regen per second"
+     }
+    ]
+   },
+   {
+    "name": "Workshop",
+    "color": "#ffd23f",
+    "nodes": [
+     {
+      "id": "bw_gears",
+      "name": "Oiled Gears",
+      "max": 3,
+      "stat": "atkSpeed",
+      "per": 2,
+      "text": "+{v}% attack speed"
+     },
+     {
+      "id": "bw_supply",
+      "name": "Supply Lines",
+      "max": 3,
+      "stat": "resRegen",
+      "per": 1,
+      "text": "+{v} Marrow per second"
+     },
+     {
+      "id": "bw_tools",
+      "name": "Spare Tools",
+      "max": 3,
+      "stat": "cdr",
+      "per": 2,
+      "text": "-{v}% cooldowns"
+     },
+     {
+      "id": "bw_boss",
+      "name": "Siegebreaker",
+      "max": 3,
+      "stat": "eliteDmg",
+      "per": 5,
+      "text": "+{v}% damage to elites and bosses"
+     }
+    ]
+   }
+  ]
+ }
+}

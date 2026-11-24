@@ -5,7 +5,7 @@ import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { drawFxPreview } from "./fxpreview";
-import { SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { TALENTS, talentCanAdd, talentCanRemove, talentPoints, talentSpent, nextTrial, SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { echoCost, BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -186,6 +186,8 @@ export class UI {
       this.root.querySelectorAll<HTMLElement>("[data-slot]").forEach((el) => el.onclick = () => { this.skSlot = +el.dataset.slot!; re(); });
       this.root.querySelectorAll<HTMLElement>("[data-equip]").forEach((el) => el.onclick = () => { H.setSkill(this.skSlot, el.dataset.equip!); re(); });
       this.root.querySelectorAll<HTMLElement>("[data-pg]").forEach((el) => el.onclick = () => { const [k, d] = el.dataset.pg!.split(":"); H.op?.({ t: "paragon", stat: k, d: +d }); re(); });
+      this.root.querySelectorAll<HTMLElement>("[data-tal]").forEach((el) => el.onclick = () => { const [k, d] = el.dataset.tal!.split(":"); H.op?.({ t: "talent", id: k, d: +d }); re(); });
+      const tr = this.root.querySelector<HTMLElement>("[data-tal-reset]"); if (tr) tr.onclick = () => { H.op?.({ t: "talent", reset: true }); re(); };
       const pr = this.root.querySelector<HTMLElement>("[data-pg-reset]"); if (pr) pr.onclick = () => { H.op?.({ t: "paragon", reset: true }); re(); };
     }
     if (this.tab === "looks" || this.tab === "shop") this.bindLooks(p, H, re);
@@ -214,6 +216,8 @@ export class UI {
       </div>
       <button id="endless" class="endless">Endless waves from tier ${t} · best wave ${c.bestWave ?? 0}</button>
       <div class="dim small">Waves keep coming and get stronger, and faster quickly when you clear them fast. The party shares ${RIFT.endless.lives} lives. Loot comes at the end, more the further you get.</div>
+      <button id="trial" class="trial">Trial ${nextTrial(c.trialBest)} · ${talentPoints(c.trialBest)}/${RIFT.trial.maxLevel} talent points earned</button>
+      <div class="dim small">${esc(RIFT.trial.desc)} No loot: Trials pay in talent points, which you spend under Skills.</div>
       <button id="chase" class="chase" ${c.sigils > 0 ? "" : "disabled"}>Challenge the Ossuary King (uses 1 Bone Sigil · you have ${c.sigils})</button>
       <div class="dim small">Bone Sigils drop from guardians at tier ${T.sigilFrom}+. The King is a 3-phase fight with a ${Math.round(RIFT.chase.mythicChance * 100)}% mythic chance.</div>
       <button id="seraph" class="chase" ${(c.feathers ?? 0) > 0 ? "" : "disabled"}>Challenge the Pale Seraph (uses 1 Pale Feather · you have ${c.feathers ?? 0})</button>
@@ -270,6 +274,7 @@ export class UI {
     };
     $("#weekly").onclick = () => H.enter({ tier: WEEKLY_TIER, seed: null, kind: "rift", weekly: true });
     $("#endless").onclick = () => H.enter({ tier: this.tier, seed: null, kind: "endless" });
+    $("#trial").onclick = () => H.enter({ tier: nextTrial(c.trialBest), seed: null, kind: "trial" });
     $("#chase").onclick = () => H.enter({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase" });
     $("#seraph").onclick = () => H.enter({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase", boss: "seraph" });
   }
@@ -458,7 +463,7 @@ export class UI {
       return `<div class="skill ${locked ? "locked" : ""} ${at >= 0 ? "inbar" : ""}"><div class="sk-head"><b>${esc(d.name)}</b>${at >= 0 ? ` <span class="eq">${KEY_LABELS[at]}</span>` : ""} <span class="dim">${esc(costText(id))}</span> ${btn}</div><div class="dim small">${esc(d.desc)}</div>${runes ? `<div class="runes">${runes}</div>` : `<div class="dim small">Runes for this skill come in a later update.</div>`}</div>`;
     }).join("");
     const groups = ([["generator", "Generators: build " + R.name], ["core", "Core: spend " + R.name], ["support", "Support"], ["ultimate", "Ultimate (one at a time)"]] as const).map(([t, title]) => `<h3 class="sk-type">${title}</h3>${group(t, title)}`).join("");
-    return `${this.paragonHtml(c)}<div class="dim small">Pick any 4 skills, with at most one ultimate. Tap a slot, then a skill to put there. ${esc(R.name)}: ${R.regen ? `refills ${R.regen} per second` : `built by hits, fades after ${R.decayAfter}s out of combat`}, max ${R.max}. Runes unlock by using a skill.</div><div class="sk-bar">${slots}</div>${groups}`;
+    return `${this.talentsHtml(c)}${this.paragonHtml(c)}<div class="dim small">Pick any 4 skills, with at most one ultimate. Tap a slot, then a skill to put there. ${esc(R.name)}: ${R.regen ? `refills ${R.regen} per second` : `built by hits, fades after ${R.decayAfter}s out of combat`}, max ${R.max}. Runes unlock by using a skill.</div><div class="sk-bar">${slots}</div>${groups}`;
   }
 
   /** Paragon: shown once you hit max level. Points go into four capped stats; respec is free. */
@@ -511,6 +516,19 @@ export class UI {
       return `<div class="pg-row"><span><b style="color:${g.color}">◆ ${esc(g.name)}</b> <span class="dim small">Lv ${lv}/${GEMS.maxLevel} · ${esc(gemText(id, lv))}</span></span><span class="opts">${btn}</span></div>`;
     };
     return `<div class="setting"><b>Rift Gems</b> <span class="dim small">${sl.length}/${GEMS.slots} socketed. Timed clears level socketed gems (more at higher tiers, up to level ${GEMS.levelCapPerTier}× the tier).</span>${[...sl, ...own.filter((id) => !sl.includes(id))].map(row).join("")}</div>`;
+  }
+  /** Class talent tree: three branches, points from Trials. Rows open as you spend in a branch. */
+  private talentsHtml(c: CharSave) {
+    const tree = TALENTS.classes[c.cls] ?? [], a = c.talents ?? {}, pts = talentPoints(c.trialBest), free = pts - talentSpent(a);
+    if (!pts) return `<div class="setting dim small">Talents: pass Trials (a portal in your hideout, or the Play tab) to earn talent points for your class tree.</div>`;
+    const br = (b: (typeof tree)[number]) => {
+      const spent = b.nodes.reduce((x, n) => x + (a[n.id] ?? 0), 0);
+      return `<div class="tal-br"><b style="color:${b.color}">${esc(b.name)}</b> <span class="dim small">${spent} spent</span>${b.nodes.map((n, j) => {
+        const r = a[n.id] ?? 0, open = spent - r >= j * TALENTS.gate || r > 0;
+        return `<div class="pg-row${open ? "" : " dim"}"><span><b>${esc(n.name)}</b> <span class="dim small">${r}/${n.max} · ${esc(n.text.replace("{v}", String(+(Math.max(1, r) * n.per).toFixed(1))))}${r ? "" : " per rank"}${open ? "" : ` · opens at ${j * TALENTS.gate} in ${esc(b.name)}`}</span></span><span class="opts"><button data-tal="${n.id}:-1" ${talentCanRemove(c.cls, a, n.id) ? "" : "disabled"}>−</button><button data-tal="${n.id}:1" ${talentCanAdd(c.cls, a, n.id, pts) ? "" : "disabled"}>+</button></span></div>`;
+      }).join("")}</div>`;
+    };
+    return `<div class="setting"><b>Talents</b> <span class="dim small">${free} of ${pts} point${pts === 1 ? "" : "s"} to spend · next from Trial ${nextTrial(c.trialBest)}</span>${tree.map(br).join("")}<div class="opts"><button data-tal-reset ${talentSpent(a) ? "" : "disabled"}>Refund all</button></div></div>`;
   }
   private paragonHtml(c: CharSave) {
     const L = RIFT.levels.max;

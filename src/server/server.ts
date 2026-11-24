@@ -5,7 +5,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { readFileSync } from "fs";
 import { KV, fileKV, fileProfileNames, upstashKV, writer } from "./store";
 import { WebSocketServer, WebSocket } from "ws";
-import { RIFT } from "../sim/data";
+import { RIFT, nextTrial } from "../sim/data";
 import { Affix, rerollOptions } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { PlayerSetup } from "../sim/sim";
@@ -167,8 +167,9 @@ wss.on("connection", (ws) => {
       case "runStart": {
         if (!r || c !== r.host) return;
         const ch = char(p);
-        const kind = m.kind === "chase" ? "chase" : m.kind === "endless" ? "endless" : m.kind === "bounty" ? "bounty" : "rift";
+        const kind = m.kind === "chase" ? "chase" : m.kind === "endless" ? "endless" : m.kind === "bounty" ? "bounty" : m.kind === "trial" ? "trial" : "rift";
         let tier = Math.max(1, Math.min(m.tier | 0, ch.highestTier));
+        if (kind === "trial") tier = nextTrial(ch.trialBest); // always the next level up, never beyond
         const boss = kind === "chase" && m.boss === "seraph" ? "seraph" : "king";
         if (kind === "chase" && boss === "seraph") { if ((ch.feathers ?? 0) <= 0) return tx(c, { t: "runFail", reason: "No Pale Feather." }); ch.feathers = (ch.feathers ?? 0) - 1; putProfile(c.name, p); tier = Math.max(3, ch.highestTier); }
         else if (kind === "chase") { if (ch.sigils <= 0) return tx(c, { t: "runFail", reason: "No Bone Sigil." }); ch.sigils--; putProfile(c.name, p); tier = Math.max(3, ch.highestTier); }

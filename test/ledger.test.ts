@@ -201,6 +201,25 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   check("echo adds damage and life", b.dmgPct === b0.dmgPct + 7.5 && b.maxHp > b0.maxHp && a.maxHp === b0.maxHp);
 }
 
+{ // Trials and talents: a passed trial raises trialBest by one; points gate by branch rows; talents add stats
+  const p = newProfile(), c = p.chars.ashknight;
+  applySave(p, "ashknight", base(p) as any, member(), { kind: "trial", tier: 1, completed: true, inTime: true, time: 80 }, 1);
+  check("trial 1 passed gives a point", c.trialBest === 1);
+  applySave(p, "ashknight", base(p) as any, member(), { kind: "trial", tier: 2, completed: true, inTime: false, time: 120 }, 1);
+  check("a late trial gives nothing", c.trialBest === 1);
+  check("can spend a row-1 point", applyHubOp(p, { t: "talent", id: "ak_kindle", d: 1 }) === true);
+  check("no points left", applyHubOp(p, { t: "talent", id: "ak_kindle", d: 1 }) === false);
+  c.trialBest = 10;
+  check("row 2 is shut below 3 in branch", applyHubOp(p, { t: "talent", id: "ak_sear", d: 1 }) === false);
+  applyHubOp(p, { t: "talent", id: "ak_kindle", d: 1 }); applyHubOp(p, { t: "talent", id: "ak_kindle", d: 1 });
+  check("row 2 opens at 3", applyHubOp(p, { t: "talent", id: "ak_sear", d: 1 }) === true);
+  check("can't strand row 2", applyHubOp(p, { t: "talent", id: "ak_kindle", d: -1 }) === false);
+  check("other class's node refused", applyHubOp(p, { t: "talent", id: "gs_aim", d: 1 }) === false);
+  const s0 = computeStats({}, { cls: "ashknight", level: 30 }), s1 = computeStats({}, { cls: "ashknight", level: 30, talents: c.talents });
+  check("talents add stats", s1.dmgPct === s0.dmgPct + 9 && (s1.tagDmg.fire ?? 0) === (s0.tagDmg.fire ?? 0) + 6);
+  check("refund all", applyHubOp(p, { t: "talent", reset: true }) === true && !Object.keys(c.talents ?? {}).length);
+}
+
 if (fails) { console.log(`${fails} ledger checks failed`); process.exit(1); }
 console.log("ledger: all checks passed");
 

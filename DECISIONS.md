@@ -186,3 +186,9 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 
 ## 2026-11-24: Skill effect previews in the Shop
 Every skill effect in the Shop has a Preview button. The preview box shows your hero facing a target dummy, casting the skill's shape on a loop in that style's colours: a bolt for projectiles, an arc for melee, a trail for dashes, rings for shouts and novas, a primed circle for traps, and a rune for summons and builds (src/client/fxpreview.ts). It is a sketch of the shape, not the in-run effect itself. Tapping a locked effect in Looks opens the Shop with that effect already playing.
+
+## 2026-11-24: Trials and class Talent trees (endgame activity 6)
+- **Trials** (hideout portal and Play tab): 5 waves in the Endless arena within 2 minutes. Trial level N uses tier N enemies at Endless difficulty level 1.5×N. No loot drops (XP ×1.5). You always face the next level up, to 30; the live server picks the level itself.
+- **Talent points**: one per new Trial level passed in time (`trialBest`), max 30. The server raises `trialBest` itself from what it saw, one level at a time.
+- **Talent trees** (data/talents.json): each class has 3 branches with 4 nodes of 3 ranks each (36 ranks, 30 points, so you choose). Rows open at 0/3/6/9 points spent in the branch. You can't remove a point that a higher row relies on. Respec is free. Talents use the normal stat keys plus hpPct/armorPct/takenPct/regenPct and tag:<tag>. They are shown under Skills.
+- Balance is a first guess: a geared bot clears Trial 1 in about 1 minute. The level curve past 15 needs playtesting.

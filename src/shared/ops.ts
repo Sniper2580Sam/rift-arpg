@@ -1,7 +1,7 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
 import { makeRng } from "../sim/rng";
-import { SET, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
+import { talentCanAdd, talentCanRemove, talentPoints, SET, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
 import { echoCost, hallowItem, mintItem, Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
@@ -22,6 +22,7 @@ export type HubOp =
   | { t: "slotCrit"; slot: EquipSlot }
   | { t: "buy"; key: string }
   | { t: "paragon"; stat?: string; d?: number; reset?: boolean }
+  | { t: "talent"; id?: string; d?: number; reset?: boolean }
   | { t: "gem"; slot: number; id: string | null }
   | { t: "buyAether"; pack: string }
   | { t: "extract"; bag: number }
@@ -121,6 +122,14 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       }
       if (SETTINGS.has(op.k)) { (p.settings as any)[op.k] = !!op.v; return true; }
       return false;
+    case "talent": {
+      // spend or refund talent points (one per Trial level cleared); free to respec
+      if (op.reset) { c.talents = {}; return true; }
+      const a = { ...(c.talents ?? {}) }, id = String(op.id ?? "");
+      if (op.d === 1 && talentCanAdd(c.cls, a, id, talentPoints(c.trialBest))) { a[id] = (a[id] ?? 0) + 1; c.talents = a; return true; }
+      if (op.d === -1 && talentCanRemove(c.cls, a, id)) { a[id]--; if (!a[id]) delete a[id]; c.talents = a; return true; }
+      return false;
+    }
     case "paragon": {
       // spend or refund paragon points; free to respec
       if (op.reset) { c.pAlloc = {}; return true; }
