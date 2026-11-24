@@ -1,123 +1,1644 @@
 [
-  { "id": "cleave", "name": "Cleave", "kind": "melee", "slot": "primary", "unlock": 1, "tags": ["melee", "physical"],
+  {
+    "id": "cleave",
+    "name": "Cleave",
+    "kind": "melee",
+    "slot": "primary",
+    "unlock": 1,
+    "tags": [
+      "melee",
+      "physical"
+    ],
     "desc": "Swing in a wide arc in front of you.",
-    "p": { "damage": 1.0, "interval": 0.38, "range": 30, "arcCos": 0.35, "knockback": 70 },
+    "p": {
+      "damage": 1,
+      "interval": 0.38,
+      "range": 30,
+      "arcCos": 0.35,
+      "knockback": 70,
+      "genPerHit": 8,
+      "genMax": 20
+    },
     "runes": [
-      { "id": "wide", "name": "Wide Arc", "uses": 0, "desc": "Hits almost all around you for 90% damage.", "mul": { "damage": 0.9 }, "set": { "arcCos": -0.4 } },
-      { "id": "searing", "name": "Searing Edge", "uses": 30, "desc": "Becomes a fire skill.", "addTags": ["fire"], "removeTags": ["physical"] },
-      { "id": "reaping", "name": "Reaping", "uses": 80, "desc": "Heals 1% of max life per enemy hit.", "set": { "healPerHit": 0.01 } },
-      { "id": "rupture", "name": "Rupture", "uses": 160, "desc": "Enemies killed explode for 25% of their max life.", "set": { "explodeOnKill": 0.25 } },
-      { "id": "heavy", "name": "Heavy Swing", "uses": 300, "desc": "Slower, but deals 180% damage and knocks back twice as far.", "mul": { "interval": 1.4, "damage": 1.8, "knockback": 2 } }
-    ] },
-  { "id": "ember_lance", "name": "Ember Lance", "kind": "projectile", "slot": "secondary", "unlock": 2, "tags": ["pierce", "fire", "projectile"],
+      {
+        "id": "wide",
+        "name": "Wide Arc",
+        "uses": 0,
+        "desc": "Hits almost all around you for 90% damage.",
+        "mul": {
+          "damage": 0.9
+        },
+        "set": {
+          "arcCos": -0.4
+        }
+      },
+      {
+        "id": "searing",
+        "name": "Searing Edge",
+        "uses": 30,
+        "desc": "Becomes a fire skill.",
+        "addTags": [
+          "fire"
+        ],
+        "removeTags": [
+          "physical"
+        ]
+      },
+      {
+        "id": "reaping",
+        "name": "Reaping",
+        "uses": 80,
+        "desc": "Heals 1% of max life per enemy hit.",
+        "set": {
+          "healPerHit": 0.01
+        }
+      },
+      {
+        "id": "rupture",
+        "name": "Rupture",
+        "uses": 160,
+        "desc": "Enemies killed explode for 25% of their max life.",
+        "set": {
+          "explodeOnKill": 0.25
+        }
+      },
+      {
+        "id": "heavy",
+        "name": "Heavy Swing",
+        "uses": 300,
+        "desc": "Slower, but deals 180% damage and knocks back twice as far.",
+        "mul": {
+          "interval": 1.4,
+          "damage": 1.8,
+          "knockback": 2
+        }
+      }
+    ],
+    "type": "generator"
+  },
+  {
+    "id": "ember_lance",
+    "name": "Ember Lance",
+    "kind": "projectile",
+    "slot": "secondary",
+    "unlock": 1,
+    "tags": [
+      "pierce",
+      "fire",
+      "projectile",
+      "single"
+    ],
     "desc": "Hurl a burning lance that pierces every enemy in a line.",
-    "p": { "damage": 1.8, "cooldown": 0.9, "speed": 280, "range": 230, "radius": 5, "count": 1, "spreadSteps": 1, "pierce": 1, "knockback": 40 },
+    "p": {
+      "damage": 2.8,
+      "cooldown": 0.45,
+      "speed": 280,
+      "range": 230,
+      "radius": 5,
+      "count": 1,
+      "spreadSteps": 1,
+      "pierce": 1,
+      "knockback": 40,
+      "cost": 25
+    },
     "runes": [
-      { "id": "twin", "name": "Twin Lance", "uses": 0, "desc": "Throws 2 lances for 75% damage each.", "add": { "count": 1 }, "mul": { "damage": 0.75 } },
-      { "id": "molten", "name": "Molten Path", "uses": 30, "desc": "Leaves a burning line behind the lance.", "set": { "trail": 0.8 } },
-      { "id": "frost", "name": "Frost Lance", "uses": 80, "desc": "Becomes cold: slows enemies by 40% for 2 seconds.", "addTags": ["cold"], "removeTags": ["fire"], "set": { "slowPct": 40, "slowT": 2 } },
-      { "id": "heavy", "name": "Heavy Lance", "uses": 160, "desc": "Slower and twice as wide, deals 140% damage.", "mul": { "speed": 0.6, "radius": 2, "damage": 1.4 } },
-      { "id": "impale", "name": "Impale", "uses": 300, "desc": "No longer pierces, but deals 300% damage.", "set": { "pierce": 0 }, "mul": { "damage": 3, "knockback": 3 }, "removeTags": ["pierce"] }
-    ] },
-  { "id": "ash_dash", "name": "Ash Dash", "kind": "dash", "slot": "utility", "unlock": 3, "tags": ["dash", "physical"],
+      {
+        "id": "twin",
+        "name": "Twin Lance",
+        "uses": 0,
+        "desc": "Throws 2 lances for 75% damage each.",
+        "add": {
+          "count": 1
+        },
+        "mul": {
+          "damage": 0.75
+        }
+      },
+      {
+        "id": "molten",
+        "name": "Molten Path",
+        "uses": 30,
+        "desc": "Leaves a burning line behind the lance.",
+        "set": {
+          "trail": 0.8
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Frost Lance",
+        "uses": 80,
+        "desc": "Becomes cold: slows enemies by 40% for 2 seconds.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "fire"
+        ],
+        "set": {
+          "slowPct": 40,
+          "slowT": 2
+        }
+      },
+      {
+        "id": "heavy",
+        "name": "Heavy Lance",
+        "uses": 160,
+        "desc": "Slower and twice as wide, deals 140% damage.",
+        "mul": {
+          "speed": 0.6,
+          "radius": 2,
+          "damage": 1.4
+        }
+      },
+      {
+        "id": "impale",
+        "name": "Impale",
+        "uses": 300,
+        "desc": "No longer pierces, but deals 300% damage.",
+        "set": {
+          "pierce": 0
+        },
+        "mul": {
+          "damage": 3,
+          "knockback": 3
+        },
+        "removeTags": [
+          "pierce"
+        ]
+      }
+    ],
+    "type": "core"
+  },
+  {
+    "id": "ash_dash",
+    "name": "Ash Dash",
+    "kind": "dash",
+    "slot": "utility",
+    "unlock": 2,
+    "tags": [
+      "dash",
+      "physical"
+    ],
     "desc": "Dash forward, striking everything you pass. You can't be hit while dashing.",
-    "p": { "damage": 1.4, "cooldown": 3.0, "distance": 84, "duration": 0.18, "knockback": 120, "charges": 1 },
+    "p": {
+      "damage": 1.4,
+      "cooldown": 3,
+      "distance": 84,
+      "duration": 0.18,
+      "knockback": 120,
+      "charges": 1
+    },
     "runes": [
-      { "id": "stride", "name": "Long Stride", "uses": 0, "desc": "Dash 50% further.", "mul": { "distance": 1.5, "duration": 1.3 } },
-      { "id": "cinder", "name": "Cinder Step", "uses": 30, "desc": "Becomes fire and leaves a burning trail.", "addTags": ["fire"], "set": { "trail": 0.8 } },
-      { "id": "charge", "name": "Shoulder Charge", "uses": 80, "desc": "Shorter, but deals 250% damage.", "mul": { "distance": 0.8, "damage": 2.5, "knockback": 2 } },
-      { "id": "ghost", "name": "Ghost Step", "uses": 160, "desc": "40% shorter cooldown, half damage.", "mul": { "cooldown": 0.6, "damage": 0.5 } },
-      { "id": "wind", "name": "Second Wind", "uses": 300, "desc": "Each dash heals 8% of max life.", "set": { "healPct": 0.08 } }
-    ] },
-  { "id": "warcry", "name": "Warcry", "kind": "shout", "slot": "utility", "unlock": 5, "tags": ["shout"],
+      {
+        "id": "stride",
+        "name": "Long Stride",
+        "uses": 0,
+        "desc": "Dash 50% further.",
+        "mul": {
+          "distance": 1.5,
+          "duration": 1.3
+        }
+      },
+      {
+        "id": "cinder",
+        "name": "Cinder Step",
+        "uses": 30,
+        "desc": "Becomes fire and leaves a burning trail.",
+        "addTags": [
+          "fire"
+        ],
+        "set": {
+          "trail": 0.8
+        }
+      },
+      {
+        "id": "charge",
+        "name": "Shoulder Charge",
+        "uses": 80,
+        "desc": "Shorter, but deals 250% damage.",
+        "mul": {
+          "distance": 0.8,
+          "damage": 2.5,
+          "knockback": 2
+        }
+      },
+      {
+        "id": "ghost",
+        "name": "Ghost Step",
+        "uses": 160,
+        "desc": "40% shorter cooldown, half damage.",
+        "mul": {
+          "cooldown": 0.6,
+          "damage": 0.5
+        }
+      },
+      {
+        "id": "wind",
+        "name": "Second Wind",
+        "uses": 300,
+        "desc": "Each dash heals 8% of max life.",
+        "set": {
+          "healPct": 0.08
+        }
+      }
+    ],
+    "type": "support"
+  },
+  {
+    "id": "warcry",
+    "name": "Warcry",
+    "kind": "shout",
+    "slot": "utility",
+    "unlock": 4,
+    "tags": [
+      "shout"
+    ],
     "desc": "Party gains 40% armor for 6 seconds. Nearby enemies are taunted to attack you.",
-    "p": { "cooldown": 12, "radius": 100, "duration": 6, "armorPct": 40, "dmgPct": 0, "healPct": 0, "taunt": 3, "vulnPct": 0 },
+    "p": {
+      "cooldown": 12,
+      "radius": 100,
+      "duration": 6,
+      "armorPct": 40,
+      "dmgPct": 0,
+      "healPct": 0,
+      "taunt": 3,
+      "vulnPct": 0
+    },
     "runes": [
-      { "id": "rally", "name": "Rally", "uses": 0, "desc": "Also heals the party for 12% of max life.", "set": { "healPct": 0.12 } },
-      { "id": "fear", "name": "Fearsome", "uses": 20, "desc": "Enemies hit take 20% more damage for 6 seconds.", "set": { "vulnPct": 20 } },
-      { "id": "iron", "name": "Iron Skin", "uses": 50, "desc": "Armor bonus doubled.", "mul": { "armorPct": 2 } },
-      { "id": "echo", "name": "Echoing Cry", "uses": 100, "desc": "35% shorter cooldown.", "mul": { "cooldown": 0.65 } },
-      { "id": "fury", "name": "Battle Fury", "uses": 180, "desc": "Party also deals 20% more damage.", "set": { "dmgPct": 20 } }
-    ] },
-  { "id": "flame_nova", "name": "Flame Nova", "kind": "nova", "slot": "utility", "unlock": 7, "tags": ["fire", "aoe"],
+      {
+        "id": "rally",
+        "name": "Rally",
+        "uses": 0,
+        "desc": "Also heals the party for 12% of max life.",
+        "set": {
+          "healPct": 0.12
+        }
+      },
+      {
+        "id": "fear",
+        "name": "Fearsome",
+        "uses": 20,
+        "desc": "Enemies hit take 20% more damage for 6 seconds.",
+        "set": {
+          "vulnPct": 20
+        }
+      },
+      {
+        "id": "iron",
+        "name": "Iron Skin",
+        "uses": 50,
+        "desc": "Armor bonus doubled.",
+        "mul": {
+          "armorPct": 2
+        }
+      },
+      {
+        "id": "echo",
+        "name": "Echoing Cry",
+        "uses": 100,
+        "desc": "35% shorter cooldown.",
+        "mul": {
+          "cooldown": 0.65
+        }
+      },
+      {
+        "id": "fury",
+        "name": "Battle Fury",
+        "uses": 180,
+        "desc": "Party also deals 20% more damage.",
+        "set": {
+          "dmgPct": 20
+        }
+      }
+    ],
+    "type": "support"
+  },
+  {
+    "id": "flame_nova",
+    "name": "Flame Nova",
+    "kind": "nova",
+    "slot": "utility",
+    "unlock": 5,
+    "tags": [
+      "fire",
+      "aoe"
+    ],
     "desc": "Burst of fire around you.",
-    "p": { "cooldown": 6, "damage": 2.4, "radius": 56, "pulses": 1, "pull": 0, "knockback": 60 },
+    "p": {
+      "cooldown": 1,
+      "damage": 2.4,
+      "radius": 56,
+      "pulses": 1,
+      "pull": 0,
+      "knockback": 60,
+      "cost": 40
+    },
     "runes": [
-      { "id": "wide", "name": "Wide Nova", "uses": 0, "desc": "40% larger.", "mul": { "radius": 1.4 } },
-      { "id": "pull", "name": "Inferno Pull", "uses": 25, "desc": "Pulls enemies in before burning them.", "set": { "pull": 1, "knockback": 0 } },
-      { "id": "frost", "name": "Frost Nova", "uses": 60, "desc": "Becomes cold: freezes enemies (80% slow) for 2.5 seconds, 60% damage.", "addTags": ["cold"], "removeTags": ["fire"], "set": { "slowPct": 80, "slowT": 2.5 }, "mul": { "damage": 0.6 } },
-      { "id": "double", "name": "Double Pulse", "uses": 120, "desc": "Pulses a second time.", "add": { "pulses": 1 } },
-      { "id": "phoenix", "name": "Phoenix", "uses": 220, "desc": "Half cooldown, 70% damage.", "mul": { "cooldown": 0.5, "damage": 0.7 } }
-    ] },
-  { "id": "cinderlings", "name": "Cinderlings", "kind": "summon", "slot": "ultimate", "unlock": 9, "tags": ["summon", "fire"],
+      {
+        "id": "wide",
+        "name": "Wide Nova",
+        "uses": 0,
+        "desc": "40% larger.",
+        "mul": {
+          "radius": 1.4
+        }
+      },
+      {
+        "id": "pull",
+        "name": "Inferno Pull",
+        "uses": 25,
+        "desc": "Pulls enemies in before burning them.",
+        "set": {
+          "pull": 1,
+          "knockback": 0
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Frost Nova",
+        "uses": 60,
+        "desc": "Becomes cold: freezes enemies (80% slow) for 2.5 seconds, 60% damage.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "fire"
+        ],
+        "set": {
+          "slowPct": 80,
+          "slowT": 2.5
+        },
+        "mul": {
+          "damage": 0.6
+        }
+      },
+      {
+        "id": "double",
+        "name": "Double Pulse",
+        "uses": 120,
+        "desc": "Pulses a second time.",
+        "add": {
+          "pulses": 1
+        }
+      },
+      {
+        "id": "phoenix",
+        "name": "Phoenix",
+        "uses": 220,
+        "desc": "Half cooldown, 70% damage.",
+        "mul": {
+          "cooldown": 0.5,
+          "damage": 0.7
+        }
+      }
+    ],
+    "type": "core"
+  },
+  {
+    "id": "cinderlings",
+    "name": "Cinderlings",
+    "kind": "summon",
+    "slot": "ultimate",
+    "unlock": 6,
+    "tags": [
+      "summon",
+      "fire"
+    ],
     "desc": "Call 3 fire imps that hunt nearby enemies for 12 seconds.",
-    "p": { "cooldown": 14, "count": 3, "duration": 12, "damage": 0.45, "attackInterval": 0.7, "speed": 95, "size": 1 },
+    "p": {
+      "cooldown": 14,
+      "count": 3,
+      "duration": 12,
+      "damage": 0.45,
+      "attackInterval": 0.7,
+      "speed": 95,
+      "size": 1
+    },
     "runes": [
-      { "id": "brood", "name": "Big Brood", "uses": 0, "desc": "+2 imps, 70% damage each.", "add": { "count": 2 }, "mul": { "damage": 0.7 } },
-      { "id": "giant", "name": "Ember Giant", "uses": 15, "desc": "One giant imp with 450% damage that lasts longer.", "set": { "count": 1, "size": 2 }, "mul": { "damage": 4.5, "duration": 1.5 } },
-      { "id": "leech", "name": "Leech Imps", "uses": 40, "desc": "Imp hits heal you for 0.5% of max life.", "set": { "healPerHit": 0.005 } },
-      { "id": "kamikaze", "name": "Kamikaze", "uses": 80, "desc": "Imps rush and explode on contact for 250% damage.", "set": { "contactExplode": 2.5 }, "mul": { "speed": 1.6, "cooldown": 0.6 } },
-      { "id": "watch", "name": "Long Watch", "uses": 150, "desc": "Imps last twice as long.", "mul": { "duration": 2 } }
-    ] },
-
-  { "id": "hex_bolt", "name": "Hex Bolt", "kind": "projectile", "slot": "primary", "unlock": 1, "tags": ["projectile", "physical"],
+      {
+        "id": "brood",
+        "name": "Big Brood",
+        "uses": 0,
+        "desc": "+2 imps, 70% damage each.",
+        "add": {
+          "count": 2
+        },
+        "mul": {
+          "damage": 0.7
+        }
+      },
+      {
+        "id": "giant",
+        "name": "Ember Giant",
+        "uses": 15,
+        "desc": "One giant imp with 450% damage that lasts longer.",
+        "set": {
+          "count": 1,
+          "size": 2
+        },
+        "mul": {
+          "damage": 4.5,
+          "duration": 1.5
+        }
+      },
+      {
+        "id": "leech",
+        "name": "Leech Imps",
+        "uses": 40,
+        "desc": "Imp hits heal you for 0.5% of max life.",
+        "set": {
+          "healPerHit": 0.005
+        }
+      },
+      {
+        "id": "kamikaze",
+        "name": "Kamikaze",
+        "uses": 80,
+        "desc": "Imps rush and explode on contact for 250% damage.",
+        "set": {
+          "contactExplode": 2.5
+        },
+        "mul": {
+          "speed": 1.6,
+          "cooldown": 0.6
+        }
+      },
+      {
+        "id": "watch",
+        "name": "Long Watch",
+        "uses": 150,
+        "desc": "Imps last twice as long.",
+        "mul": {
+          "duration": 2
+        }
+      }
+    ],
+    "type": "ultimate"
+  },
+  {
+    "id": "hex_bolt",
+    "name": "Hex Bolt",
+    "kind": "projectile",
+    "slot": "primary",
+    "unlock": 1,
+    "tags": [
+      "projectile",
+      "physical",
+      "single"
+    ],
     "desc": "Fire a fast bolt at the nearest foe.",
-    "p": { "damage": 0.95, "interval": 0.32, "speed": 320, "range": 210, "radius": 3, "count": 1, "spreadSteps": 1, "pierce": 0, "knockback": 25 },
+    "p": {
+      "damage": 0.95,
+      "interval": 0.32,
+      "speed": 320,
+      "range": 210,
+      "radius": 3,
+      "count": 1,
+      "spreadSteps": 1,
+      "pierce": 0,
+      "knockback": 25,
+      "gen": 5
+    },
     "runes": [
-      { "id": "splinter", "name": "Splinter", "uses": 0, "desc": "3 bolts for 45% damage each.", "add": { "count": 2 }, "mul": { "damage": 0.45 } },
-      { "id": "piercing", "name": "Piercing Bolt", "uses": 30, "desc": "Pierces enemies.", "set": { "pierce": 1 }, "addTags": ["pierce"] },
-      { "id": "frost", "name": "Frost Bolt", "uses": 80, "desc": "Becomes cold and slows by 30%.", "addTags": ["cold"], "removeTags": ["physical"], "set": { "slowPct": 30, "slowT": 1.5 } },
-      { "id": "ember", "name": "Ember Bolt", "uses": 160, "desc": "Becomes fire.", "addTags": ["fire"], "removeTags": ["physical"], "mul": { "damage": 1.1 } },
-      { "id": "heavy", "name": "Heavy Bolt", "uses": 300, "desc": "Slower, 190% damage.", "mul": { "interval": 1.5, "damage": 1.9, "knockback": 3 } }
-    ] },
-  { "id": "volley", "name": "Volley", "kind": "projectile", "slot": "secondary", "unlock": 2, "tags": ["projectile", "pierce", "physical"],
+      {
+        "id": "splinter",
+        "name": "Splinter",
+        "uses": 0,
+        "desc": "3 bolts for 45% damage each.",
+        "add": {
+          "count": 2
+        },
+        "mul": {
+          "damage": 0.45
+        }
+      },
+      {
+        "id": "piercing",
+        "name": "Piercing Bolt",
+        "uses": 30,
+        "desc": "Pierces enemies.",
+        "set": {
+          "pierce": 1
+        },
+        "addTags": [
+          "pierce"
+        ]
+      },
+      {
+        "id": "frost",
+        "name": "Frost Bolt",
+        "uses": 80,
+        "desc": "Becomes cold and slows by 30%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "set": {
+          "slowPct": 30,
+          "slowT": 1.5
+        }
+      },
+      {
+        "id": "ember",
+        "name": "Ember Bolt",
+        "uses": 160,
+        "desc": "Becomes fire.",
+        "addTags": [
+          "fire"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "mul": {
+          "damage": 1.1
+        }
+      },
+      {
+        "id": "heavy",
+        "name": "Heavy Bolt",
+        "uses": 300,
+        "desc": "Slower, 190% damage.",
+        "mul": {
+          "interval": 1.5,
+          "damage": 1.9,
+          "knockback": 3
+        }
+      }
+    ],
+    "type": "generator"
+  },
+  {
+    "id": "volley",
+    "name": "Volley",
+    "kind": "projectile",
+    "slot": "secondary",
+    "unlock": 1,
+    "tags": [
+      "projectile",
+      "pierce",
+      "physical",
+      "aoe"
+    ],
     "desc": "Loose a fan of 7 piercing arrows.",
-    "p": { "damage": 0.8, "cooldown": 2.2, "speed": 260, "range": 170, "radius": 3, "count": 7, "spreadSteps": 1, "pierce": 1, "knockback": 30 },
+    "p": {
+      "damage": 1,
+      "cooldown": 0.6,
+      "speed": 260,
+      "range": 170,
+      "radius": 3,
+      "count": 7,
+      "spreadSteps": 1,
+      "pierce": 1,
+      "knockback": 30,
+      "cost": 25
+    },
     "runes": [
-      { "id": "focused", "name": "Focused", "uses": 0, "desc": "Tight fan, 120% damage.", "set": { "spreadSteps": 0.4 }, "mul": { "damage": 1.2 } },
-      { "id": "burning", "name": "Burning Arrows", "uses": 30, "desc": "Becomes fire.", "addTags": ["fire"], "removeTags": ["physical"] },
-      { "id": "storm", "name": "Arrow Storm", "uses": 80, "desc": "+6 arrows in a full circle.", "add": { "count": 6 }, "set": { "spreadSteps": 2.4 } },
-      { "id": "quick", "name": "Quick Draw", "uses": 160, "desc": "Half cooldown, 70% damage.", "mul": { "cooldown": 0.5, "damage": 0.7 } },
-      { "id": "frost", "name": "Frost Volley", "uses": 300, "desc": "Becomes cold and slows by 40%.", "addTags": ["cold"], "removeTags": ["physical"], "set": { "slowPct": 40, "slowT": 2 } }
-    ] },
-  { "id": "tumble", "name": "Tumble", "kind": "dash", "slot": "utility", "unlock": 3, "tags": ["dash", "physical"],
+      {
+        "id": "focused",
+        "name": "Focused",
+        "uses": 0,
+        "desc": "Tight fan, 120% damage.",
+        "set": {
+          "spreadSteps": 0.4
+        },
+        "mul": {
+          "damage": 1.2
+        }
+      },
+      {
+        "id": "burning",
+        "name": "Burning Arrows",
+        "uses": 30,
+        "desc": "Becomes fire.",
+        "addTags": [
+          "fire"
+        ],
+        "removeTags": [
+          "physical"
+        ]
+      },
+      {
+        "id": "storm",
+        "name": "Arrow Storm",
+        "uses": 80,
+        "desc": "+6 arrows in a full circle.",
+        "add": {
+          "count": 6
+        },
+        "set": {
+          "spreadSteps": 2.4
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Draw",
+        "uses": 160,
+        "desc": "Half cooldown, 70% damage.",
+        "mul": {
+          "cooldown": 0.5,
+          "damage": 0.7
+        }
+      },
+      {
+        "id": "frost",
+        "name": "Frost Volley",
+        "uses": 300,
+        "desc": "Becomes cold and slows by 40%.",
+        "addTags": [
+          "cold"
+        ],
+        "removeTags": [
+          "physical"
+        ],
+        "set": {
+          "slowPct": 40,
+          "slowT": 2
+        }
+      }
+    ],
+    "type": "core"
+  },
+  {
+    "id": "tumble",
+    "name": "Tumble",
+    "kind": "dash",
+    "slot": "utility",
+    "unlock": 2,
+    "tags": [
+      "dash",
+      "physical"
+    ],
     "desc": "Roll away. You can't be hit while rolling.",
-    "p": { "damage": 0.5, "cooldown": 2.5, "distance": 72, "duration": 0.2, "knockback": 60, "charges": 1 },
+    "p": {
+      "damage": 0.5,
+      "cooldown": 2.5,
+      "distance": 72,
+      "duration": 0.2,
+      "knockback": 60,
+      "charges": 1
+    },
     "runes": [
-      { "id": "double", "name": "Double Roll", "uses": 0, "desc": "+1 charge.", "add": { "charges": 1 } },
-      { "id": "smoke", "name": "Frost Trail", "uses": 30, "desc": "Leaves a chilling trail that slows.", "addTags": ["cold"], "set": { "trail": 0.4, "slowPct": 40, "slowT": 1 } },
-      { "id": "far", "name": "Far Roll", "uses": 80, "desc": "60% further.", "mul": { "distance": 1.6, "duration": 1.3 } },
-      { "id": "mend", "name": "Mending Roll", "uses": 160, "desc": "Heals 6% of max life.", "set": { "healPct": 0.06 } },
-      { "id": "quick", "name": "Quick Roll", "uses": 300, "desc": "45% shorter cooldown.", "mul": { "cooldown": 0.55 } }
-    ] },
-  { "id": "frost_snare", "name": "Frost Snare", "kind": "trap", "slot": "utility", "unlock": 5, "tags": ["cold", "aoe"],
+      {
+        "id": "double",
+        "name": "Double Roll",
+        "uses": 0,
+        "desc": "+1 charge.",
+        "add": {
+          "charges": 1
+        }
+      },
+      {
+        "id": "smoke",
+        "name": "Frost Trail",
+        "uses": 30,
+        "desc": "Leaves a chilling trail that slows.",
+        "addTags": [
+          "cold"
+        ],
+        "set": {
+          "trail": 0.4,
+          "slowPct": 40,
+          "slowT": 1
+        }
+      },
+      {
+        "id": "far",
+        "name": "Far Roll",
+        "uses": 80,
+        "desc": "60% further.",
+        "mul": {
+          "distance": 1.6,
+          "duration": 1.3
+        }
+      },
+      {
+        "id": "mend",
+        "name": "Mending Roll",
+        "uses": 160,
+        "desc": "Heals 6% of max life.",
+        "set": {
+          "healPct": 0.06
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Roll",
+        "uses": 300,
+        "desc": "45% shorter cooldown.",
+        "mul": {
+          "cooldown": 0.55
+        }
+      }
+    ],
+    "type": "support"
+  },
+  {
+    "id": "frost_snare",
+    "name": "Frost Snare",
+    "kind": "trap",
+    "slot": "utility",
+    "unlock": 4,
+    "tags": [
+      "cold",
+      "aoe"
+    ],
     "desc": "Throw a snare that slows and chills enemies for 5 seconds.",
-    "p": { "cooldown": 7, "radius": 34, "duration": 5, "dps": 1.0, "slowPct": 50, "slowT": 0.6, "castRange": 140 },
+    "p": {
+      "cooldown": 7,
+      "radius": 34,
+      "duration": 5,
+      "dps": 1,
+      "slowPct": 50,
+      "slowT": 0.6,
+      "castRange": 140
+    },
     "runes": [
-      { "id": "wide", "name": "Wide Snare", "uses": 0, "desc": "50% larger.", "mul": { "radius": 1.5 } },
-      { "id": "fire", "name": "Fire Pit", "uses": 25, "desc": "Becomes fire, triple damage, no slow.", "addTags": ["fire"], "removeTags": ["cold"], "mul": { "dps": 3 }, "set": { "slowPct": 0 } },
-      { "id": "long", "name": "Long Snare", "uses": 60, "desc": "Lasts twice as long.", "mul": { "duration": 2 } },
-      { "id": "freeze", "name": "Deep Freeze", "uses": 120, "desc": "Slow becomes 85%.", "set": { "slowPct": 85 } },
-      { "id": "quick", "name": "Quick Snare", "uses": 220, "desc": "Half cooldown.", "mul": { "cooldown": 0.5 } }
-    ] },
-  { "id": "rally_banner", "name": "Rally Banner", "kind": "shout", "slot": "utility", "unlock": 7, "tags": ["shout", "support"],
+      {
+        "id": "wide",
+        "name": "Wide Snare",
+        "uses": 0,
+        "desc": "50% larger.",
+        "mul": {
+          "radius": 1.5
+        }
+      },
+      {
+        "id": "fire",
+        "name": "Fire Pit",
+        "uses": 25,
+        "desc": "Becomes fire, triple damage, no slow.",
+        "addTags": [
+          "fire"
+        ],
+        "removeTags": [
+          "cold"
+        ],
+        "mul": {
+          "dps": 3
+        },
+        "set": {
+          "slowPct": 0
+        }
+      },
+      {
+        "id": "long",
+        "name": "Long Snare",
+        "uses": 60,
+        "desc": "Lasts twice as long.",
+        "mul": {
+          "duration": 2
+        }
+      },
+      {
+        "id": "freeze",
+        "name": "Deep Freeze",
+        "uses": 120,
+        "desc": "Slow becomes 85%.",
+        "set": {
+          "slowPct": 85
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Snare",
+        "uses": 220,
+        "desc": "Half cooldown.",
+        "mul": {
+          "cooldown": 0.5
+        }
+      }
+    ],
+    "type": "support"
+  },
+  {
+    "id": "rally_banner",
+    "name": "Rally Banner",
+    "kind": "shout",
+    "slot": "utility",
+    "unlock": 8,
+    "tags": [
+      "shout",
+      "support"
+    ],
     "desc": "Heal the party for 20% and grant 15% faster cooldowns for 6 seconds.",
-    "p": { "cooldown": 14, "radius": 130, "duration": 6, "armorPct": 0, "dmgPct": 0, "healPct": 0.2, "taunt": 0, "vulnPct": 0, "cdrPct": 15 },
+    "p": {
+      "cooldown": 14,
+      "radius": 130,
+      "duration": 6,
+      "armorPct": 0,
+      "dmgPct": 0,
+      "healPct": 0.2,
+      "taunt": 0,
+      "vulnPct": 0,
+      "cdrPct": 15
+    },
     "runes": [
-      { "id": "war", "name": "War Banner", "uses": 0, "desc": "Party also deals 15% more damage.", "set": { "dmgPct": 15 } },
-      { "id": "ward", "name": "Ward Banner", "uses": 20, "desc": "Party also gains 50% armor.", "set": { "armorPct": 50 } },
-      { "id": "big", "name": "Great Heal", "uses": 50, "desc": "Heal becomes 35%.", "set": { "healPct": 0.35 } },
-      { "id": "quick", "name": "Quick Banner", "uses": 100, "desc": "35% shorter cooldown.", "mul": { "cooldown": 0.65 } },
-      { "id": "haste", "name": "Haste Banner", "uses": 180, "desc": "Cooldown speed bonus becomes 30%.", "set": { "cdrPct": 30 } }
-    ] },
-  { "id": "raven_swarm", "name": "Raven Swarm", "kind": "summon", "slot": "ultimate", "unlock": 9, "tags": ["summon", "physical"],
+      {
+        "id": "war",
+        "name": "War Banner",
+        "uses": 0,
+        "desc": "Party also deals 15% more damage.",
+        "set": {
+          "dmgPct": 15
+        }
+      },
+      {
+        "id": "ward",
+        "name": "Ward Banner",
+        "uses": 20,
+        "desc": "Party also gains 50% armor.",
+        "set": {
+          "armorPct": 50
+        }
+      },
+      {
+        "id": "big",
+        "name": "Great Heal",
+        "uses": 50,
+        "desc": "Heal becomes 35%.",
+        "set": {
+          "healPct": 0.35
+        }
+      },
+      {
+        "id": "quick",
+        "name": "Quick Banner",
+        "uses": 100,
+        "desc": "35% shorter cooldown.",
+        "mul": {
+          "cooldown": 0.65
+        }
+      },
+      {
+        "id": "haste",
+        "name": "Haste Banner",
+        "uses": 180,
+        "desc": "Cooldown speed bonus becomes 30%.",
+        "set": {
+          "cdrPct": 30
+        }
+      }
+    ],
+    "type": "support"
+  },
+  {
+    "id": "raven_swarm",
+    "name": "Raven Swarm",
+    "kind": "summon",
+    "slot": "ultimate",
+    "unlock": 6,
+    "tags": [
+      "summon",
+      "physical"
+    ],
     "desc": "Release 5 ravens that peck enemies for 10 seconds.",
-    "p": { "cooldown": 16, "count": 5, "duration": 10, "damage": 0.35, "attackInterval": 0.5, "speed": 130, "size": 1 },
+    "p": {
+      "cooldown": 16,
+      "count": 5,
+      "duration": 10,
+      "damage": 0.35,
+      "attackInterval": 0.5,
+      "speed": 130,
+      "size": 1
+    },
     "runes": [
-      { "id": "murder", "name": "Murder", "uses": 0, "desc": "+3 ravens, 70% damage.", "add": { "count": 3 }, "mul": { "damage": 0.7 } },
-      { "id": "fire", "name": "Phoenix Brood", "uses": 15, "desc": "Becomes fire.", "addTags": ["fire"], "removeTags": ["physical"] },
-      { "id": "leech", "name": "Blood Ravens", "uses": 40, "desc": "Raven hits heal you for 0.4% of max life.", "set": { "healPerHit": 0.004 } },
-      { "id": "dive", "name": "Dive Bomb", "uses": 80, "desc": "Ravens explode on contact for 200% damage.", "set": { "contactExplode": 2 }, "mul": { "cooldown": 0.6 } },
-      { "id": "long", "name": "Long Flight", "uses": 150, "desc": "Ravens last twice as long.", "mul": { "duration": 2 } }
-    ] }
+      {
+        "id": "murder",
+        "name": "Murder",
+        "uses": 0,
+        "desc": "+3 ravens, 70% damage.",
+        "add": {
+          "count": 3
+        },
+        "mul": {
+          "damage": 0.7
+        }
+      },
+      {
+        "id": "fire",
+        "name": "Phoenix Brood",
+        "uses": 15,
+        "desc": "Becomes fire.",
+        "addTags": [
+          "fire"
+        ],
+        "removeTags": [
+          "physical"
+        ]
+      },
+      {
+        "id": "leech",
+        "name": "Blood Ravens",
+        "uses": 40,
+        "desc": "Raven hits heal you for 0.4% of max life.",
+        "set": {
+          "healPerHit": 0.004
+        }
+      },
+      {
+        "id": "dive",
+        "name": "Dive Bomb",
+        "uses": 80,
+        "desc": "Ravens explode on contact for 200% damage.",
+        "set": {
+          "contactExplode": 2
+        },
+        "mul": {
+          "cooldown": 0.6
+        }
+      },
+      {
+        "id": "long",
+        "name": "Long Flight",
+        "uses": 150,
+        "desc": "Ravens last twice as long.",
+        "mul": {
+          "duration": 2
+        }
+      }
+    ],
+    "type": "ultimate"
+  },
+  {
+    "id": "searing_strike",
+    "name": "Searing Strike",
+    "kind": "melee",
+    "slot": "generator",
+    "type": "generator",
+    "unlock": 3,
+    "tags": [
+      "melee",
+      "fire",
+      "single"
+    ],
+    "desc": "Fast jab that sets the target burning.",
+    "p": {
+      "damage": 1.3,
+      "interval": 0.34,
+      "range": 26,
+      "arcCos": 0.8,
+      "knockback": 30,
+      "igniteMult": 0.6,
+      "gen": 0,
+      "genPerHit": 14,
+      "genMax": 14
+    },
+    "runes": []
+  },
+  {
+    "id": "shield_bash",
+    "name": "Shield Bash",
+    "kind": "melee",
+    "slot": "generator",
+    "type": "generator",
+    "unlock": 7,
+    "tags": [
+      "melee",
+      "physical"
+    ],
+    "desc": "Short bash that staggers enemies.",
+    "p": {
+      "damage": 1.1,
+      "interval": 0.45,
+      "range": 28,
+      "arcCos": 0.5,
+      "knockback": 110,
+      "slowPct": 90,
+      "slowT": 0.5,
+      "genPerHit": 12,
+      "genMax": 24
+    },
+    "runes": []
+  },
+  {
+    "id": "whirling_ash",
+    "name": "Whirling Ash",
+    "kind": "nova",
+    "slot": "core",
+    "type": "core",
+    "unlock": 9,
+    "tags": [
+      "melee",
+      "fire",
+      "aoe"
+    ],
+    "desc": "Hold to spin, hitting everything around you. 4 Embers per spin.",
+    "p": {
+      "damage": 0.8,
+      "cooldown": 0.25,
+      "radius": 36,
+      "pulses": 1,
+      "pull": 0,
+      "knockback": 20,
+      "cost": 4
+    },
+    "runes": []
+  },
+  {
+    "id": "molten_hammer",
+    "name": "Molten Hammer",
+    "kind": "trap",
+    "slot": "core",
+    "type": "core",
+    "unlock": 11,
+    "tags": [
+      "melee",
+      "fire",
+      "aoe"
+    ],
+    "desc": "Slam the ground in front of you and leave a lava pool. 45 Embers.",
+    "p": {
+      "dps": 3.2,
+      "cooldown": 0.8,
+      "radius": 38,
+      "duration": 3,
+      "castRange": 40,
+      "slowPct": 0,
+      "cost": 45
+    },
+    "runes": []
+  },
+  {
+    "id": "iron_skin",
+    "name": "Iron Skin",
+    "kind": "shout",
+    "slot": "support",
+    "type": "support",
+    "unlock": 8,
+    "tags": [
+      "defence"
+    ],
+    "desc": "Take far less damage for 4 seconds.",
+    "p": {
+      "cooldown": 18,
+      "radius": 1,
+      "duration": 4,
+      "armorPct": 200,
+      "selfOnly": 1
+    },
+    "runes": []
+  },
+  {
+    "id": "chain_hook",
+    "name": "Chain Hook",
+    "kind": "projectile",
+    "slot": "support",
+    "type": "support",
+    "unlock": 10,
+    "tags": [
+      "physical",
+      "projectile"
+    ],
+    "desc": "Hook enemies in a line, pull them to you and taunt them.",
+    "p": {
+      "damage": 0.6,
+      "cooldown": 10,
+      "speed": 320,
+      "range": 150,
+      "radius": 6,
+      "count": 1,
+      "spreadSteps": 1,
+      "pierce": 1,
+      "knockback": -160,
+      "tauntOnHit": 3
+    },
+    "runes": []
+  },
+  {
+    "id": "phoenix_form",
+    "name": "Phoenix Form",
+    "kind": "shout",
+    "slot": "ultimate",
+    "type": "ultimate",
+    "unlock": 12,
+    "tags": [
+      "fire"
+    ],
+    "desc": "For 10 seconds you deal 60% more damage and heal 30% of your life.",
+    "p": {
+      "cooldown": 90,
+      "radius": 1,
+      "duration": 10,
+      "dmgPct": 60,
+      "healPct": 0.3,
+      "selfOnly": 1
+    },
+    "runes": []
+  },
+  {
+    "id": "inferno_pillar",
+    "name": "Inferno Pillar",
+    "kind": "trap",
+    "slot": "ultimate",
+    "type": "ultimate",
+    "unlock": 12,
+    "tags": [
+      "fire",
+      "aoe"
+    ],
+    "desc": "A huge burning column at your aim point for 5 seconds.",
+    "p": {
+      "dps": 6,
+      "cooldown": 60,
+      "radius": 56,
+      "duration": 5,
+      "castRange": 130,
+      "slowPct": 30,
+      "slowT": 0.6
+    },
+    "runes": []
+  },
+  {
+    "id": "bone_shot",
+    "name": "Bone Shot",
+    "kind": "projectile",
+    "slot": "generator",
+    "type": "generator",
+    "unlock": 3,
+    "tags": [
+      "projectile",
+      "physical",
+      "pierce",
+      "single"
+    ],
+    "desc": "Slower shot that pierces enemies.",
+    "p": {
+      "damage": 1.3,
+      "interval": 0.45,
+      "speed": 280,
+      "range": 220,
+      "radius": 3,
+      "count": 1,
+      "spreadSteps": 1,
+      "pierce": 1,
+      "knockback": 35,
+      "gen": 8
+    },
+    "runes": []
+  },
+  {
+    "id": "shadow_knives",
+    "name": "Shadow Knives",
+    "kind": "projectile",
+    "slot": "generator",
+    "type": "generator",
+    "unlock": 7,
+    "tags": [
+      "projectile",
+      "physical",
+      "aoe"
+    ],
+    "desc": "Short-range fan of 3 knives.",
+    "p": {
+      "damage": 0.55,
+      "interval": 0.36,
+      "speed": 300,
+      "range": 100,
+      "radius": 3,
+      "count": 3,
+      "spreadSteps": 2,
+      "pierce": 0,
+      "knockback": 20,
+      "gen": 10
+    },
+    "runes": []
+  },
+  {
+    "id": "hex_rain",
+    "name": "Hex Rain",
+    "kind": "trap",
+    "slot": "core",
+    "type": "core",
+    "unlock": 5,
+    "tags": [
+      "aoe",
+      "projectile"
+    ],
+    "desc": "Arrows rain on an area for 2 seconds. 35 Focus.",
+    "p": {
+      "dps": 4.5,
+      "cooldown": 0.6,
+      "radius": 40,
+      "duration": 2,
+      "castRange": 160,
+      "slowPct": 20,
+      "slowT": 0.4,
+      "cost": 35
+    },
+    "runes": []
+  },
+  {
+    "id": "soulpiercer",
+    "name": "Soulpiercer",
+    "kind": "projectile",
+    "slot": "core",
+    "type": "core",
+    "unlock": 9,
+    "tags": [
+      "projectile",
+      "pierce",
+      "physical",
+      "single"
+    ],
+    "desc": "Long piercing shot through every enemy in a line. 30 Focus.",
+    "p": {
+      "damage": 3,
+      "cooldown": 0.5,
+      "speed": 420,
+      "range": 300,
+      "radius": 5,
+      "count": 1,
+      "spreadSteps": 1,
+      "pierce": 1,
+      "knockback": 40,
+      "cost": 30
+    },
+    "runes": []
+  },
+  {
+    "id": "smoke_veil",
+    "name": "Smoke Veil",
+    "kind": "shout",
+    "slot": "support",
+    "type": "support",
+    "unlock": 10,
+    "tags": [
+      "defence"
+    ],
+    "desc": "Vanish into smoke: take much less damage for 3 seconds and refill 40 Focus.",
+    "p": {
+      "cooldown": 16,
+      "radius": 1,
+      "duration": 3,
+      "armorPct": 300,
+      "selfOnly": 1,
+      "resGain": 40
+    },
+    "runes": []
+  },
+  {
+    "id": "night_hunt",
+    "name": "Night Hunt",
+    "kind": "shout",
+    "slot": "ultimate",
+    "type": "ultimate",
+    "unlock": 12,
+    "tags": [
+      "support"
+    ],
+    "desc": "For 8 seconds nearby enemies take 35% more damage and the party deals 25% more.",
+    "p": {
+      "cooldown": 75,
+      "radius": 140,
+      "duration": 8,
+      "dmgPct": 25,
+      "vulnPct": 35
+    },
+    "runes": []
+  },
+  {
+    "id": "banshee_wail",
+    "name": "Banshee Wail",
+    "kind": "shout",
+    "slot": "ultimate",
+    "type": "ultimate",
+    "unlock": 12,
+    "tags": [
+      "cold",
+      "aoe"
+    ],
+    "desc": "A wail that hits and badly slows everything around you.",
+    "p": {
+      "cooldown": 50,
+      "radius": 120,
+      "duration": 0.1,
+      "shoutDamage": 4,
+      "slowAll": 70
+    },
+    "runes": []
+  },
+  {
+    "id": "spark",
+    "name": "Spark",
+    "kind": "projectile",
+    "slot": "generator",
+    "type": "generator",
+    "unlock": 1,
+    "tags": [
+      "projectile",
+      "lightning",
+      "single"
+    ],
+    "desc": "Lightning bolt that jumps to 2 more enemies.",
+    "p": {
+      "damage": 1.05,
+      "interval": 0.34,
+      "speed": 360,
+      "range": 200,
+      "radius": 3,
+      "count": 1,
+      "spreadSteps": 1,
+      "pierce": 0,
+      "knockback": 15,
+      "chain": 2,
+      "chainMult": 0.6,
+      "chainRange": 70,
+      "gen": 8
+    },
+    "runes": []
+  },
+  {
+    "id": "magic_missile",
+    "name": "Magic Missile",
+    "kind": "projectile",
+    "slot": "generator",
+    "type": "generator",
+    "unlock": 3,
+    "tags": [
+      "projectile",
+      "arcane",
+      "single"
+    ],
+    "desc": "Three arcane darts.",
+    "p": {
+      "damage": 0.45,
+      "interval": 0.32,
+      "speed": 300,
+      "range": 200,
+      "radius": 3,
+      "count": 3,
+      "spreadSteps": 1,
+      "pierce": 0,
+      "knockback": 10,
+      "gen": 5
+    },
+    "runes": []
+  },
+  {
+    "id": "static_touch",
+    "name": "Static Touch",
+    "kind": "melee",
+    "slot": "generator",
+    "type": "generator",
+    "unlock": 7,
+    "tags": [
+      "melee",
+      "lightning",
+      "single"
+    ],
+    "desc": "Close-range shock that knocks enemies back.",
+    "p": {
+      "damage": 1.4,
+      "interval": 0.4,
+      "range": 26,
+      "arcCos": 0.4,
+      "knockback": 130,
+      "genPerHit": 9,
+      "genMax": 18
+    },
+    "runes": []
+  },
+  {
+    "id": "chain_lightning",
+    "name": "Chain Lightning",
+    "kind": "projectile",
+    "slot": "core",
+    "type": "core",
+    "unlock": 1,
+    "tags": [
+      "projectile",
+      "lightning",
+      "single"
+    ],
+    "desc": "Big bolt that jumps to up to 6 enemies. 30 Mana.",
+    "p": {
+      "damage": 3.4,
+      "cooldown": 0.4,
+      "speed": 420,
+      "range": 220,
+      "radius": 4,
+      "count": 1,
+      "spreadSteps": 1,
+      "pierce": 0,
+      "knockback": 20,
+      "chain": 6,
+      "chainMult": 0.75,
+      "chainRange": 90,
+      "cost": 22
+    },
+    "runes": []
+  },
+  {
+    "id": "arcane_orb",
+    "name": "Arcane Orb",
+    "kind": "projectile",
+    "slot": "core",
+    "type": "core",
+    "unlock": 1,
+    "tags": [
+      "projectile",
+      "arcane",
+      "aoe"
+    ],
+    "desc": "Slow orb that hits everything it passes through. 40 Mana.",
+    "p": {
+      "damage": 2,
+      "cooldown": 0.5,
+      "speed": 130,
+      "range": 230,
+      "radius": 12,
+      "count": 1,
+      "spreadSteps": 1,
+      "pierce": 1,
+      "knockback": 30,
+      "cost": 35
+    },
+    "runes": []
+  },
+  {
+    "id": "thunderstorm",
+    "name": "Thunderstorm",
+    "kind": "trap",
+    "slot": "core",
+    "type": "core",
+    "unlock": 5,
+    "tags": [
+      "lightning",
+      "aoe"
+    ],
+    "desc": "Lightning strikes an area for 3 seconds. 50 Mana.",
+    "p": {
+      "dps": 5.5,
+      "cooldown": 0.6,
+      "radius": 48,
+      "duration": 3,
+      "castRange": 170,
+      "slowPct": 0,
+      "cost": 50
+    },
+    "runes": []
+  },
+  {
+    "id": "disintegrate",
+    "name": "Disintegrate",
+    "kind": "projectile",
+    "slot": "core",
+    "type": "core",
+    "unlock": 9,
+    "tags": [
+      "arcane",
+      "single",
+      "pierce"
+    ],
+    "desc": "Hold to fire a piercing arcane beam. 5 Mana per pulse.",
+    "p": {
+      "damage": 0.75,
+      "cooldown": 0.12,
+      "speed": 700,
+      "range": 200,
+      "radius": 4,
+      "count": 1,
+      "spreadSteps": 1,
+      "pierce": 1,
+      "knockback": 0,
+      "cost": 5
+    },
+    "runes": []
+  },
+  {
+    "id": "blink",
+    "name": "Blink",
+    "kind": "dash",
+    "slot": "support",
+    "type": "support",
+    "unlock": 1,
+    "tags": [
+      "arcane",
+      "dash"
+    ],
+    "desc": "Teleport a short distance.",
+    "p": {
+      "damage": 0,
+      "cooldown": 6,
+      "distance": 110,
+      "duration": 0.08,
+      "knockback": 0,
+      "charges": 1
+    },
+    "runes": []
+  },
+  {
+    "id": "mana_shield",
+    "name": "Mana Shield",
+    "kind": "shout",
+    "slot": "support",
+    "type": "support",
+    "unlock": 2,
+    "tags": [
+      "defence",
+      "arcane"
+    ],
+    "desc": "Take 60% less damage for 6 seconds and restore 30 Mana.",
+    "p": {
+      "cooldown": 20,
+      "radius": 1,
+      "duration": 6,
+      "armorPct": 150,
+      "selfOnly": 1,
+      "resGain": 30
+    },
+    "runes": []
+  },
+  {
+    "id": "static_field",
+    "name": "Static Field",
+    "kind": "shout",
+    "slot": "support",
+    "type": "support",
+    "unlock": 4,
+    "tags": [
+      "lightning",
+      "aoe"
+    ],
+    "desc": "Shock and badly slow everything near you.",
+    "p": {
+      "cooldown": 10,
+      "radius": 90,
+      "duration": 0.1,
+      "shoutDamage": 1.5,
+      "slowAll": 50
+    },
+    "runes": []
+  },
+  {
+    "id": "storm_avatar",
+    "name": "Storm Avatar",
+    "kind": "shout",
+    "slot": "ultimate",
+    "type": "ultimate",
+    "unlock": 6,
+    "tags": [
+      "lightning"
+    ],
+    "desc": "For 10 seconds deal 50% more damage and cast 30% faster.",
+    "p": {
+      "cooldown": 90,
+      "radius": 1,
+      "duration": 10,
+      "dmgPct": 50,
+      "cdrPct": 30,
+      "selfOnly": 1
+    },
+    "runes": []
+  },
+  {
+    "id": "black_hole",
+    "name": "Black Hole",
+    "kind": "nova",
+    "slot": "ultimate",
+    "type": "ultimate",
+    "unlock": 10,
+    "tags": [
+      "arcane",
+      "aoe"
+    ],
+    "desc": "Pulls nearby enemies in and crushes them 4 times.",
+    "p": {
+      "cooldown": 60,
+      "damage": 2.5,
+      "radius": 90,
+      "pulses": 4,
+      "pull": 1,
+      "knockback": 0
+    },
+    "runes": []
+  },
+  {
+    "id": "arcane_torrent",
+    "name": "Arcane Torrent",
+    "kind": "projectile",
+    "slot": "ultimate",
+    "type": "ultimate",
+    "unlock": 12,
+    "tags": [
+      "projectile",
+      "arcane",
+      "aoe"
+    ],
+    "desc": "Fire a wide fan of 15 arcane missiles.",
+    "p": {
+      "damage": 1.4,
+      "cooldown": 45,
+      "speed": 320,
+      "range": 220,
+      "radius": 4,
+      "count": 15,
+      "spreadSteps": 2,
+      "pierce": 1,
+      "knockback": 20
+    },
+    "runes": []
+  }
 ]

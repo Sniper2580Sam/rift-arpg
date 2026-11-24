@@ -236,5 +236,87 @@
   "scales": [
    "vulnOnHit"
   ]
+ },
+ {
+  "id": "ashen_vow",
+  "name": "Ashen Vow",
+  "slot": "belt",
+  "tag": "any",
+  "text": "Your generators build 60% more resource.",
+  "mul": {
+   "gen": 1.6,
+   "genPerHit": 1.6
+  },
+  "scales": [],
+  "pct": []
+ },
+ {
+  "id": "hunters_patience",
+  "name": "Hunter's Patience",
+  "slot": "ring",
+  "tag": "any",
+  "text": "Killing an enemy with a skill that costs resource refunds {refundOnKill} of its cost.",
+  "set": {
+   "refundOnKill": 0.25
+  },
+  "player": true,
+  "scales": [
+   "refundOnKill"
+  ],
+  "pct": [
+   "refundOnKill"
+  ]
+ },
+ {
+  "id": "cinder_heart",
+  "name": "Cinder Heart",
+  "slot": "amulet",
+  "tag": "any",
+  "text": "Taking damage gives you {resOnHurt} resource.",
+  "set": {
+   "resOnHurt": 6
+  },
+  "player": true,
+  "scales": [
+   "resOnHurt"
+  ]
+ },
+ {
+  "id": "conduit_rod",
+  "name": "Conduit Rod",
+  "slot": "weapon",
+  "tag": "lightning",
+  "text": "Lightning skills jump to {chain} more enemies.",
+  "add": {
+   "chain": 2
+  },
+  "scales": [
+   "chain"
+  ],
+  "pct": []
+ },
+ {
+  "id": "void_lens",
+  "name": "Void Lens",
+  "slot": "offhand",
+  "tag": "arcane",
+  "text": "Arcane skills cost 30% less resource.",
+  "mul": {
+   "cost": 0.7
+  },
+  "scales": [],
+  "pct": []
+ },
+ {
+  "id": "tempest_mantle",
+  "name": "Tempest Mantle",
+  "slot": "shoulders",
+  "tag": "aoe",
+  "text": "Area skills are 30% larger.",
+  "mul": {
+   "radius": 1.3
+  },
+  "scales": [],
+  "pct": []
  }
 ]

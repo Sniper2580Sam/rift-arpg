@@ -20,8 +20,10 @@ export type Num = Record<string, number>;
 
 export interface ModDef { tag?: string; skill?: string; set?: Num; add?: Num; mul?: Num; addTags?: string[]; player?: boolean; text?: string }
 export interface RuneDef { id: string; name: string; uses: number; desc: string; set?: Num; add?: Num; mul?: Num; addTags?: string[]; removeTags?: string[] }
-export interface SkillDef { id: string; name: string; kind: string; slot: string; unlock: number; tags: string[]; desc: string; p: Num; runes: RuneDef[] }
-export interface ClassDef { name: string; role: string; desc: string; baseHp: number; hpPerLevel: number; speed: number; fists: [number, number]; skills: string[] }
+export type SkillType = "generator" | "core" | "support" | "ultimate";
+export interface SkillDef { id: string; name: string; kind: string; slot: string; type: SkillType; unlock: number; tags: string[]; desc: string; p: Num; runes: RuneDef[] }
+export interface ClassDef { name: string; role: string; desc: string; baseHp: number; hpPerLevel: number; speed: number; fists: [number, number]; skills: string[]; loadout: string[]; resource: ResourceDef }
+export interface ResourceDef { id: string; name: string; max: number; start: number; regen: number; decayAfter: number; decay: number; onHurt: number; color: string }
 export interface EnemyDef {
   name: string; hp: number; damage: number; speed: number; radius: number; xp: number;
   attackRange: number; attackCooldown: number; windup: number; progress: number; dropChance: number;
@@ -58,3 +60,16 @@ export const slotTypeOf = (e: EquipSlot): SlotType => (e === "ring1" || e === "r
 
 export function xpForLevel(l: number): number { return Math.round(RIFT.levels.xpBase * Math.pow(l, RIFT.levels.xpExp)); }
 export function levelPower(l: number): number { return 1 + RIFT.levels.powerPerLevel * (l - 1); }
+
+export const LOADOUT_SIZE = 4;
+/** 4 distinct class skills, at most one ultimate; anything invalid falls back to the class default. */
+export function validLoadout(cls: string, want: string[] | undefined): string[] {
+  const C = CLASSES[cls], out: string[] = [];
+  for (const id of want ?? []) {
+    if (out.length >= LOADOUT_SIZE || !C.skills.includes(id) || out.includes(id)) continue;
+    if (SKILL[id].type === "ultimate" && out.some((x) => SKILL[x].type === "ultimate")) continue;
+    out.push(id);
+  }
+  for (const id of C.loadout) if (out.length < LOADOUT_SIZE && !out.includes(id)) out.push(id);
+  return out;
+}

@@ -1,12 +1,135 @@
 {
   "ashknight": {
-    "name": "Ashknight", "role": "Tank / DPS", "desc": "Melee fire knight. Holds the line, shouts to protect the party.",
-    "baseHp": 210, "hpPerLevel": 14, "speed": 80, "fists": [5, 8],
-    "skills": ["cleave", "ember_lance", "ash_dash", "warcry", "flame_nova", "cinderlings"]
+    "name": "Ashknight",
+    "role": "Tank / DPS",
+    "desc": "Melee fire knight. Holds the line, shouts to protect the party.",
+    "baseHp": 210,
+    "hpPerLevel": 14,
+    "speed": 80,
+    "fists": [
+      5,
+      8
+    ],
+    "skills": [
+      "cleave",
+      "searing_strike",
+      "shield_bash",
+      "ember_lance",
+      "flame_nova",
+      "whirling_ash",
+      "molten_hammer",
+      "ash_dash",
+      "warcry",
+      "iron_skin",
+      "chain_hook",
+      "cinderlings",
+      "phoenix_form",
+      "inferno_pillar"
+    ],
+    "resource": {
+      "id": "embers",
+      "name": "Embers",
+      "max": 100,
+      "start": 0,
+      "regen": 0,
+      "decayAfter": 4,
+      "decay": 12,
+      "onHurt": 3,
+      "color": "#ff8a1f"
+    },
+    "loadout": [
+      "cleave",
+      "ember_lance",
+      "ash_dash",
+      "warcry"
+    ]
   },
   "gloomstalker": {
-    "name": "Gloomstalker", "role": "DPS / Support", "desc": "Ranged hunter. Kites with bolts and traps, heals the party with a banner.",
-    "baseHp": 170, "hpPerLevel": 11, "speed": 84, "fists": [5, 8],
-    "skills": ["hex_bolt", "volley", "tumble", "frost_snare", "rally_banner", "raven_swarm"]
+    "name": "Gloomstalker",
+    "role": "DPS / Support",
+    "desc": "Ranged hunter. Kites with bolts and traps, heals the party with a banner.",
+    "baseHp": 170,
+    "hpPerLevel": 11,
+    "speed": 84,
+    "fists": [
+      5,
+      8
+    ],
+    "skills": [
+      "hex_bolt",
+      "bone_shot",
+      "shadow_knives",
+      "volley",
+      "hex_rain",
+      "soulpiercer",
+      "tumble",
+      "frost_snare",
+      "rally_banner",
+      "smoke_veil",
+      "raven_swarm",
+      "night_hunt",
+      "banshee_wail"
+    ],
+    "resource": {
+      "id": "focus",
+      "name": "Focus",
+      "max": 100,
+      "start": 100,
+      "regen": 8,
+      "decayAfter": 0,
+      "decay": 0,
+      "onHurt": 0,
+      "color": "#7dff9a"
+    },
+    "loadout": [
+      "hex_bolt",
+      "volley",
+      "tumble",
+      "frost_snare"
+    ]
+  },
+  "stormcaller": {
+    "name": "Stormcaller",
+    "role": "DPS / Control",
+    "desc": "Storm and arcane caster. Fragile, with the best area damage. Watch your Mana.",
+    "baseHp": 210,
+    "hpPerLevel": 11,
+    "speed": 82,
+    "fists": [
+      5,
+      9
+    ],
+    "skills": [
+      "spark",
+      "magic_missile",
+      "static_touch",
+      "chain_lightning",
+      "arcane_orb",
+      "thunderstorm",
+      "disintegrate",
+      "blink",
+      "mana_shield",
+      "static_field",
+      "storm_avatar",
+      "black_hole",
+      "arcane_torrent"
+    ],
+    "loadout": [
+      "spark",
+      "chain_lightning",
+      "blink",
+      "arcane_orb"
+    ],
+    "resource": {
+      "id": "mana",
+      "name": "Mana",
+      "max": 150,
+      "start": 150,
+      "regen": 8,
+      "decayAfter": 0,
+      "decay": 0,
+      "onHurt": 0,
+      "color": "#5fb0ff"
+    }
   }
 }

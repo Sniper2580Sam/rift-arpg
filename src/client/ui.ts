@@ -1,5 +1,5 @@
 // DOM screens: hub (play / gear / skills / settings), inventory with compare + reroll, boon picker, results.
-import { BOON, CLASSES, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { BOON, CLASSES, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -83,6 +83,7 @@ export interface HubHandlers {
   invCmd: (c: InvCmd) => void;
   setClass: (cls: string) => void;
   setRune: (skill: string, rune: string) => void;
+  setSkill: (slot: number, skill: string) => void;
   reroll: (bagOrSlot: { bag?: number; slot?: EquipSlot }, affixIdx: number, choice: Affix | null) => void;
   setting: (k: string, v: any) => void;
   newSeason: () => void;
@@ -103,6 +104,7 @@ export class UI {
   sel: { where: "bag"; i: number } | { where: "eq"; slot: EquipSlot } | null = null;
   rerollState: { idx: number; options: Affix[] } | null = null;
   invOpen = false;
+  skSlot = 0;
   tier = 1;
   private toastT = 0;
   constructor(private bank: SpriteBank) {}
@@ -135,7 +137,11 @@ export class UI {
     const re = () => this.showHub(p, H);
     if (this.tab === "play") this.bindPlay(p, c, H, re);
     if (this.tab === "gear") this.bindGear(p, { equipment: c.equipment, bag: c.bag, materials: p.materials }, H, re, true);
-    if (this.tab === "skills") this.root.querySelectorAll<HTMLElement>("[data-rune]").forEach((el) => el.onclick = () => { const [sk, r] = el.dataset.rune!.split(":"); H.setRune(sk, r); re(); });
+    if (this.tab === "skills") {
+      this.root.querySelectorAll<HTMLElement>("[data-rune]").forEach((el) => el.onclick = () => { const [sk, r] = el.dataset.rune!.split(":"); H.setRune(sk, r); re(); });
+      this.root.querySelectorAll<HTMLElement>("[data-slot]").forEach((el) => el.onclick = () => { this.skSlot = +el.dataset.slot!; re(); });
+      this.root.querySelectorAll<HTMLElement>("[data-equip]").forEach((el) => el.onclick = () => { H.setSkill(this.skSlot, el.dataset.equip!); re(); });
+    }
     if (this.tab === "settings") this.bindSettings(p, H, re);
   }
 
@@ -162,8 +168,8 @@ export class UI {
       <button id="chase" class="chase" ${c.sigils > 0 ? "" : "disabled"}>Challenge the Ossuary King (uses 1 Bone Sigil · you have ${c.sigils})</button>
       <div class="dim small">Bone Sigils drop from guardians at tier ${T.sigilFrom}+. The King is a 3-phase fight with a ${Math.round(RIFT.chase.mythicChance * 100)}% mythic chance.</div>
       <div class="help">
-        <b>Desktop:</b> WASD move · LMB primary · RMB/E secondary · Space, Q, R utilities · F ultimate · I bag · M mute<br>
-        <b>Touch:</b> left thumb moves · six buttons on the right · aiming is automatic (bosses and elites first)
+        <b>Desktop:</b> WASD move · skills on LMB, RMB (or E), Space (or Q) and R (or F) · I bag · M mute<br>
+        <b>Touch:</b> left thumb moves · four skill buttons on the right · aiming is automatic (bosses and elites first)
       </div>`;
   }
   private coopBox(co: CoopHub) {
@@ -283,18 +289,33 @@ export class UI {
 
   // ---------------------------------------------------------------- skills
   private skillsTab(c: CharSave) {
-    const rows = CLASSES[c.cls].skills.map((id, slot) => {
+    const R = CLASSES[c.cls].resource;
+    const bar = validLoadout(c.cls, c.loadout);
+    const slots = bar.map((id, i) => `<button class="sk-slot ${this.skSlot === i ? "on" : ""}" data-slot="${i}"><small>${KEY_LABELS[i]}</small><b>${esc(SKILL[id].name)}</b><span class="dim">${SKILL[id].type}</span></button>`).join("");
+    const costText = (id: string) => {
+      const P = SKILL[id].p;
+      const parts: string[] = [];
+      if (P.cost) parts.push(`${P.cost} ${R.name}`);
+      if (P.gen) parts.push(`+${P.gen} ${R.name}`);
+      if (P.genPerHit) parts.push(`+${P.genPerHit} ${R.name} per hit`);
+      if (P.cooldown && P.cooldown >= 2) parts.push(`${P.cooldown}s cooldown`);
+      return parts.join(" · ");
+    };
+    const group = (type: string, title: string) => CLASSES[c.cls].skills.filter((id) => SKILL[id].type === type).map((id) => {
       const d = SKILL[id];
       const locked = c.level < d.unlock;
       const uses = c.uses[id] ?? 0;
       const cur = c.runes[id];
+      const at = bar.indexOf(id);
       const runes = d.runes.map((r) => {
         const ok = !locked && uses >= r.uses;
         return `<button class="rune ${cur === r.id ? "on" : ""}" ${ok ? `data-rune="${id}:${cur === r.id ? "" : r.id}"` : "disabled"} title="${esc(r.desc)}"><b>${esc(r.name)}</b><small>${ok ? esc(r.desc) : `after ${r.uses} uses (${uses})`}</small></button>`;
       }).join("");
-      return `<div class="skill ${locked ? "locked" : ""}"><div class="sk-head"><b>${esc(d.name)}</b> <span class="dim">${SKILL_SLOT_NAME[slot]} · ${KEY_LABELS[slot]} · ${d.tags.filter((t) => t !== "projectile").join(" · ")}</span>${locked ? ` <span class="lock">unlocks at level ${d.unlock}</span>` : ""}</div><div class="dim small">${esc(d.desc)}</div><div class="runes">${runes}</div></div>`;
+      const btn = locked ? `<span class="lock">unlocks at level ${d.unlock}</span>` : at === this.skSlot ? `<span class="eq">equipped</span>` : `<button class="equip" data-equip="${id}">${at >= 0 ? `Move to slot ${this.skSlot + 1}` : `Equip in slot ${this.skSlot + 1}`}</button>`;
+      return `<div class="skill ${locked ? "locked" : ""} ${at >= 0 ? "inbar" : ""}"><div class="sk-head"><b>${esc(d.name)}</b>${at >= 0 ? ` <span class="eq">${KEY_LABELS[at]}</span>` : ""} <span class="dim">${esc(costText(id))}</span> ${btn}</div><div class="dim small">${esc(d.desc)}</div>${runes ? `<div class="runes">${runes}</div>` : `<div class="dim small">Runes for this skill come in a later update.</div>`}</div>`;
     }).join("");
-    return `<div class="dim small">Runes unlock by using the skill. Tap a rune to select it, tap again to clear it. Runes can add tags (e.g. Searing Edge makes Cleave a fire skill), which changes which items and sets affect the skill.</div>${rows}`;
+    const groups = ([["generator", "Generators: build " + R.name], ["core", "Core: spend " + R.name], ["support", "Support"], ["ultimate", "Ultimate (one at a time)"]] as const).map(([t, title]) => `<h3 class="sk-type">${title}</h3>${group(t, title)}`).join("");
+    return `<div class="dim small">Pick any 4 skills, with at most one ultimate. Tap a slot, then a skill to put there. ${esc(R.name)}: ${R.regen ? `refills ${R.regen} per second` : `built by hits, fades after ${R.decayAfter}s out of combat`}, max ${R.max}. Runes unlock by using a skill.</div><div class="sk-bar">${slots}</div>${groups}`;
   }
 
   // ---------------------------------------------------------------- settings

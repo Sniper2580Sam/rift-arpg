@@ -1,21 +1,384 @@
 [
-  { "id": "dmg_pct",    "text": "+{v}% Damage",                  "min": 5,  "max": 15, "slots": ["weapon", "helm", "chest", "gloves", "boots", "amulet", "ring", "shoulders", "offhand"] },
-  { "id": "crit_chance","text": "+{v}% Critical Hit Chance",     "min": 2,  "max": 6,  "slots": ["helm", "gloves", "bracers", "amulet", "ring"] },
-  { "id": "crit_dmg",   "text": "+{v}% Critical Hit Damage",     "min": 15, "max": 40, "slots": ["weapon", "gloves", "amulet", "ring"] },
-  { "id": "atk_speed",  "text": "+{v}% Attack Speed",            "min": 3,  "max": 8,  "slots": ["weapon", "gloves", "bracers", "amulet", "ring", "shoulders"] },
-  { "id": "life",       "text": "+{v} Life",                     "min": 20, "max": 60, "flat": true, "slots": ["helm", "chest", "boots", "pants", "belt", "shoulders", "offhand", "amulet"] },
-  { "id": "armor",      "text": "+{v} Armor",                    "min": 10, "max": 30, "flat": true, "slots": ["helm", "chest", "gloves", "boots", "pants", "belt", "shoulders", "bracers", "offhand"] },
-  { "id": "regen",      "text": "+{v} Life per Second",          "min": 2,  "max": 6,  "flat": true, "slots": ["chest", "pants", "belt", "amulet", "ring"] },
-  { "id": "move_speed", "text": "+{v}% Movement Speed",          "min": 4,  "max": 10, "slots": ["boots"] },
-  { "id": "cdr",        "text": "Reduces cooldowns by {v}%",     "min": 3,  "max": 8,  "slots": ["helm", "gloves", "weapon", "shoulders", "amulet", "ring", "offhand"] },
-  { "id": "life_on_hit","text": "+{v} Life per Hit",             "min": 1,  "max": 4,  "flat": true, "slots": ["weapon", "gloves", "bracers", "ring"] },
-  { "id": "elite_dmg",  "text": "+{v}% Damage to Elites and Bosses", "min": 5, "max": 15, "slots": ["bracers", "amulet", "ring", "offhand"] },
-  { "id": "tag_fire",   "text": "Fire skills deal +{v}% damage",   "min": 8, "max": 20, "slots": ["weapon", "helm", "chest", "gloves", "boots", "shoulders", "bracers", "belt", "pants", "amulet", "offhand"] },
-  { "id": "tag_cold",   "text": "Cold skills deal +{v}% damage",   "min": 8, "max": 20, "slots": ["weapon", "helm", "chest", "gloves", "boots", "shoulders", "bracers", "belt", "pants", "amulet", "offhand"] },
-  { "id": "tag_physical","text": "Physical skills deal +{v}% damage","min": 8, "max": 20, "slots": ["weapon", "helm", "chest", "gloves", "boots", "shoulders", "bracers", "belt", "pants", "amulet", "offhand"] },
-  { "id": "tag_melee",  "text": "Melee skills deal +{v}% damage",  "min": 8, "max": 20, "slots": ["weapon", "helm", "chest", "gloves", "boots", "shoulders", "bracers", "belt", "pants"] },
-  { "id": "tag_pierce", "text": "Pierce skills deal +{v}% damage", "min": 8, "max": 20, "slots": ["weapon", "helm", "chest", "gloves", "boots", "shoulders", "bracers", "belt", "pants"] },
-  { "id": "tag_dash",   "text": "Dash skills deal +{v}% damage",   "min": 8, "max": 20, "slots": ["weapon", "helm", "chest", "gloves", "boots", "shoulders", "bracers", "belt", "pants"] },
-  { "id": "tag_summon", "text": "Summons deal +{v}% damage",       "min": 8, "max": 20, "slots": ["weapon", "helm", "chest", "gloves", "boots", "shoulders", "bracers", "belt", "pants"] },
-  { "id": "tag_aoe",    "text": "Area skills deal +{v}% damage",   "min": 8, "max": 20, "slots": ["weapon", "helm", "chest", "gloves", "boots", "shoulders", "bracers", "belt", "pants"] }
+ {
+  "id": "dmg_pct",
+  "text": "+{v}% Damage",
+  "min": 5,
+  "max": 15,
+  "slots": [
+   "weapon",
+   "helm",
+   "chest",
+   "gloves",
+   "boots",
+   "amulet",
+   "ring",
+   "shoulders",
+   "offhand"
+  ]
+ },
+ {
+  "id": "crit_chance",
+  "text": "+{v}% Critical Hit Chance",
+  "min": 2,
+  "max": 6,
+  "slots": [
+   "helm",
+   "gloves",
+   "bracers",
+   "amulet",
+   "ring"
+  ]
+ },
+ {
+  "id": "crit_dmg",
+  "text": "+{v}% Critical Hit Damage",
+  "min": 15,
+  "max": 40,
+  "slots": [
+   "weapon",
+   "gloves",
+   "amulet",
+   "ring"
+  ]
+ },
+ {
+  "id": "atk_speed",
+  "text": "+{v}% Attack Speed",
+  "min": 3,
+  "max": 8,
+  "slots": [
+   "weapon",
+   "gloves",
+   "bracers",
+   "amulet",
+   "ring",
+   "shoulders"
+  ]
+ },
+ {
+  "id": "life",
+  "text": "+{v} Life",
+  "min": 20,
+  "max": 60,
+  "flat": true,
+  "slots": [
+   "helm",
+   "chest",
+   "boots",
+   "pants",
+   "belt",
+   "shoulders",
+   "offhand",
+   "amulet"
+  ]
+ },
+ {
+  "id": "armor",
+  "text": "+{v} Armor",
+  "min": 10,
+  "max": 30,
+  "flat": true,
+  "slots": [
+   "helm",
+   "chest",
+   "gloves",
+   "boots",
+   "pants",
+   "belt",
+   "shoulders",
+   "bracers",
+   "offhand"
+  ]
+ },
+ {
+  "id": "regen",
+  "text": "+{v} Life per Second",
+  "min": 2,
+  "max": 6,
+  "flat": true,
+  "slots": [
+   "chest",
+   "pants",
+   "belt",
+   "amulet",
+   "ring"
+  ]
+ },
+ {
+  "id": "move_speed",
+  "text": "+{v}% Movement Speed",
+  "min": 4,
+  "max": 10,
+  "slots": [
+   "boots"
+  ]
+ },
+ {
+  "id": "cdr",
+  "text": "Reduces cooldowns by {v}%",
+  "min": 3,
+  "max": 8,
+  "slots": [
+   "helm",
+   "gloves",
+   "weapon",
+   "shoulders",
+   "amulet",
+   "ring",
+   "offhand"
+  ]
+ },
+ {
+  "id": "life_on_hit",
+  "text": "+{v} Life per Hit",
+  "min": 1,
+  "max": 4,
+  "flat": true,
+  "slots": [
+   "weapon",
+   "gloves",
+   "bracers",
+   "ring"
+  ]
+ },
+ {
+  "id": "elite_dmg",
+  "text": "+{v}% Damage to Elites and Bosses",
+  "min": 5,
+  "max": 15,
+  "slots": [
+   "bracers",
+   "amulet",
+   "ring",
+   "offhand"
+  ]
+ },
+ {
+  "id": "tag_fire",
+  "text": "Fire skills deal +{v}% damage",
+  "min": 8,
+  "max": 20,
+  "slots": [
+   "weapon",
+   "helm",
+   "chest",
+   "gloves",
+   "boots",
+   "shoulders",
+   "bracers",
+   "belt",
+   "pants",
+   "amulet",
+   "offhand"
+  ]
+ },
+ {
+  "id": "tag_cold",
+  "text": "Cold skills deal +{v}% damage",
+  "min": 8,
+  "max": 20,
+  "slots": [
+   "weapon",
+   "helm",
+   "chest",
+   "gloves",
+   "boots",
+   "shoulders",
+   "bracers",
+   "belt",
+   "pants",
+   "amulet",
+   "offhand"
+  ]
+ },
+ {
+  "id": "tag_physical",
+  "text": "Physical skills deal +{v}% damage",
+  "min": 8,
+  "max": 20,
+  "slots": [
+   "weapon",
+   "helm",
+   "chest",
+   "gloves",
+   "boots",
+   "shoulders",
+   "bracers",
+   "belt",
+   "pants",
+   "amulet",
+   "offhand"
+  ]
+ },
+ {
+  "id": "tag_melee",
+  "text": "Melee skills deal +{v}% damage",
+  "min": 8,
+  "max": 20,
+  "slots": [
+   "weapon",
+   "helm",
+   "chest",
+   "gloves",
+   "boots",
+   "shoulders",
+   "bracers",
+   "belt",
+   "pants"
+  ]
+ },
+ {
+  "id": "tag_pierce",
+  "text": "Pierce skills deal +{v}% damage",
+  "min": 8,
+  "max": 20,
+  "slots": [
+   "weapon",
+   "helm",
+   "chest",
+   "gloves",
+   "boots",
+   "shoulders",
+   "bracers",
+   "belt",
+   "pants"
+  ]
+ },
+ {
+  "id": "tag_dash",
+  "text": "Dash skills deal +{v}% damage",
+  "min": 8,
+  "max": 20,
+  "slots": [
+   "weapon",
+   "helm",
+   "chest",
+   "gloves",
+   "boots",
+   "shoulders",
+   "bracers",
+   "belt",
+   "pants"
+  ]
+ },
+ {
+  "id": "tag_summon",
+  "text": "Summons deal +{v}% damage",
+  "min": 8,
+  "max": 20,
+  "slots": [
+   "weapon",
+   "helm",
+   "chest",
+   "gloves",
+   "boots",
+   "shoulders",
+   "bracers",
+   "belt",
+   "pants"
+  ]
+ },
+ {
+  "id": "tag_aoe",
+  "text": "Area skills deal +{v}% damage",
+  "min": 8,
+  "max": 20,
+  "slots": [
+   "weapon",
+   "helm",
+   "chest",
+   "gloves",
+   "boots",
+   "shoulders",
+   "bracers",
+   "belt",
+   "pants"
+  ]
+ },
+ {
+  "id": "res_regen",
+  "text": "+{v} Resource per second",
+  "min": 1,
+  "max": 4,
+  "slots": [
+   "amulet",
+   "ring",
+   "belt",
+   "offhand"
+  ]
+ },
+ {
+  "id": "cost_red",
+  "text": "-{v}% Resource cost",
+  "min": 3,
+  "max": 8,
+  "slots": [
+   "helm",
+   "shoulders",
+   "amulet",
+   "weapon"
+  ]
+ },
+ {
+  "id": "res_max",
+  "text": "+{v} Maximum resource",
+  "min": 5,
+  "max": 20,
+  "slots": [
+   "chest",
+   "belt",
+   "pants"
+  ]
+ },
+ {
+  "id": "area_pct",
+  "text": "+{v}% Area of effect (area skills)",
+  "min": 5,
+  "max": 20,
+  "slots": [
+   "gloves",
+   "shoulders",
+   "amulet",
+   "pants",
+   "offhand"
+  ]
+ },
+ {
+  "id": "tag_lightning",
+  "text": "+{v}% Lightning damage",
+  "min": 8,
+  "max": 20,
+  "slots": [
+   "weapon",
+   "amulet",
+   "ring",
+   "helm",
+   "bracers"
+  ]
+ },
+ {
+  "id": "tag_arcane",
+  "text": "+{v}% Arcane damage",
+  "min": 8,
+  "max": 20,
+  "slots": [
+   "weapon",
+   "amulet",
+   "ring",
+   "chest",
+   "pants"
+  ]
+ },
+ {
+  "id": "tag_single",
+  "text": "+{v}% Single-target damage",
+  "min": 8,
+  "max": 20,
+  "slots": [
+   "weapon",
+   "gloves",
+   "ring",
+   "bracers"
+  ]
+ }
 ]

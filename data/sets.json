@@ -1,44 +1,248 @@
 [
-  { "id": "embersworn", "name": "Embersworn Regalia", "tag": "pierce", "skill": "ember_lance / volley", "color": "#3ddc84",
-    "pieces": { "helm": "Embersworn Visage", "shoulders": "Embersworn Mantle", "chest": "Embersworn Plate", "gloves": "Embersworn Grasp", "pants": "Embersworn Tassets", "boots": "Embersworn Stride" },
-    "bonuses": {
-      "2": { "text": "Pierce skills have 50% shorter cooldowns.", "tag": "pierce", "mul": { "cooldown": 0.5 } },
-      "4": { "text": "Pierce projectiles gain 25% damage for each enemy they pass through.", "tag": "pierce", "set": { "pierceGrow": 0.25 } },
-      "6": { "text": "Pierce skills deal 400% more damage and leave a burning line.", "tag": "pierce", "mul": { "power": 5 }, "set": { "trail": 1.0 } }
-    } },
-  { "id": "reaver", "name": "Reaver's Harness", "tag": "melee", "skill": "cleave", "color": "#3ddc84",
-    "pieces": { "weapon": "Reaver's Edge", "helm": "Reaver's Skull", "chest": "Reaver's Ribs", "bracers": "Reaver's Cuffs", "belt": "Reaver's Chain", "boots": "Reaver's Tread" },
-    "bonuses": {
-      "2": { "text": "Melee attacks are 30% faster.", "tag": "melee", "mul": { "interval": 0.77 } },
-      "4": { "text": "Melee hits heal 1% of max life and their range grows by 30%.", "tag": "melee", "set": { "healPerHit": 0.01 }, "mul": { "range": 1.3 } },
-      "6": { "text": "Melee skills deal 500% more damage.", "tag": "melee", "mul": { "power": 6 } }
-    } },
-  { "id": "cometborn", "name": "Cometborn Raiment", "tag": "dash", "skill": "ash_dash / tumble", "color": "#3ddc84",
-    "pieces": { "shoulders": "Cometborn Wings", "gloves": "Cometborn Grips", "belt": "Cometborn Sash", "pants": "Cometborn Leggings", "boots": "Cometborn Heels", "ring": "Cometborn Loop" },
-    "bonuses": {
-      "2": { "text": "Dash skills gain 2 charges.", "tag": "dash", "add": { "charges": 2 } },
-      "4": { "text": "Each enemy hit by a dash reduces all your cooldowns by 0.3 seconds.", "tag": "dash", "set": { "cdrOnHit": 0.3 } },
-      "6": { "text": "Dash skills deal 800% more damage and explode at the end.", "tag": "dash", "mul": { "power": 9 }, "set": { "endBlast": 3 } }
-    } },
-  { "id": "broodmother", "name": "Broodmother's Vestments", "tag": "summon", "skill": "cinderlings / raven_swarm", "color": "#3ddc84",
-    "pieces": { "helm": "Broodmother's Crest", "chest": "Broodmother's Nest", "gloves": "Broodmother's Claws", "pants": "Broodmother's Wraps", "amulet": "Broodmother's Heart", "offhand": "Broodmother's Egg" },
-    "bonuses": {
-      "2": { "text": "Summons get +2 minions.", "tag": "summon", "add": { "count": 2 } },
-      "4": { "text": "Summon cooldowns are 50% shorter and minions are 40% faster.", "tag": "summon", "mul": { "cooldown": 0.5, "speed": 1.4, "attackInterval": 0.7 } },
-      "6": { "text": "Minions deal 700% more damage.", "tag": "summon", "mul": { "power": 8 } }
-    } },
-  { "id": "wardens", "name": "Warden's Bulwark", "tag": "shout", "skill": "warcry / rally_banner", "color": "#3ddc84",
-    "pieces": { "offhand": "Warden's Wall", "shoulders": "Warden's Shoulders", "chest": "Warden's Breastplate", "bracers": "Warden's Bands", "belt": "Warden's Belt", "pants": "Warden's Greaves" },
-    "bonuses": {
-      "2": { "text": "Shout cooldowns are 40% shorter.", "tag": "shout", "mul": { "cooldown": 0.6 } },
-      "4": { "text": "While a shout buff is active you take 35% less damage.", "player": true, "set": { "buffDR": 0.35 } },
-      "6": { "text": "Shouts blast enemies for 2500% weapon damage and the party deals 50% more damage.", "tag": "shout", "set": { "shoutDamage": 25 }, "add": { "dmgPct": 50 } }
-    } },
-  { "id": "rimecaller", "name": "Rimecaller's Shroud", "tag": "cold", "skill": "cold runes, frost_snare", "color": "#3ddc84",
-    "pieces": { "weapon": "Rimecaller's Fang", "helm": "Rimecaller's Hood", "bracers": "Rimecaller's Frost", "gloves": "Rimecaller's Touch", "boots": "Rimecaller's Steps", "ring": "Rimecaller's Seal" },
-    "bonuses": {
-      "2": { "text": "Cold skills slow 20% more.", "tag": "cold", "add": { "slowPct": 20 } },
-      "4": { "text": "Slowed enemies take 40% more damage from you.", "tag": "cold", "set": { "slowVuln": 0.4 } },
-      "6": { "text": "Cold skills deal 600% more damage.", "tag": "cold", "mul": { "power": 7 } }
-    } }
+ {
+  "id": "embersworn",
+  "name": "Embersworn Regalia",
+  "tag": "pierce",
+  "skill": "ember_lance / volley",
+  "color": "#3ddc84",
+  "pieces": {
+   "helm": "Embersworn Visage",
+   "shoulders": "Embersworn Mantle",
+   "chest": "Embersworn Plate",
+   "gloves": "Embersworn Grasp",
+   "pants": "Embersworn Tassets",
+   "boots": "Embersworn Stride"
+  },
+  "bonuses": {
+   "2": {
+    "text": "Pierce skills have 50% shorter cooldowns.",
+    "tag": "pierce",
+    "mul": {
+     "cooldown": 0.5
+    }
+   },
+   "4": {
+    "text": "Pierce projectiles gain 25% damage for each enemy they pass through.",
+    "tag": "pierce",
+    "set": {
+     "pierceGrow": 0.25
+    }
+   },
+   "6": {
+    "text": "Pierce skills deal 400% more damage and leave a burning line.",
+    "tag": "pierce",
+    "mul": {
+     "power": 5
+    },
+    "set": {
+     "trail": 1.0
+    }
+   }
+  }
+ },
+ {
+  "id": "reaver",
+  "name": "Reaver's Harness",
+  "tag": "melee",
+  "skill": "cleave",
+  "color": "#3ddc84",
+  "pieces": {
+   "weapon": "Reaver's Edge",
+   "helm": "Reaver's Skull",
+   "chest": "Reaver's Ribs",
+   "bracers": "Reaver's Cuffs",
+   "belt": "Reaver's Chain",
+   "boots": "Reaver's Tread"
+  },
+  "bonuses": {
+   "2": {
+    "text": "Melee attacks are 30% faster.",
+    "tag": "melee",
+    "mul": {
+     "interval": 0.77
+    }
+   },
+   "4": {
+    "text": "Melee hits heal 1% of max life and their range grows by 30%.",
+    "tag": "melee",
+    "set": {
+     "healPerHit": 0.01
+    },
+    "mul": {
+     "range": 1.3
+    }
+   },
+   "6": {
+    "text": "Melee skills deal 500% more damage.",
+    "tag": "melee",
+    "mul": {
+     "power": 6
+    }
+   }
+  }
+ },
+ {
+  "id": "cometborn",
+  "name": "Cometborn Raiment",
+  "tag": "dash",
+  "skill": "ash_dash / tumble",
+  "color": "#3ddc84",
+  "pieces": {
+   "shoulders": "Cometborn Wings",
+   "gloves": "Cometborn Grips",
+   "belt": "Cometborn Sash",
+   "pants": "Cometborn Leggings",
+   "boots": "Cometborn Heels",
+   "ring": "Cometborn Loop"
+  },
+  "bonuses": {
+   "2": {
+    "text": "Dash skills gain 2 charges and generate 15 resource.",
+    "tag": "dash",
+    "add": {
+     "charges": 2,
+     "gen": 15
+    }
+   },
+   "4": {
+    "text": "Each enemy hit by a dash reduces all your cooldowns by 0.3 seconds.",
+    "tag": "dash",
+    "set": {
+     "cdrOnHit": 0.3
+    }
+   },
+   "6": {
+    "text": "Dash skills deal 800% more damage and explode at the end.",
+    "tag": "dash",
+    "mul": {
+     "power": 9
+    },
+    "set": {
+     "endBlast": 3
+    }
+   }
+  }
+ },
+ {
+  "id": "broodmother",
+  "name": "Broodmother's Vestments",
+  "tag": "summon",
+  "skill": "cinderlings / raven_swarm",
+  "color": "#3ddc84",
+  "pieces": {
+   "helm": "Broodmother's Crest",
+   "chest": "Broodmother's Nest",
+   "gloves": "Broodmother's Claws",
+   "pants": "Broodmother's Wraps",
+   "amulet": "Broodmother's Heart",
+   "offhand": "Broodmother's Egg"
+  },
+  "bonuses": {
+   "2": {
+    "text": "Summons get +2 minions.",
+    "tag": "summon",
+    "add": {
+     "count": 2
+    }
+   },
+   "4": {
+    "text": "Summon cooldowns are 50% shorter and minions are 40% faster.",
+    "tag": "summon",
+    "mul": {
+     "cooldown": 0.5,
+     "speed": 1.4,
+     "attackInterval": 0.7
+    }
+   },
+   "6": {
+    "text": "Minions deal 700% more damage.",
+    "tag": "summon",
+    "mul": {
+     "power": 8
+    }
+   }
+  }
+ },
+ {
+  "id": "wardens",
+  "name": "Warden's Bulwark",
+  "tag": "shout",
+  "skill": "warcry / rally_banner",
+  "color": "#3ddc84",
+  "pieces": {
+   "offhand": "Warden's Wall",
+   "shoulders": "Warden's Shoulders",
+   "chest": "Warden's Breastplate",
+   "bracers": "Warden's Bands",
+   "belt": "Warden's Belt",
+   "pants": "Warden's Greaves"
+  },
+  "bonuses": {
+   "2": {
+    "text": "Shout cooldowns are 40% shorter and shouts generate 20 resource.",
+    "tag": "shout",
+    "mul": {
+     "cooldown": 0.6
+    },
+    "add": {
+     "gen": 20
+    }
+   },
+   "4": {
+    "text": "While a shout buff is active you take 35% less damage.",
+    "player": true,
+    "set": {
+     "buffDR": 0.35
+    }
+   },
+   "6": {
+    "text": "Shouts blast enemies for 2500% weapon damage and the party deals 50% more damage.",
+    "tag": "shout",
+    "set": {
+     "shoutDamage": 25
+    },
+    "add": {
+     "dmgPct": 50
+    }
+   }
+  }
+ },
+ {
+  "id": "rimecaller",
+  "name": "Rimecaller's Shroud",
+  "tag": "cold",
+  "skill": "cold runes, frost_snare",
+  "color": "#3ddc84",
+  "pieces": {
+   "weapon": "Rimecaller's Fang",
+   "helm": "Rimecaller's Hood",
+   "bracers": "Rimecaller's Frost",
+   "gloves": "Rimecaller's Touch",
+   "boots": "Rimecaller's Steps",
+   "ring": "Rimecaller's Seal"
+  },
+  "bonuses": {
+   "2": {
+    "text": "Cold skills slow 20% more.",
+    "tag": "cold",
+    "add": {
+     "slowPct": 20
+    }
+   },
+   "4": {
+    "text": "Slowed enemies take 40% more damage from you.",
+    "tag": "cold",
+    "set": {
+     "slowVuln": 0.4
+    }
+   },
+   "6": {
+    "text": "Cold skills deal 600% more damage.",
+    "tag": "cold",
+    "mul": {
+     "power": 7
+    }
+   }
+  }
+ }
 ]

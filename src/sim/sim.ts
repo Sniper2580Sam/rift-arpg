@@ -1,6 +1,6 @@
 // Pure deterministic simulation for 1–4 players. No DOM, no Math.random, no wall-clock time.
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
-import { BOONS, BOON, CLASSES, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel } from "./data";
+import { BOONS, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel } from "./data";
 import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue } from "./items";
 import { TileMap, flowField, genArena, genCave, moveWithWalls } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
@@ -22,6 +22,7 @@ export interface PlayerSetup {
   pid: number; name: string; cls: string; level: number; xp: number;
   equipment: Holder["equipment"]; bag: Item[]; materials: number; sigils: number;
   runes: Record<string, string>; pet: string; filter: Rarity;
+  loadout?: string[];
 }
 
 export interface Buff { armorPct: number; dmgPct: number; cdrPct: number; t: number }
@@ -33,6 +34,8 @@ export interface Player extends Holder {
   dashT: number; dashDx: number; dashDy: number; dashHit: number[]; dashSkill: string; trailT: number;
   invuln: number; dead: boolean; deadT: number; buff: Buff; boons: string[]; cheatT: number;
   stats: Stats; sk: Record<string, ResolvedSkill>; uses: Num; connected: boolean;
+  /** class resource (Embers / Focus / Mana) and seconds since the last hit dealt or taken */
+  res: number; combatT: number;
 }
 
 export type EnemyKind = "ghoul" | "archer" | "brute" | "guardian" | "king" | "pylon";
@@ -80,7 +83,7 @@ export type SimEvent =
   | { type: "riftComplete"; inTime: boolean; time: number }
   | { type: "levelUp"; pid: number; level: number }
   | { type: "boonOffer"; pid: number } | { type: "boonTaken"; pid: number; id: string }
-  | { type: "sigil"; pid: number } | { type: "teleport"; x: number; y: number }
+  | { type: "sigil"; pid: number } | { type: "teleport"; x: number; y: number } | { type: "chain"; x1: number; y1: number; x2: number; y2: number }
   | { type: "equipChanged"; pid: number };
 
 export interface RiftState {
@@ -192,16 +195,16 @@ export function addPlayer(s: SimState, ps: PlayerSetup): Player {
     dashT: 0, dashDx: 0, dashDy: 0, dashHit: [], dashSkill: "", trailT: 0,
     invuln: 1.5, dead: false, deadT: 0, buff: { armorPct: 0, dmgPct: 0, cdrPct: 0, t: 0 }, boons: [], cheatT: 0,
     stats: undefined as unknown as Stats, sk: {}, uses: {}, connected: true,
+    res: CLASSES[cls].resource.start, combatT: 99,
   };
   p.px = p.x; p.py = p.y;
-  p.skills = [...(CLASSES_SKILLS(cls))];
+  p.skills = validLoadout(cls, ps.loadout);
   s.players.push(p);
   refreshAll(s);
   p.hp = p.stats.maxHp;
   for (const id of p.skills) p.charges[id] = p.sk[id].p.charges ?? 1;
   return p;
 }
-const CLASSES_SKILLS = (cls: string) => CLASSES[cls].skills;
 const clone = <T>(o: T): T => JSON.parse(JSON.stringify(o));
 
 /** Recompute stats + resolved skills for every player (party level sync depends on the whole party). */
@@ -294,6 +297,7 @@ export function applyPlayerCmd(s: SimState, p: Player, c: PlayerCmd): boolean {
   }
   if (c.type === "setLoadout") {
     p.equipment = clone(c.setup.equipment); p.runes = { ...c.setup.runes }; p.filter = c.setup.filter; p.pet = c.setup.pet;
+    p.skills = validLoadout(p.cls, c.setup.loadout); for (const id of p.skills) if (p.charges[id] === undefined) p.charges[id] = 1;
     refreshAll(s); s.events.push({ type: "equipChanged", pid: p.pid });
     return true;
   }
@@ -309,6 +313,7 @@ const atkMult = (p: Player) => 1 / (1 + p.stats.atkSpeed / 100);
 export function skillReady(p: Player, id: string): boolean {
   const sk = p.sk[id];
   if (!sk || SKILL[id].unlock > p.level) return false;
+  if (skillCost(p, id) > p.res) return false;
   if (sk.p.interval) return p.swingT <= 0;
   return (p.charges[id] ?? 0) > 0;
 }
@@ -339,6 +344,7 @@ function updatePlayer(s: SimState, p: Player, inp: PlayerInput) {
     return;
   }
   if (p.stats.regen > 0) p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.regen * DT);
+  updateResource(p);
   p.invuln = Math.max(0, p.invuln - DT);
   p.swingT -= DT;
   const [afx, afy] = norm(inp.ax - p.x, inp.ay - p.y);
@@ -356,7 +362,7 @@ function updatePlayer(s: SimState, p: Player, inp: PlayerInput) {
     p.walk += len(p.x - ox, p.y - oy);
   }
   // casting: one skill per tick, utilities and ultimate first
-  for (const slot of [2, 3, 4, 5, 1, 0]) {
+  for (const slot of [3, 2, 1, 0]) {
     if (!(inp.act & (1 << slot))) continue;
     const id = p.skills[slot];
     if (!id || !skillReady(p, id)) continue;
@@ -365,6 +371,15 @@ function updatePlayer(s: SimState, p: Player, inp: PlayerInput) {
   }
 }
 
+export function resMax(p: Player) { return CLASSES[p.cls].resource.max + (p.stats?.resMax ?? 0); }
+export function skillCost(p: Player, id: string) { const c = p.sk[id]?.p.cost ?? 0; return c ? c * (1 - Math.min(50, p.stats.costRed) / 100) : 0; }
+function gainRes(p: Player, v: number) { p.res = Math.min(resMax(p), p.res + v); }
+function updateResource(p: Player) {
+  const R = CLASSES[p.cls].resource;
+  p.combatT += DT;
+  if (R.regen || p.stats.resRegen) gainRes(p, (R.regen + p.stats.resRegen) * DT);
+  if (R.decay && p.combatT > R.decayAfter) p.res = Math.max(0, p.res - R.decay * DT);
+}
 function useCharge(p: Player, id: string) {
   const sk = p.sk[id];
   if (sk.p.interval) { p.swingT = sk.p.interval * atkMult(p); return; }
@@ -374,6 +389,8 @@ function useCharge(p: Player, id: string) {
 function cast(s: SimState, p: Player, id: string, inp: PlayerInput, mx: number, my: number) {
   const sk = p.sk[id];
   useCharge(p, id);
+  if (sk.p.cost) p.res -= skillCost(p, id);
+  if (sk.p.gen) gainRes(p, sk.p.gen);
   p.uses[id] = (p.uses[id] ?? 0) + 1;
   switch (sk.kind) {
     case "melee": castMelee(s, p, sk); break;
@@ -385,7 +402,7 @@ function cast(s: SimState, p: Player, id: string, inp: PlayerInput, mx: number, 
       p.dashT = sk.p.duration; p.dashDx = dx; p.dashDy = dy; p.dashHit = []; p.trailT = 0; p.dashSkill = id;
       p.invuln = Math.max(p.invuln, p.dashT + 0.1);
       if (sk.p.healPct) heal(p, p.stats.maxHp * sk.p.healPct);
-      if (sk.p.resetSecondary) { const sec = p.skills[1]; p.charges[sec] = p.sk[sec].p.charges ?? 1; }
+      if (sk.p.resetSecondary) { const sec = p.skills[1]; if (sec && p.sk[sec]) p.charges[sec] = p.sk[sec].p.charges ?? 1; }
       s.events.push({ type: "cast", pid: p.pid, skill: id, x: p.x, y: p.y });
       break;
     }
@@ -429,6 +446,7 @@ function castMelee(s: SimState, p: Player, sk: ResolvedSkill) {
     hits++;
   }
   if (sk.p.healPerHit && hits) heal(p, p.stats.maxHp * sk.p.healPerHit * hits);
+  if (sk.p.genPerHit && hits) gainRes(p, Math.min(sk.p.genMax ?? 999, sk.p.genPerHit * hits));
   s.events.push({ type: "swing", pid: p.pid, x: p.x, y: p.y, fx: p.fx, fy: p.fy, ring, range: rng, hits, arcCos: sk.p.arcCos });
   if (sk.p.wave) {
     const sp = 210;
@@ -451,8 +469,10 @@ function castProjectile(s: SimState, p: Player, sk: ResolvedSkill) {
 
 function castShout(s: SimState, p: Player, sk: ResolvedSkill) {
   const P = sk.p;
+  if (P.resGain) gainRes(p, P.resGain);
   for (const q of s.players) {
     if (q.dead || len(q.x - p.x, q.y - p.y) > P.radius * 1.5) continue;
+    if (P.selfOnly && q !== p) continue;
     q.buff = {
       armorPct: Math.max(q.buff.t > 0 ? q.buff.armorPct : 0, P.armorPct ?? 0),
       dmgPct: Math.max(q.buff.t > 0 ? q.buff.dmgPct : 0, P.dmgPct ?? 0),
@@ -465,7 +485,8 @@ function castShout(s: SimState, p: Player, sk: ResolvedSkill) {
     if (e.dead || len(e.x - p.x, e.y - p.y) > P.radius + e.r) continue;
     e.aggro = true;
     if (P.taunt) { e.tauntT = P.taunt; e.tauntBy = p.pid; }
-    if (P.vulnPct) { e.vulnT = 6; e.vulnPct = Math.max(e.vulnPct, P.vulnPct); }
+    if (P.vulnPct) { e.vulnT = Math.max(6, P.duration ?? 0); e.vulnPct = Math.max(e.vulnPct, P.vulnPct); }
+    if (P.slowAll) { e.slowT = Math.max(e.slowT, 4); e.slowPct = Math.min(90, Math.max(e.slowPct, P.slowAll)); }
     if (P.shoutDamage) { const [kx, ky] = norm(e.x - p.x, e.y - p.y); hitEnemy(s, e, P.shoutDamage, p, sk, { kb: 60, kx, ky, direct: true }); }
   }
   s.events.push({ type: "cast", pid: p.pid, skill: sk.id, x: p.x, y: p.y, r: P.radius });
@@ -540,8 +561,22 @@ function mkProj(s: SimState, team: 0 | 1, kind: Projectile["kind"], x: number, y
 }
 
 // ------------------------------------------------------------------ damage
-interface HitOpts { kb?: number; kx?: number; ky?: number; direct?: boolean; noCrit?: boolean; extra?: number }
+interface HitOpts { kb?: number; kx?: number; ky?: number; direct?: boolean; noCrit?: boolean; extra?: number; chained?: boolean }
 
+/** Lightning jumps: each jump goes to the nearest enemy not yet hit, within chainRange of the last one. */
+function chainFrom(s: SimState, from: Enemy, mult: number, p: Player, sk: ResolvedSkill, P: Num) {
+  const hit = new Set<number>([from.id]);
+  let cur = from, m = mult;
+  for (let i = 0; i < Math.round(P.chain); i++) {
+    let best: Enemy | null = null, bd = P.chainRange ?? 80;
+    for (const e of s.enemies) { if (e.dead || hit.has(e.id)) continue; const d = len(e.x - cur.x, e.y - cur.y); if (d < bd) { bd = d; best = e; } }
+    if (!best) break;
+    hit.add(best.id); m *= P.chainMult ?? 0.7;
+    s.events.push({ type: "chain", x1: cur.x, y1: cur.y, x2: best.x, y2: best.y });
+    hitEnemy(s, best, m, p, sk, { kb: 0, kx: 0, ky: 0, direct: true, chained: true });
+    cur = best;
+  }
+}
 function hitEnemy(s: SimState, e: Enemy, mult: number, p: Player | undefined, sk: ResolvedSkill | undefined, o: HitOpts) {
   if (e.dead || ((e.kind === "guardian" || e.kind === "king") && e.state === "intro")) return;
   if (e.shieldT > 0 || (e.kind === "king" && e.state === "tomb")) { if (s.tick % 6 === 0) s.events.push({ type: "immune", x: e.x, y: e.y - e.r }); return; }
@@ -567,6 +602,8 @@ function hitEnemy(s: SimState, e: Enemy, mult: number, p: Player | undefined, sk
     if (P.igniteMult) { const dps = (amount * P.igniteMult) / 3; e.burnDps = Math.max(e.burnT > 0 ? e.burnDps : 0, dps); e.burnT = 3; e.burnPid = p.pid; }
     if (P.slowPct) { e.slowT = Math.max(e.slowT, P.slowT ?? 1); e.slowPct = Math.min(90, Math.max(e.slowT > 0 ? e.slowPct : 0, P.slowPct)); }
     if (P.vulnOnHit) { e.vulnT = 3; e.vulnPct = Math.max(e.vulnPct, P.vulnOnHit); }
+    if (P.tauntOnHit) { e.tauntT = P.tauntOnHit; e.tauntBy = p.pid; e.aggro = true; }
+    if (P.chain && !o.chained && sk) chainFrom(s, e, mult, p, sk, P);
     if (st.lifeOnHit > 0) heal(p, st.lifeOnHit);
   }
   applyDamage(s, e, amount, crit, p.pid, P, false);
@@ -575,6 +612,7 @@ function hitEnemy(s: SimState, e: Enemy, mult: number, p: Player | undefined, sk
 function applyDamage(s: SimState, e: Enemy, dmg: number, crit: boolean, pid: number, P: Num, burn: boolean) {
   e.hp -= dmg;
   e.flash = 3;
+  const hitter = playerById(s, pid); if (hitter) hitter.combatT = 0;
   e.aggro = true;
   s.events.push({ type: "hit", x: e.x, y: e.y - e.r, amount: dmg, crit, kind: e.kind, burn, pid });
   if (e.hp <= 0) killEnemy(s, e, pid, P);
@@ -593,6 +631,8 @@ function killEnemy(s: SimState, e: Enemy, pid: number, P: Num) {
   if (e.dead) return;
   e.dead = true;
   s.events.push({ type: "kill", x: e.x, y: e.y, kind: e.kind, elite: e.elite });
+  const killer = playerById(s, pid);
+  if (killer && killer.stats.flags.refundOnKill && P.cost) gainRes(killer, P.cost * killer.stats.flags.refundOnKill);
   const def = ENEMIES[e.kind];
   if (e.kind === "pylon") return;
   grantXp(s, (def?.xp ?? 0) * (e.elite ? ELITES.xpMult : 1));
@@ -654,6 +694,7 @@ function damagePlayer(s: SimState, p: Player, raw: number) {
   if (p.buff.t > 0 && st.flags.buffDR) dmg *= 1 - st.flags.buffDR;
   dmg = Math.max(1, Math.round(dmg));
   p.hp -= dmg;
+  p.combatT = 0; if (CLASSES[p.cls].resource.onHurt || st.flags.resOnHurt) gainRes(p, CLASSES[p.cls].resource.onHurt + (st.flags.resOnHurt ?? 0));
   s.events.push({ type: "playerHurt", pid: p.pid, amount: dmg });
   if (p.hp <= 0) {
     if (st.flags.cheatDeath && p.cheatT <= 0) {

@@ -11,6 +11,7 @@ export interface CharSave {
   cls: string; level: number; xp: number;
   equipment: Holder["equipment"]; bag: Item[];
   runes: Record<string, string>; uses: Record<string, number>;
+  loadout?: string[];
   highestTier: number; pityAnc: number; pityPri: number; sigils: number;
   riftsCleared: number; bestTimes: Record<string, number>;
 }
@@ -26,13 +27,13 @@ export interface Profile {
 
 export function newChar(cls: string): CharSave {
   const starter = mintItem(makeRng(20261124 + cls.length), "starter-" + cls, { rarity: "common", slot: "weapon", ilvl: 1 });
-  starter.name = cls === "gloomstalker" ? "Bone Bow" : "Iron Blade";
+  starter.name = cls === "gloomstalker" ? "Bone Bow" : cls === "stormcaller" ? "Ashwood Staff" : "Iron Blade";
   return { cls, level: 1, xp: 0, equipment: { weapon: starter }, bag: [], runes: {}, uses: {}, highestTier: 1, pityAnc: 0, pityPri: 0, sigils: 0, riftsCleared: 0, bestTimes: {} };
 }
 
 export function newProfile(): Profile {
   return {
-    version: SAVE_VERSION, active: "ashknight", chars: { ashknight: newChar("ashknight"), gloomstalker: newChar("gloomstalker") },
+    version: SAVE_VERSION, active: "ashknight", chars: { ashknight: newChar("ashknight"), gloomstalker: newChar("gloomstalker"), stormcaller: newChar("stormcaller") },
     materials: 0, pet: "none", filter: "common", season: { n: 1, started: new Date().toISOString().slice(0, 10) }, unlockedPets: ["none", "bat", "slime", "fox"],
     weekly: { week: "", best: 0 }, settings: { mute: false, shake: true, autoTier: false },
   };
@@ -100,7 +101,7 @@ export function holderOf(p: Profile): Holder {
 
 export function setupFor(p: Profile, pid = 0, name = "You"): PlayerSetup {
   const c = char(p);
-  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, sigils: c.sigils, runes: c.runes, pet: p.pet, filter: p.filter };
+  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, sigils: c.sigils, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout };
 }
 
 /** Pull the player's persistent state back out of a running sim (items picked up, XP, levels). Boons are not kept. */

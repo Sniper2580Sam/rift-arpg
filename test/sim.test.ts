@@ -15,18 +15,17 @@ function bot(s: SimState, pid: number, t: number): PlayerInput {
   for (const l of s.loot) { if (l.owner !== pid) continue; const d = Math.hypot(l.x - p.x, l.y - p.y); if (d < 80 && d < best) { best = d; target = l; } }
   if (!target) return NO_INPUT;
   const dx = target.x - p.x, dy = target.y - p.y, d = Math.hypot(dx, dy) || 1;
-  const near = d < (p.cls === "gloomstalker" ? 90 : 26);
+  const near = d < (p.cls !== "ashknight" ? 90 : 26);
   let act = 0;
-  if (d < (p.cls === "gloomstalker" ? 200 : 40)) act |= 1;
+  if (d < (p.cls !== "ashknight" ? 200 : 40)) act |= 1;
   if (d < 150) act |= 2;
-  if (d < 70) act |= 8 | 16;
-  if (d < 100) act |= 32;
+  if (d < 100) act |= 8;
   if (d > 120 && d < 200 && t % 60 === 0) act |= 4;
   return { mx: near ? 0 : dx / d, my: near ? 0 : dy / d, ax: target.x, ay: target.y, act };
 }
 function run(cfg: { seed: number; tier?: number; players: PlayerSetup[]; kind?: "rift" | "chase" }, label: string, maxSec = 900) {
   const s = createSim({ ...cfg, mods: cfg.kind === "chase" ? [] : ["fortified", "hasted"] });
-  let deaths = 0, guardianAt = -1, legs = 0, drops = 0, lastX = 0, lastY = 0, stuck = 0, boons = 0, lvls = 0;
+  let gdmg = 0, deathsAtG = 0, deaths = 0, guardianAt = -1, legs = 0, drops = 0, lastX = 0, lastY = 0, stuck = 0, boons = 0, lvls = 0;
   for (let t = 0; t < maxSec * 30; t++) {
     const inputs: Record<number, PlayerInput> = {};
     for (const p of s.players) {
@@ -36,7 +35,8 @@ function run(cfg: { seed: number; tier?: number; players: PlayerSetup[]; kind?: 
     }
     step(s, inputs);
     for (const e of s.events) {
-      if (e.type === "playerDeath") deaths++;
+      if (e.type === "playerDeath") { deaths++; if (guardianAt >= 0) deathsAtG++; }
+      if (e.type === "hit" && e.kind === "guardian") gdmg += e.amount;
       if (e.type === "guardianSpawn") guardianAt = s.rift.time;
       if (e.type === "drop") { drops++; if (e.rarity === "legendary" || e.rarity === "set" || e.rarity === "mythic") legs++; }
       if (e.type === "boonTaken") boons++;
@@ -51,7 +51,7 @@ function run(cfg: { seed: number; tier?: number; players: PlayerSetup[]; kind?: 
     if (s.rift.done) break;
   }
   const p = s.players[0];
-  console.log(`${label}: done=${s.rift.done} t=${s.rift.time.toFixed(0)}s guardian@${guardianAt.toFixed(0)} kills=${s.rift.kills} deaths=${deaths} drops=${drops} leg/set=${legs} boons=${boons} lvl=${p.level} (+${lvls}) dmg=${p.stats.dmgMin}-${p.stats.dmgMax} hp=${p.stats.maxHp}`);
+  console.log(`${label}: done=${s.rift.done} t=${s.rift.time.toFixed(0)}s guardian@${guardianAt.toFixed(0)} kills=${s.rift.kills} deaths=${deaths} drops=${drops} leg/set=${legs} boons=${boons} lvl=${p.level} (+${lvls}) dmg=${p.stats.dmgMin}-${p.stats.dmgMax} hp=${p.stats.maxHp}` + (proc.env.GDBG ? ` gdmg=${gdmg.toFixed(0)} gdeaths=${deathsAtG} gHP=${s.enemies.find((e) => e.kind === "guardian")?.maxHp}` : ""));
   return s;
 }
 
@@ -75,6 +75,7 @@ for (const tier of [1, 10]) {
 // 3) pacing
 run({ seed: 1, players: [setup(0)] }, "T1 fresh knight");
 run({ seed: 2, players: [setup(0, "gloomstalker")] }, "T1 fresh stalker");
+run({ seed: 4, players: [setup(0, "stormcaller")] }, "T1 fresh mage");
 const kit = (lvl: number, rar: "rare" | "legendary", seed = 42): Holder["equipment"] => {
   const r = makeRng(seed), eq: Holder["equipment"] = {};
   for (const sl of ["weapon", "offhand", "helm", "shoulders", "chest", "bracers", "gloves", "belt", "pants", "boots", "amulet", "ring1", "ring2"] as EquipSlot[])

@@ -40,7 +40,7 @@ function resize() {
   cssW = innerWidth; cssH = innerHeight;
   canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
   canvas.style.width = cssW + "px"; canvas.style.height = cssH + "px";
-  pix = Math.max(2, Math.floor((Math.min(cssW, cssH) * dpr) / 210));
+  pix = Math.max(2, Math.floor((Math.min(cssW, cssH) * dpr) / (matchMedia("(pointer: coarse)").matches ? 165 : 210)));
   wb.width = Math.ceil(canvas.width / pix); wb.height = Math.ceil(canvas.height / pix);
   readInsets();
   input.layout(cssW, cssH);
@@ -84,6 +84,7 @@ interface Num { x: number; y: number; text: string; color: string; size: number;
 interface Ring { x: number; y: number; r: number; t: number; max: number; color: string; fill?: boolean }
 interface Arc { x: number; y: number; fx: number; fy: number; r: number; ring: boolean; t: number; arcCos: number }
 interface Ghost { x: number; y: number; t: number; flip: boolean; cls: string }
+const bolts: { x1: number; y1: number; x2: number; y2: number; t: number }[] = [];
 const particles: Particle[] = [], nums: Num[] = [], rings: Ring[] = [], arcs: Arc[] = [], ghosts: Ghost[] = [];
 const me = () => sim!.players.find((p) => p.pid === ME)!;
 
@@ -222,6 +223,7 @@ function goHub() {
     invCmd: (cmd) => hubOp({ t: "inv", cmd }),
     setClass: (cls) => hubOp({ t: "setClass", cls }),
     setRune: (skill, rune) => hubOp({ t: "setRune", skill, rune }),
+    setSkill: (slot, skill) => hubOp({ t: "setSkill", slot, skill }),
     reroll: (target, idx, choice) => hubOp({ t: "reroll", target, idx, choice }),
     setting: (k, v) => hubOp({ t: "setting", k, v }),
     newSeason: () => { hubOp({ t: "newSeason" }); goHub(); },
@@ -302,6 +304,7 @@ function handleEvent(e: SimEvent) {
     case "slam": rings.push({ x: e.x, y: e.y, r: e.r, t: 0, max: 0.35, color: e.big ? "#ffd23f" : "#ff6a6a" }); addShake(e.big ? 6 : 3); sfx.slam(); burst(e.x, e.y, 12, ["#5c4a6e", "#8a7f66"], 90, 1, 0.5); break;
     case "explosion": rings.push({ x: e.x, y: e.y, r: e.r, t: 0, max: 0.3, color: e.cold ? "#9be0ff" : "#ff8a1f" }); burst(e.x, e.y, 16, e.cold ? ["#9be0ff", "#fff"] : ["#ff8a1f", "#ffd23f", "#ff5a1f"], 110, 1, 0.45); addShake(2.5); sfx.explosion(); break;
     case "teleport": burst(e.x, e.y, 14, ["#c9a0ff", "#fff"], 70, 1, 0.4); break;
+    case "chain": if (bolts.length < 40) bolts.push({ x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0 }); break;
     case "drop":
       if (!mine(e.owner)) break;
       sfx.drop(e.rarity);
@@ -391,6 +394,7 @@ function updateFx(dt: number) {
   for (let i = rings.length - 1; i >= 0; i--) { rings[i].t += dt; if (rings[i].t > rings[i].max) rings.splice(i, 1); }
   for (let i = arcs.length - 1; i >= 0; i--) { arcs[i].t += dt; if (arcs[i].t > 0.13) arcs.splice(i, 1); }
   for (let i = ghosts.length - 1; i >= 0; i--) { ghosts[i].t += dt; if (ghosts[i].t > 0.25) ghosts.splice(i, 1); }
+  for (let i = bolts.length - 1; i >= 0; i--) { bolts[i].t += dt; if (bolts[i].t > 0.14) bolts.splice(i, 1); }
   shake = Math.max(0, shake - dt * 25);
   flash = Math.max(0, flash - dt);
   hurtFlash = Math.max(0, hurtFlash - dt);
@@ -408,7 +412,7 @@ function updateFx(dt: number) {
 // ------------------------------------------------------------------ render
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 let vignette: HTMLCanvasElement | null = null, vignetteDark = false;
-const heroFrames = (cls: string) => (cls === "gloomstalker" ? bank.ranger : bank.hero);
+const heroFrames = (cls: string) => (cls === "gloomstalker" ? bank.ranger : cls === "stormcaller" ? bank.mage : bank.hero);
 
 function render(alpha: number, dt: number) {
   const s = sim!;
@@ -482,6 +486,11 @@ function render(alpha: number, dt: number) {
     g.fillStyle = "rgba(0,0,0,0.4)"; g.fillRect(l.x - 4, l.y + 3, 8, 2);
     g.drawImage(ic.img, Math.round(l.x - ic.w / 2), Math.round(l.y - ic.h + 2 + bob));
     g.globalAlpha = 1;
+  }
+  for (const b of bolts) {
+    g.strokeStyle = (Math.floor(b.t * 60) % 2) ? "#ffffff" : "#9be0ff"; g.lineWidth = 1; g.beginPath(); g.moveTo(b.x1, b.y1);
+    for (let i = 1; i < 5; i++) { const k = i / 5; g.lineTo(b.x1 + (b.x2 - b.x1) * k + (Math.random() - 0.5) * 8, b.y1 + (b.y2 - b.y1) * k + (Math.random() - 0.5) * 8); }
+    g.lineTo(b.x2, b.y2); g.stroke();
   }
   for (const gh of ghosts) { g.globalAlpha = 0.4 * (1 - gh.t / 0.25); drawSprite(g, heroFrames(gh.cls)[1], gh.x, gh.y, gh.flip, true); }
   g.globalAlpha = 1;
@@ -662,7 +671,9 @@ function drawHero(g: CanvasRenderingContext2D, p: Player, x: number, y: number, 
 }
 
 // ------------------------------------------------------------------ HUD
-const SHORT: Record<string, string> = { cleave: "Cleave", ember_lance: "Lance", ash_dash: "Dash", warcry: "Warcry", flame_nova: "Nova", cinderlings: "Imps", hex_bolt: "Bolt", volley: "Volley", tumble: "Tumble", frost_snare: "Snare", rally_banner: "Banner", raven_swarm: "Ravens" };
+const SHORT: Record<string, string> = { cleave: "Cleave", ember_lance: "Lance", ash_dash: "Dash", warcry: "Warcry", flame_nova: "Nova", cinderlings: "Imps", hex_bolt: "Bolt", volley: "Volley", tumble: "Tumble", frost_snare: "Snare", rally_banner: "Banner", raven_swarm: "Ravens",
+  spark: "Spark", magic_missile: "Missile", static_touch: "Touch", chain_lightning: "Chain", arcane_orb: "Orb", thunderstorm: "Storm", disintegrate: "Beam", blink: "Blink", mana_shield: "Shield", static_field: "Field", storm_avatar: "Avatar", black_hole: "Hole", arcane_torrent: "Torrent",
+  searing_strike: "Sear", shield_bash: "Bash", whirling_ash: "Whirl", molten_hammer: "Hammer", iron_skin: "Iron", chain_hook: "Hook", phoenix_form: "Phoenix", inferno_pillar: "Inferno", bone_shot: "Bone", shadow_knives: "Knives", hex_rain: "Rain", soulpiercer: "Pierce", smoke_veil: "Smoke", night_hunt: "Hunt", banshee_wail: "Wail" };
 function drawHud(s: SimState, sx: number, sy: number, t: number) {
   const c = ctx, S = dpr;
   c.save();
@@ -702,19 +713,23 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
   const p = me();
   c.textAlign = "left";
   const lw = Math.min(170, W * 0.36);
-  panel(c, L, T, lw + 12, 50);
+  panel(c, L, T, lw + 12, 56);
   c.fillStyle = "#3a1018"; c.fillRect(L + 6, T + 6, lw, 16);
   c.fillStyle = p.hp / p.stats.maxHp < 0.3 && Math.floor(t * 4) % 2 ? "#ff6a6a" : "#d93a3a";
   c.fillRect(L + 6, T + 6, lw * Math.max(0, p.hp / p.stats.maxHp), 16);
   c.fillStyle = "#fff"; c.font = font(12); c.fillText(`${Math.ceil(p.hp)} / ${p.stats.maxHp}`, L + 12, T + 15);
-  c.fillStyle = "#1b1424"; c.fillRect(L + 6, T + 26, lw, 6);
-  c.fillStyle = "#7dff9a"; c.fillRect(L + 6, T + 26, lw * (p.level >= RIFT.levels.max ? 1 : p.xp / xpForLevel(p.level)), 6);
-  c.fillStyle = "#b8a8d0"; c.font = font(10); { let lv = `Lv ${p.level}${p.boons.length ? " · " + p.boons.join(", ") : ""}`; while (lv.length > 4 && c.measureText(lv).width > lw) lv = lv.slice(0, -2) + "…"; c.fillText(lv, L + 6, T + 41); }
+  const R = CLASSES[p.cls].resource;
+  c.fillStyle = "#1b1424"; c.fillRect(L + 6, T + 25, lw, 8);
+  c.fillStyle = R.color; c.fillRect(L + 6, T + 25, lw * Math.max(0, p.res / R.max), 8);
+  c.fillStyle = "#fff"; c.font = font(9); c.fillText(`${R.name} ${Math.floor(p.res)}`, L + 9, T + 29.5);
+  c.fillStyle = "#1b1424"; c.fillRect(L + 6, T + 36, lw, 3);
+  c.fillStyle = "#c9b8ff"; c.fillRect(L + 6, T + 36, lw * (p.level >= RIFT.levels.max ? 1 : p.xp / xpForLevel(p.level)), 3);
+  c.fillStyle = "#b8a8d0"; c.font = font(10); { let lv = `Lv ${p.level}${p.boons.length ? " · " + p.boons.join(", ") : ""}`; while (lv.length > 4 && c.measureText(lv).width > lw) lv = lv.slice(0, -2) + "…"; c.fillText(lv, L + 6, T + 48); }
   const r = s.rift;
   const narrow = W < 600;
   const bw = narrow ? Math.min(W - 2 * L - 4, 300) : Math.min(320, W - 2 * lw - 80);
   const bx = narrow ? W / 2 - bw / 2 : W / 2 - bw / 2;
-  const topY = narrow ? T + 58 : T;
+  const topY = narrow ? T + 64 : T;
   panel(c, bx - 6, topY, bw + 12, 46);
   const left = r.limit - (r.done ? r.doneAt : r.time);
   c.textAlign = "center"; c.font = font(14);
@@ -750,7 +765,8 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
     if (sk.p.interval) cd = Math.max(0, p.swingT) / sk.p.interval;
     else if ((p.charges[id] ?? 0) <= 0) cd = Math.max(0, p.chargeT[id] ?? 0) / Math.max(0.1, sk.p.cooldown);
     const maxC = sk.p.charges ?? 1;
-    return { slot, label: SHORT[id] ?? d.name.slice(0, 7), cd: locked ? 1 : cd, locked, color: SKILL_COLOR(sk.tags), charges: maxC > 1 ? p.charges[id] ?? 0 : undefined, unlock: d.unlock };
+    const poor = (sk.p.cost ?? 0) > p.res;
+    return { slot, label: SHORT[id] ?? d.name.slice(0, 7), cd: locked ? 1 : poor ? Math.max(cd, 1 - p.res / sk.p.cost) : cd, locked, color: SKILL_COLOR(sk.tags), charges: maxC > 1 ? p.charges[id] ?? 0 : undefined, unlock: d.unlock };
   });
   if (input.touchMode) {
     for (const b of input.buttons) {

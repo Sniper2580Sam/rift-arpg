@@ -1,9 +1,9 @@
-// Desktop: WASD/arrows + mouse. LMB primary, RMB/E secondary, Space/Shift slot 3, Q slot 4, R slot 5, F slot 6 (or 1–4 for slots 3–6).
-// Touch: floating left stick, auto-aim, six tap/hold buttons on the right.
+// Desktop: WASD/arrows + mouse. LMB slot 1, RMB/E slot 2, Space/Shift/Q/1 slot 3, R/F/2 slot 4.
+// Touch: floating left stick, auto-aim, four tap/hold buttons on the right.
 import type { SimState, PlayerInput, Player } from "../sim/sim";
 
 export interface TouchButton { slot: number; x: number; y: number; r: number }
-export const KEY_LABELS = ["LMB", "RMB", "SPC", "Q", "R", "F"];
+export const KEY_LABELS = ["LMB", "RMB", "SPC", "R"];
 
 export class Input {
   keys = new Set<string>();
@@ -40,14 +40,13 @@ export class Input {
   layout(w: number, h: number) {
     const s = Math.min(1.15, Math.max(0.78, Math.min(w, h) / 430));
     const R = w - this.insets.right - 14, B = h - this.insets.bottom - 14;
-    const big = 40 * s, sm = 26 * s;
-    const cx = R - big, cy = B - big, ring = big + sm + 10 * s;
+    const big = 44 * s, sm = 32 * s;
+    const cx = R - big, cy = B - big, ring = big + sm + 22 * s;
     this.buttons = [{ slot: 0, x: cx, y: cy, r: big }];
-    // two rings: three close buttons (left, diagonal, up), two further out between them
-    const spots: [number, number][] = [[180, ring], [225, ring], [270, ring], [202.5, ring + 2 * sm + 4 * s], [247.5, ring + 2 * sm + 4 * s]];
-    spots.forEach(([deg, rr], i) => {
+    // three buttons on an arc: left, diagonal, up
+    [180, 225, 270].forEach((deg, i) => {
       const a = (deg * Math.PI) / 180;
-      this.buttons.push({ slot: i + 1, x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr, r: sm });
+      this.buttons.push({ slot: i + 1, x: cx + Math.cos(a) * ring, y: cy + Math.sin(a) * ring, r: sm });
     });
   }
 
@@ -112,10 +111,8 @@ export class Input {
     let act = 0;
     if (this.mouseL || this.isHeld(0)) act |= 1;
     if (this.mouseR || k.has("e") || this.isHeld(1)) act |= 2;
-    if (k.has(" ") || k.has("shift") || k.has("1") || this.isHeld(2)) act |= 4;
-    if (k.has("q") || k.has("2") || this.isHeld(3)) act |= 8;
-    if (k.has("r") || k.has("3") || this.isHeld(4)) act |= 16;
-    if (k.has("f") || k.has("4") || this.isHeld(5)) act |= 32;
+    if (k.has(" ") || k.has("shift") || k.has("q") || k.has("1") || this.isHeld(2)) act |= 4;
+    if (k.has("r") || k.has("f") || k.has("2") || this.isHeld(3)) act |= 8;
     return { mx, my, ax, ay, act };
   }
 }

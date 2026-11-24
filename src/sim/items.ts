@@ -153,6 +153,7 @@ export function rerollOptions(r: Rng, it: Item, idx: number, n = 3): Affix[] {
 export interface Stats {
   dmgMin: number; dmgMax: number; dmgPct: number; critChance: number; critDmg: number; atkSpeed: number;
   maxHp: number; armor: number; regen: number; moveSpeed: number; cdr: number; lifeOnHit: number; eliteDmg: number;
+  resRegen: number; costRed: number; resMax: number; areaPct: number;
   tagDmg: Num; mods: ModDef[]; flags: Num; setCounts: Record<string, number>;
   speed: number; dmgMult: number; takenMult: number;
 }
@@ -164,7 +165,7 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
   const lp = levelPower(c.level);
   const s: Stats = {
     dmgMin: Math.round(cd.fists[0] * lp), dmgMax: Math.round(cd.fists[1] * lp), dmgPct: 0, critChance: 5, critDmg: 50, atkSpeed: 0,
-    maxHp: cd.baseHp + cd.hpPerLevel * (c.level - 1), armor: 0, regen: 0, moveSpeed: 0, cdr: 0, lifeOnHit: 0, eliteDmg: 0,
+    maxHp: cd.baseHp + cd.hpPerLevel * (c.level - 1), armor: 0, regen: 0, moveSpeed: 0, cdr: 0, lifeOnHit: 0, eliteDmg: 0, resRegen: 0, costRed: 0, resMax: 0, areaPct: 0,
     tagDmg: {}, mods: [], flags: {}, setCounts: {}, speed: cd.speed, dmgMult: 1, takenMult: 1,
   };
   for (const it of Object.values(eq)) {
@@ -184,6 +185,10 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
         case "cdr": s.cdr += a.value; break;
         case "life_on_hit": s.lifeOnHit += a.value; break;
         case "elite_dmg": s.eliteDmg += a.value; break;
+        case "res_regen": s.resRegen += a.value; break;
+        case "cost_red": s.costRed += a.value; break;
+        case "res_max": s.resMax += a.value; break;
+        case "area_pct": s.areaPct += a.value; break;
         default: if (a.id.startsWith("tag_")) { const t = a.id.slice(4); s.tagDmg[t] = (s.tagDmg[t] ?? 0) + a.value; }
       }
     }
@@ -247,6 +252,8 @@ export function resolveSkill(id: string, rune: string | undefined, st: Stats): R
     for (const [k, v] of Object.entries(m.mul ?? {})) p[k] = (p[k] ?? (k === "power" ? 1 : 0)) * v;
     for (const [k, v] of Object.entries(m.set ?? {})) p[k] = OVERRIDE.has(k) ? v : Math.max(p[k] ?? 0, v);
   }
+  // area of effect gear scales area skills (radius only, so single-target skills stay single-target)
+  if (st.areaPct && tags.includes("aoe") && p.radius) p.radius *= 1 + Math.min(100, st.areaPct) / 100;
   return { id, kind: d.kind, p, tags };
 }
 

@@ -22,6 +22,7 @@ const BASE: Record<string, string> = {
   L: "#7dd6c8", l: "#3e8f86", // slime
   M: "#5a3f73", m: "#8a68a8", // bat
   Z: "#9be0ff", // frost
+  T: "#2c4a8a", t: "#4f7ad0", // storm robe
 };
 
 function make(rows: string[], pal: Record<string, string> = BASE): Sprite {
@@ -364,6 +365,24 @@ const RANGER_LEGS = [
   ["..kbk...kbk.", "..kbk...kbk.", ".kbbk..kbbk.", ".kkkk..kkkk."],
   ["....kbkbk...", "....kbkbk...", "...kbbkbbk..", "...kkkkkkk.."],
 ];
+const MAGE_TOP = [
+  ".....kk...Z.",
+  "....kTk..kZk",
+  "...kTtTk..n.",
+  "..kTTTTTk.n.",
+  ".kkkkkkkkkn.",
+  "..kksskk..n.",
+  "..kTttTk..n.",
+  ".kTtTTtTk.n.",
+  ".ksTttTsk.n.",
+  "..kTTTTk..n.",
+  "..kTTTTTk...",
+];
+const MAGE_LEGS = [
+  ["..kTTTTTk...", "..kTTTTTTk..", "..kbk..kbk..", "..kkk..kkk.."],
+  ["..kTTTTTk...", ".kTTTTTTk...", ".kbk...kbk..", ".kkk...kkk.."],
+  ["..kTTTTTk...", "..kTTTTTk...", "...kbkkbk...", "...kkkkkk..."],
+];
 const RAVEN = [["k.....k", "kk...kk", ".kkkkk.", "..kek..", "...k..."], [".......", "kk...kk", "kkkkkkk", "..kek..", "...k..."]];
 const PETS: Record<string, string[][]> = {
   bat: [["m.....m", "mM.k.Mm", ".MMMMM.", "..MeM..", "...M..."], [".......", "mM.k.Mm", "mMMMMMm", "..MeM..", "...M..."]],
@@ -373,7 +392,7 @@ const PETS: Record<string, string[][]> = {
 const PYLON = ["..kk..", ".kwwk.", ".kwyk.", "kwwwwk", "kwyywk", "kwwwwk", "kWWWWk", "kkkkkk"];
 
 export interface SpriteBank {
-  hero: Sprite[]; ranger: Sprite[]; raven: Sprite[]; pets: Record<string, Sprite[]>; pylon: Sprite[];
+  hero: Sprite[]; ranger: Sprite[]; mage: Sprite[]; raven: Sprite[]; pets: Record<string, Sprite[]>; pylon: Sprite[];
   ghoul: Sprite[]; archer: Sprite[]; brute: Sprite[]; guardian: Sprite[]; imp: Sprite[];
   icon: (slot: Slot, rarity: Rarity) => Sprite;
 }
@@ -384,6 +403,7 @@ export function buildSprites(): SpriteBank {
   return {
     hero,
     ranger: RANGER_LEGS.map((legs) => make([...RANGER_TOP, ...legs])),
+    mage: MAGE_LEGS.map((legs) => make([...MAGE_TOP, ...legs])),
     raven: RAVEN.map((r) => make(r)),
     pets: Object.fromEntries(Object.entries(PETS).map(([k, v]) => [k, v.map((r) => make(r))])),
     pylon: [make(PYLON)],

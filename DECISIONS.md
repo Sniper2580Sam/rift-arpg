@@ -33,3 +33,10 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - **Live build solo:** a room of one, so the server still mints every item.
 - **Server:** plain Node with `ws`. Accounts use scrypt-hashed passwords, and data is stored as JSON files in `server-data/`. Room codes are 4 letters, up to 4 players, and people can join mid-run.
 - **Build flag (open item in the brief):** `OFFLINE_TEST` is a compile-time define. `npm run build` gives the offline test file. `npm run build:live` sets it to false, which removes local saves and blocks the game until you sign in to the server.
+
+## Skill system rework (Samuel, 2026-11-24)
+- ⚠ Replaces the brief's 6-slot bar (1 primary, 1 secondary, 3 utility, 1 ultimate). **Samuel's call:** 4 equipped skills, any mix of generator / core / support / ultimate, at most one ultimate. Each class gets 3–4 options per type and a resource pool: Ashknight Embers (built by hits, fades out of combat), Gloomstalker Focus (steady regen), new Stormcaller Mana (big pool, slow regen).
+- Resource gear (affixes, legendaries, set bonuses) is part of the chase, so builds can skip a generator.
+- Draft skill list: https://claude.ai/artifact/YUPZdMQxC5sKxrMwdLuYxh
+- **Stormcaller (slice 1):** 13 skills across the 4 types, Mana (150, +8/s). Default bar: Spark, Chain Lightning, Blink, Arcane Orb. Damage skills are tagged area or single target. The new "Area of effect" affix grows the radius of area skills only (capped at +100%). Runes for the new skills come in a later slice. A fresh mage bot clears Tier 1 in about the same time as the other classes (seed-dependent).
+- **Bigger hero on phones:** touch screens zoom in about a third more (pixel scale divisor 165 instead of 210). Desktop is unchanged.

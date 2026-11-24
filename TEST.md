@@ -12,6 +12,7 @@ Saves are stored in Safari for that page. Clearing Safari website data wipes the
 - [ ] The left thumb anywhere on the left half moves you. The 6 buttons sit in two arcs around Cleave/Bolt and are easy to hit without looking.
 - [ ] Auto-aim picks the boss or elites first. Does it ever aim at the wrong thing?
 - [ ] Holding the primary attack keeps swinging. Dash goes the way you're moving.
+- [ ] The hero is bigger on the phone now. Is it the right size, and can you still see enemies coming in landscape?
 - [ ] Rotate the phone: the layout fits both ways, and the notch and home bar don't cover buttons.
 - [ ] Frame rate stays smooth with 40+ enemies and fire everywhere (Volatile modifier, Nova spam).
 - [ ] Bag: equip, compare (green ▲ / red ▼), scrap, "scrap all below". Text is readable without zooming.
@@ -19,7 +20,7 @@ Saves are stored in Safari for that page. Clearing Safari website data wipes the
 - [ ] Boon picker at 25/50/75% (the game pauses in solo).
 - [ ] Switching away from Safari and back opens the bag (paused), and nothing is lost.
 - [ ] Gear tab: reroll an affix at the Mystic. After the first reroll, only that affix can be rerolled.
-- [ ] Skills tab: runes unlock after using a skill enough. Picking one changes how the skill plays.
+- [ ] Skills tab: pick any 4 skills (at most one ultimate). Try the new Stormcaller. Runes so far only exist for the original skills.
 - [ ] Settings: loot filter hides and auto-scraps junk, pets pick up from further away, sound toggle, screen shake toggle.
 - [ ] Battery: how much does a 15-minute session use?
 
