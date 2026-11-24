@@ -101,3 +101,11 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Constructs are timed and can't be attacked. The Effigy rune taunts enemies near the totem.
 - Two new sets: Gravewright's Toolkit (constructs) and Colossus Plate (Colossus uptime). Four new legendaries: Foreman's Grips, Marrow Engine, Ossuary Blueprint and Colossus Core. Existing summon legendaries also work on constructs.
 - ⚠ Balance: first pass from bot runs only. The fresh T1 clear time matches the other classes. The Colossus is deliberately strong.
+
+## Maps (2026-11-24)
+- data/maps.json holds every map: layout (cave, linear, open, rooms), size, colour theme, floor decoration and pick weight.
+- The rift code picks the map with a weighted hash, so the same code is always the same map (co-op and weekly stay in sync).
+- Normal maps: Sunken Ossuary (cave), Long Catacombs (linear), Flooded Halls (open), Rot Gardens (rooms). Pack count scales with open floor (0.6–1.4×).
+- Easter eggs: Gilded Vault (~1.4% of codes: half the enemies, 6× drops, 3× legendary weight) and Good Luck (~0.7%: 10–50× density, progress needed scales with density/5).
+- Good Luck caps live enemies at 1,200 so phones keep up (about 4 ms per tick in node; enemy separation switches to a spatial grid above 120 enemies).
+- Mana/resource bar now uses the real max (base + res_max affixes) and shows "current / max".

@@ -2,6 +2,7 @@ import skillsJson from "../../data/skills.json";
 import classesJson from "../../data/classes.json";
 import enemiesJson from "../../data/enemies.json";
 import riftJson from "../../data/rift.json";
+import mapsJson from "../../data/maps.json";
 import affixesJson from "../../data/affixes.json";
 import itemsJson from "../../data/items.json";
 import legendariesJson from "../../data/legendaries.json";
@@ -41,6 +42,13 @@ export const SKILL = Object.fromEntries(SKILLS.map((s) => [s.id, s])) as Record<
 export const CLASSES = classesJson as unknown as Record<string, ClassDef>;
 export const ENEMIES = enemiesJson as unknown as Record<string, EnemyDef>;
 export const RIFT = riftJson;
+export interface MapTheme { floor: string[]; speck: string[]; wallTop: string; wallFace: string; wallLight: string; wallLine: string; void: string; deco: string }
+export interface MapDef {
+  id: string; name: string; layout: "cave" | "linear" | "open" | "rooms"; w: number; h: number; weight: number; desc: string; egg?: boolean;
+  packMult?: number; dropMult?: number; legendaryWeightMult?: number; density?: [number, number]; enemyCap?: number; theme: MapTheme;
+}
+export const MAPS = mapsJson as MapDef[];
+export const MAP: Record<string, MapDef> = Object.fromEntries(MAPS.map((m) => [m.id, m]));
 export const AFFIXES = affixesJson as unknown as AffixDef[];
 export const AFFIX = Object.fromEntries(AFFIXES.map((a) => [a.id, a])) as Record<string, AffixDef>;
 export const ITEMS = itemsJson as typeof itemsJson & { slots: SlotType[]; equipSlots: EquipSlot[] };

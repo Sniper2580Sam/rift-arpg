@@ -1,8 +1,8 @@
 // Pure deterministic simulation for 1–4 players. No DOM, no Math.random, no wall-clock time.
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
-import { BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel } from "./data";
+import { BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , MAP, MAPS, MapDef } from "./data";
 import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue, shardValue } from "./items";
-import { TileMap, flowField, genArena, genCave, moveWithWalls } from "./map";
+import { TileMap, flowField, genArena, genCave, genLinear, genOpen, genRooms, moveWithWalls } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
 import { DIR_TABLE, len, norm, rotFine } from "./vec";
 
@@ -94,6 +94,8 @@ export type SimEvent =
 
 export interface RiftState {
   kind: "rift" | "chase"; tier: number; mods: string[];
+  /** which map (data/maps.json) and, for the Good Luck map, its density multiplier */
+  map?: string; density?: number;
   time: number; limit: number; progress: number; need: number;
   guardianSpawned: boolean; guardianId: number; done: boolean; doneAt: number; kills: number; timeUpSent: boolean; boonIdx: number;
   /** rift time of the next ambush wave (enemies that spawn nearby and hunt the party) */
@@ -101,6 +103,8 @@ export interface RiftState {
 }
 export interface SimConfig {
   seed: number; kind?: "rift" | "chase"; tier?: number; mods?: string[]; players: PlayerSetup[];
+  /** force a map (tests); otherwise it's picked from the seed */
+  map?: string;
   mint?: "local" | "external"; pity?: Record<number, { ancestral?: boolean; primal?: boolean }>;
 }
 export interface SimState {
@@ -122,14 +126,32 @@ export function rollModifiers(seed: number, tier: number): string[] {
   return out;
 }
 const modVal = (s: SimState, k: "packMult" | "enemySpeed" | "enemyHp" | "dropMult" | "eliteMult" | "xpMult") => {
-  let v = 1; for (const m of s.rift.mods) v *= (MODIFIER[m] as any)[k] ?? 1; return v;
+  let v = 1; for (const m of s.rift.mods) v *= (MODIFIER[m] as any)[k] ?? 1;
+  // map-wide loot bonus (the Gilded Vault)
+  if (k === "dropMult" && s.rift.map) v *= MAP[s.rift.map]?.dropMult ?? 1;
+  return v;
 };
+/** The map for a rift code: a weighted pick from the seed, so the same code is always the same map. */
+export function pickMap(seed: number): MapDef {
+  let h = (seed ^ 0x9e3779b9) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0; h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0; h = (h ^ (h >>> 16)) >>> 0;
+  const total = MAPS.reduce((a, m) => a + m.weight, 0);
+  let x = (h / 4294967296) * total;
+  for (const m of MAPS) { x -= m.weight; if (x < 0) return m; }
+  return MAPS[0];
+}
 
 export function createSim(cfg: SimConfig): SimState {
   const kind = cfg.kind ?? "rift";
   const tier = Math.max(1, cfg.tier ?? 1);
   const rng = makeRng(cfg.seed);
-  const map = kind === "chase" ? genArena(rng, 44, 44, RIFT.tileSize) : genCave(rng, RIFT.mapWidth, RIFT.mapHeight, RIFT.tileSize);
+  const md = kind === "chase" ? undefined : MAP[cfg.map ?? ""] ?? pickMap(cfg.seed);
+  const map = !md ? genArena(rng, 44, 44, RIFT.tileSize)
+    : md.layout === "linear" ? genLinear(rng, md.w, md.h, RIFT.tileSize)
+    : md.layout === "open" ? genOpen(rng, md.w, md.h, RIFT.tileSize)
+    : md.layout === "rooms" ? genRooms(rng, md.w, md.h, RIFT.tileSize)
+    : genCave(rng, md.w, md.h, RIFT.tileSize);
+  const density = md?.density ? md.density[0] + Math.floor(next(rng) * (md.density[1] - md.density[0] + 1)) : 1;
   const ts = map.ts;
   const floors: number[] = [];
   for (let i = 0; i < map.tiles.length; i++) if (map.tiles[i] === 0 && openness(map, i) >= 8) floors.push(i);
@@ -142,7 +164,7 @@ export function createSim(cfg: SimConfig): SimState {
     players: [], enemies: [], projectiles: [], summons: [], hazards: [], zones: [], loot: [], pending: [],
     nextId: 1, itemCounter: 0, startX, startY,
     rift: {
-      kind, tier, mods, time: 0, limit: kind === "chase" ? RIFT.chase.timeLimit : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier)),
+      kind, tier, mods, map: md?.id, density, time: 0, limit: kind === "chase" ? RIFT.chase.timeLimit : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier) * Math.max(1, density / 5)),
       guardianSpawned: false, guardianId: 0, done: false, doneAt: 0, kills: 0, timeUpSent: false, boonIdx: 0, nextWave: RIFT.waves.first,
     },
     boonOffers: {}, boonPending: {}, pity: cfg.pity ?? {}, events: [], _flows: [], _flowTick: -999,
@@ -158,7 +180,10 @@ export function createSim(cfg: SimConfig): SimState {
   const packs: [number, number][] = [];
   let attempts = 0;
   const eliteChance = RIFT.eliteChance * modVal(s, "eliteMult") + RIFT.party.eliteChancePerExtra * (n - 1);
-  while (packs.length < RIFT.packCount && attempts++ < 4000) {
+  // bigger or smaller maps get proportionally more or fewer packs (the cave has about 4,700 open tiles)
+  const packTarget = Math.round(RIFT.packCount * Math.max(0.6, Math.min(1.4, floors.length / 4700)));
+  const cap = md?.enemyCap ?? 99999;
+  while (packs.length < packTarget && attempts++ < 4000 && s.enemies.length < cap) {
     const ti = floors[Math.floor(next(rng) * floors.length)];
     const x = (ti % map.w) * ts + ts / 2, y = Math.floor(ti / map.w) * ts + ts / 2;
     if (len(x - startX, y - startY) < 220) continue;
@@ -168,7 +193,7 @@ export function createSim(cfg: SimConfig): SimState {
     const elitePack = chance(rng, eliteChance);
     let first = true;
     for (const [ek, lo, hi] of pack.members as [EnemyKind, number, number][]) {
-      const cnt = Math.max(1, Math.round(int(rng, lo, hi) * modVal(s, "packMult") * tierDensity(s.rift.tier)));
+      const cnt = Math.max(1, Math.round(int(rng, lo, hi) * modVal(s, "packMult") * tierDensity(s.rift.tier) * (md?.packMult ?? 1) * density));
       for (let i = 0; i < cnt; i++) {
         const d = DIR_TABLE[int(rng, 0, 31)];
         const rr = range(rng, 0, 22);
@@ -812,6 +837,7 @@ function lootOpts(s: SimState, p: Player, extra: MintOpts): MintOpts {
   const t = s.rift.tier, T = RIFT.tiers;
   return {
     tier: t, ilvl: Math.min(RIFT.levels.max, p.level + Math.floor(t / 4)), equipment: p.equipment, cls: p.cls,
+    legendaryWeightMult: (s.rift.map && MAP[s.rift.map]?.legendaryWeightMult) || 1,
     ancestralChance: t >= T.ancestralFrom ? Math.min(T.ancestralCap, T.ancestralBase + T.ancestralPerTier * (t - T.ancestralFrom)) : 0,
     primalChance: t >= T.primalFrom ? T.primalChance : 0,
     ...extra,
@@ -900,10 +926,23 @@ function updateEnemies(s: SimState) {
       case "pylon": break;
     }
   }
+  // separation: with many active enemies (Good Luck hordes) only pairs in nearby grid cells are checked
+  const CELL = 24, gw = Math.ceil((s.map.w * s.map.ts) / CELL) + 3, useGrid = active.length >= 120;
+  const grid = new Map<number, number[]>();
+  if (useGrid) for (let i = 0; i < active.length; i++) { const a = active[i]; const k = (Math.floor(a.y / CELL) + 1) * gw + Math.floor(a.x / CELL) + 1; let b = grid.get(k); if (!b) grid.set(k, (b = [])); b.push(i); }
+  const all = useGrid ? [] : active.map((_, j) => j);
   for (let i = 0; i < active.length; i++) {
     const a = active[i];
     if (a.dead) continue;
-    for (let j = i + 1; j < active.length; j++) {
+    let js = all;
+    if (useGrid) {
+      js = [];
+      const cx = Math.floor(a.x / CELL) + 1, cy = Math.floor(a.y / CELL) + 1;
+      for (let oy = -2; oy <= 2; oy++) for (let ox = -2; ox <= 2; ox++) { const b = grid.get((cy + oy) * gw + cx + ox); if (b) for (const j of b) js.push(j); }
+      js.sort((x, y) => x - y);
+    }
+    for (const j of js) {
+      if (j <= i) continue;
       const b = active[j];
       if (b.dead) continue;
       const dx = b.x - a.x, dy = b.y - a.y, d = len(dx, dy), min = a.r + b.r;
@@ -1299,7 +1338,9 @@ function ambush(s: SimState) {
   }
   if (!ok) return;
   const n = s.players.length;
-  const count = Math.round((W.base + W.perMinute * (r.time / 60)) * (1 + 0.5 * (n - 1)) * modVal(s, "packMult") * tierDensity(r.tier));
+  let count = Math.round((W.base + W.perMinute * (r.time / 60)) * (1 + 0.5 * (n - 1)) * modVal(s, "packMult") * tierDensity(r.tier) * (r.density ?? 1));
+  const cap = (r.map && MAP[r.map]?.enemyCap) || 0;
+  if (cap) { let alive = 0; for (const e of s.enemies) if (!e.dead) alive++; count = Math.max(0, Math.min(count, cap - alive)); }
   const pack = weighted(s.rng, RIFT.packs);
   const kinds = (pack.members as [EnemyKind, number, number][]).map((m) => m[0]);
   for (let i = 0; i < count; i++) {

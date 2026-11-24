@@ -15,7 +15,12 @@ export function genCave(r: Rng, w: number, h: number, ts: number): TileMap {
     }
     t = n;
   }
-  // largest region
+  keepLargest(t, w, h);
+  return { w, h, ts, tiles: t };
+}
+
+/** Keep only the largest connected floor region (everything else becomes wall). */
+function keepLargest(t: number[], w: number, h: number) {
   const region = new Array(w * h).fill(-1);
   let best = -1, bestSize = 0, id = 0;
   for (let i = 0; i < w * h; i++) {
@@ -35,6 +40,81 @@ export function genCave(r: Rng, w: number, h: number, ts: number): TileMap {
     id++;
   }
   for (let i = 0; i < w * h; i++) if (t[i] === 0 && region[i] !== best) t[i] = 1;
+}
+
+const ri = (r: Rng, lo: number, hi: number) => lo + Math.floor(next(r) * (hi - lo + 1));
+function carveRect(t: number[], w: number, h: number, x0: number, y0: number, x1: number, y1: number) {
+  for (let y = Math.max(1, Math.min(y0, y1)); y <= Math.min(h - 2, Math.max(y0, y1)); y++)
+    for (let x = Math.max(1, Math.min(x0, x1)); x <= Math.min(w - 2, Math.max(x0, x1)); x++) t[y * w + x] = 0;
+}
+/** A corridor `wd` wide: horizontal then vertical, with a little wobble. */
+function corridor(r: Rng, t: number[], w: number, h: number, ax: number, ay: number, bx: number, by: number, wd: number) {
+  const hw = Math.floor(wd / 2);
+  const mid = next(r) < 0.5;
+  if (mid) { carveRect(t, w, h, ax, ay - hw, bx, ay - hw + wd - 1); carveRect(t, w, h, bx - hw, ay, bx - hw + wd - 1, by); }
+  else { carveRect(t, w, h, ax - hw, ay, ax - hw + wd - 1, by); carveRect(t, w, h, ax, by - hw, bx, by - hw + wd - 1); }
+}
+/** Rough the edges of carved space so it doesn't look like a grid. */
+function erode(r: Rng, t: number[], w: number, h: number, p: number) {
+  const n = t.slice();
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    if (t[y * w + x] !== 1) continue;
+    let f = 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) f += t[(y + dy) * w + x + dx] === 0 ? 1 : 0;
+    if (f > 0 && next(r) < p) n[y * w + x] = 0;
+  }
+  for (let i = 0; i < t.length; i++) t[i] = n[i];
+}
+
+/** Linear: a chain of rooms snaking from one end of the map to the other. */
+export function genLinear(r: Rng, w: number, h: number, ts: number): TileMap {
+  const t = new Array(w * h).fill(1);
+  let x = 6, y = ri(r, 8, h - 9), px = -1, py = -1;
+  while (x < w - 6) {
+    const rw = ri(r, 5, 9), rh = ri(r, 5, 9);
+    carveRect(t, w, h, x - rw, y - rh, x + rw, y + rh);
+    if (px >= 0) corridor(r, t, w, h, px, py, x, y, ri(r, 3, 5));
+    px = x; py = y;
+    x += ri(r, 14, 20); y = Math.max(8, Math.min(h - 9, y + ri(r, -12, 12)));
+  }
+  erode(r, t, w, h, 0.25);
+  keepLargest(t, w, h);
+  return { w, h, ts, tiles: t };
+}
+
+/** Open: one big hall with scattered pillars and rubble. */
+export function genOpen(r: Rng, w: number, h: number, ts: number): TileMap {
+  const t = new Array(w * h).fill(1);
+  carveRect(t, w, h, 3, 3, w - 4, h - 4);
+  const n = Math.floor((w * h) / 70);
+  for (let i = 0; i < n; i++) {
+    const cx = ri(r, 6, w - 7), cy = ri(r, 6, h - 7), sz = ri(r, 0, 2);
+    for (let y = cy - sz; y <= cy + sz; y++) for (let x = cx - sz; x <= cx + sz; x++) if (next(r) < 0.8) t[y * w + x] = 1;
+  }
+  erode(r, t, w, h, 0.15);
+  keepLargest(t, w, h);
+  return { w, h, ts, tiles: t };
+}
+
+/** Rooms: a grid of chambers linked by narrow halls (a spanning tree plus a few loops). */
+export function genRooms(r: Rng, w: number, h: number, ts: number): TileMap {
+  const t = new Array(w * h).fill(1);
+  const cell = 16, cw = Math.floor((w - 2) / cell), ch = Math.floor((h - 2) / cell);
+  const centers: [number, number][] = [];
+  for (let gy = 0; gy < ch; gy++) for (let gx = 0; gx < cw; gx++) {
+    const ox = 1 + gx * cell, oy = 1 + gy * cell;
+    const rw = ri(r, 3, 6), rh = ri(r, 3, 6), cx = ox + ri(r, rw + 1, cell - rw - 2), cy = oy + ri(r, rh + 1, cell - rh - 2);
+    carveRect(t, w, h, cx - rw, cy - rh, cx + rw, cy + rh);
+    centers.push([cx, cy]);
+  }
+  const idx = (gx: number, gy: number) => gy * cw + gx;
+  for (let gy = 0; gy < ch; gy++) for (let gx = 0; gx < cw; gx++) {
+    const [ax, ay] = centers[idx(gx, gy)];
+    // always link right in the first row and down everywhere else (a tree), plus random extra loops
+    if (gx + 1 < cw && (gy === 0 || next(r) < 0.45)) { const [bx, by] = centers[idx(gx + 1, gy)]; corridor(r, t, w, h, ax, ay, bx, by, 3); }
+    if (gy + 1 < ch) { const [bx, by] = centers[idx(gx, gy + 1)]; corridor(r, t, w, h, ax, ay, bx, by, 3); }
+  }
+  erode(r, t, w, h, 0.2);
+  keepLargest(t, w, h);
   return { w, h, ts, tiles: t };
 }
 

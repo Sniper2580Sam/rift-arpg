@@ -177,7 +177,7 @@ export class UI {
         <button id="t-up" aria-label="Higher tier" ${t >= c.highestTier ? "disabled" : ""}>+</button>
       </div>
       <div class="dim small">Clear a tier before the timer runs out to unlock the next one. Highest: ${c.highestTier}. Ancestral pity: ${c.pityAnc}/${T.ancestralPity}.</div>
-      <button id="enter" class="big">Enter the Sunken Ossuary</button>
+      <button id="enter" class="big">Enter a rift</button>
       <div class="row">
         <input id="seed" placeholder="rift code (optional)" maxlength="8" autocomplete="off" aria-label="Rift code">
         <button id="weekly">Weekly rift ${week.slice(5)} · T${WEEKLY_TIER} · best ${wbest}</button>

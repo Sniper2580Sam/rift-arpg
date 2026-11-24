@@ -1,8 +1,8 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { CLASSES, ENEMIES, MODIFIER, RIFT, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { CLASSES, ENEMIES, MAP, MODIFIER, RIFT, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
-import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers } from "../sim/sim";
+import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax } from "../sim/sim";
 import { sfx, setMuted, unlockAudio } from "./audio";
 import { Input, KEY_LABELS } from "./input";
 import { Profile, char, isoWeek, loadProfile, saveProfile, setLocalSaves, setOnSaved, setupFor, syncFromSim, weeklySeed } from "./profile";
@@ -115,11 +115,12 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   sim = existing ?? createSim(cfg);
   run = info;
   const seed = info.seed;
-  mapCanvas = renderMap(sim.map.tiles, sim.map.w, sim.map.h, sim.map.ts, seed);
+  const md = sim.rift.map ? MAP[sim.rift.map] : undefined;
+  mapCanvas = renderMap(sim.map.tiles, sim.map.w, sim.map.h, sim.map.ts, seed, md?.theme);
   miniCanvas = document.createElement("canvas");
   miniCanvas.width = sim.map.w; miniCanvas.height = sim.map.h;
   const m = miniCanvas.getContext("2d")!;
-  for (let i = 0; i < sim.map.tiles.length; i++) if (sim.map.tiles[i] === 0) { m.fillStyle = "#6a5a7e"; m.fillRect(i % sim.map.w, Math.floor(i / sim.map.w), 1, 1); }
+  for (let i = 0; i < sim.map.tiles.length; i++) if (sim.map.tiles[i] === 0) { m.fillStyle = md?.theme.wallLight ?? "#6a5a7e"; m.fillRect(i % sim.map.w, Math.floor(i / sim.map.w), 1, 1); }
   const p = me();
   camX = p.x - wb.width / 2; camY = p.y - wb.height / 2;
   particles.length = nums.length = rings.length = arcs.length = ghosts.length = 0; pets.clear();
@@ -130,7 +131,9 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   riftButtons();
   const party = sim.players.length > 1 ? ` · party of ${sim.players.length}` : "";
   if (info.kind === "chase") showBanner(RIFT.chase.name, "Three phases. Dodge the fire, break the pylons.", "#ff3b6b", 3.5);
-  else showBanner(info.weekly ? "WEEKLY RIFT" : RIFT.name, `Tier ${info.tier} · code ${seed.toString(36).toUpperCase()} · ${modsLine(sim.rift.mods)}${party}`, "#c9b8ff", 3.5);
+  else if (md?.id === "goodluck") showBanner(`GOOD LUCK ×${sim.rift.density}`, `Somebody left the gate open. Tier ${info.tier} · code ${seed.toString(36).toUpperCase()}${party}`, "#ff5a6a", 5);
+  else if (md?.egg) showBanner(md.name.toUpperCase(), `${md.desc} Tier ${info.tier} · code ${seed.toString(36).toUpperCase()}${party}`, "#ffd75a", 5);
+  else showBanner(info.weekly ? "WEEKLY RIFT" : md?.name ?? RIFT.name, `Tier ${info.tier} · code ${seed.toString(36).toUpperCase()} · ${modsLine(sim.rift.mods)}${party}`, "#c9b8ff", 3.5);
 }
 
 function riftButtons() {
@@ -810,8 +813,8 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
   c.fillStyle = "#fff"; c.font = font(12); c.fillText(`${Math.ceil(p.hp)} / ${p.stats.maxHp}`, L + 12, T + 15);
   const R = CLASSES[p.cls].resource;
   c.fillStyle = "#1b1424"; c.fillRect(L + 6, T + 25, lw, 8);
-  c.fillStyle = R.color; c.fillRect(L + 6, T + 25, lw * Math.max(0, p.res / R.max), 8);
-  c.fillStyle = R.id === "marrow" ? "#140c1c" : "#fff"; c.font = font(9); c.fillText(`${R.name} ${Math.floor(p.res)}`, L + 9, T + 29.5);
+  c.fillStyle = R.color; c.fillRect(L + 6, T + 25, lw * Math.max(0, Math.min(1, p.res / resMax(p))), 8);
+  c.fillStyle = R.id === "marrow" ? "#140c1c" : "#fff"; c.font = font(9); c.fillText(`${R.name} ${Math.floor(p.res)} / ${resMax(p)}`, L + 9, T + 29.5);
   c.fillStyle = "#1b1424"; c.fillRect(L + 6, T + 36, lw, 3);
   c.fillStyle = "#c9b8ff"; c.fillRect(L + 6, T + 36, lw * (p.level >= RIFT.levels.max ? 1 : p.xp / xpForLevel(p.level)), 3);
   c.fillStyle = "#b8a8d0"; c.font = font(10); { let lv = `Lv ${p.level}${p.boons.length ? " · " + p.boons.join(", ") : ""}`; while (lv.length > 4 && c.measureText(lv).width > lw) lv = lv.slice(0, -2) + "…"; c.fillText(lv, L + 6, T + 48); }

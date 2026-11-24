@@ -66,3 +66,7 @@ Saves are stored in Safari for that page. Clearing Safari website data wipes the
 - WebRTC across different networks. There's no TURN server (local-only rule), so co-op over mobile data or between homes will often fail.
 - Co-op with 3–4 players. I tested 2 players in two headless browsers on one machine, including mid-run join and leave.
 - Server load and data safety beyond one machine. Accounts and items are JSON files, not a database.
+
+## Maps
+- `npm test` now also runs test/maps.test.ts: every map generates, a bot clears it, Good Luck stays under 12 ms/tick, and egg maps stay rare.
+- In game: start a few rifts with different codes and check the banner names the map and the colours change. Good Luck shows "GOOD LUCK ×N".

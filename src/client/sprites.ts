@@ -577,48 +577,68 @@ export function buildSprites(): SpriteBank {
 }
 
 /** Pre-renders the whole rift map (floor with noise, walls with a lit front face) to one canvas. */
-export function renderMap(tiles: number[], w: number, h: number, ts: number, seed: number): HTMLCanvasElement {
+import type { MapTheme } from "../sim/data";
+const OSSUARY: MapTheme = { floor: ["#2a2233", "#2e2538", "#272030"], speck: ["#342a40", "#211a29"], wallTop: "#1c1526", wallFace: "#4a3b5a", wallLight: "#5c4a6e", wallLine: "#2f2540", void: "#0e0a14", deco: "bones" };
+export function renderMap(tiles: number[], w: number, h: number, ts: number, seed: number, th: MapTheme = OSSUARY): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = w * ts; c.height = h * ts;
   const g = c.getContext("2d")!;
   let rs = seed >>> 0;
   const rnd = () => { rs = (rs * 1664525 + 1013904223) >>> 0; return rs / 4294967296; };
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= w || y >= h ? 1 : tiles[y * w + x]);
-  const floorCols = ["#2a2233", "#2e2538", "#272030"];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const px = x * ts, py = y * ts;
     if (at(x, y) === 0) {
-      g.fillStyle = floorCols[Math.floor(rnd() * 3)];
+      g.fillStyle = th.floor[Math.floor(rnd() * th.floor.length)];
       g.fillRect(px, py, ts, ts);
       // cracks / pebbles / bones
       for (let i = 0; i < 3; i++) {
-        g.fillStyle = rnd() < 0.5 ? "#342a40" : "#211a29";
+        g.fillStyle = rnd() < 0.5 ? th.speck[0] : th.speck[1];
         g.fillRect(px + Math.floor(rnd() * 14), py + Math.floor(rnd() * 14), 2, 1);
       }
-      if (rnd() < 0.04) { g.fillStyle = "#8a7f66"; g.fillRect(px + 5, py + 8, 5, 1); g.fillRect(px + 4, py + 7, 1, 3); g.fillRect(px + 10, py + 7, 1, 3); }
-      if (rnd() < 0.03) { g.fillStyle = "#3d6b5a"; g.fillRect(px + 3, py + 3, 1, 2); g.fillRect(px + 4, py + 2, 1, 2); }
+      decorate(g, th.deco, px, py, rnd);
       // shadow under walls above
       if (at(x, y - 1) === 1) { g.fillStyle = "rgba(0,0,0,0.35)"; g.fillRect(px, py, ts, 4); }
     } else {
-      g.fillStyle = "#0e0a14";
+      g.fillStyle = th.void;
       g.fillRect(px, py, ts, ts);
       if (at(x, y + 1) === 0) {
         // front face (bricks)
-        g.fillStyle = "#4a3b5a"; g.fillRect(px, py + 6, ts, 10);
-        g.fillStyle = "#5c4a6e"; g.fillRect(px, py + 6, ts, 1);
-        g.fillStyle = "#2f2540";
+        g.fillStyle = th.wallFace; g.fillRect(px, py + 6, ts, 10);
+        g.fillStyle = th.wallLight; g.fillRect(px, py + 6, ts, 1);
+        g.fillStyle = th.wallLine;
         g.fillRect(px, py + 10, ts, 1); g.fillRect(px, py + 15, ts, 1);
         const o = (x % 2) * 4;
         g.fillRect(px + o + 3, py + 6, 1, 4); g.fillRect(px + o + 11, py + 6, 1, 4);
         g.fillRect(px + o + 7, py + 11, 1, 4);
-        g.fillStyle = "#1c1526"; g.fillRect(px, py, ts, 6);
-        g.fillStyle = "#3a2e4a"; g.fillRect(px, py + 5, ts, 1);
+        g.fillStyle = th.wallTop; g.fillRect(px, py, ts, 6);
+        g.fillStyle = th.wallLine; g.fillRect(px, py + 5, ts, 1);
       } else {
-        g.fillStyle = "#1c1526";
+        g.fillStyle = th.wallTop;
         g.fillRect(px + 1, py + 1, ts - 2, ts - 2);
-        if (rnd() < 0.3) { g.fillStyle = "#241b30"; g.fillRect(px + 4 + Math.floor(rnd() * 6), py + 4 + Math.floor(rnd() * 6), 3, 2); }
+        if (rnd() < 0.3) { g.fillStyle = th.speck[1]; g.fillRect(px + 4 + Math.floor(rnd() * 6), py + 4 + Math.floor(rnd() * 6), 3, 2); }
       }
     }
   }
   return c;
+}
+
+/** Small floor details that give each map its own feel. */
+function decorate(g: CanvasRenderingContext2D, deco: string, px: number, py: number, rnd: () => number) {
+  const r = rnd();
+  if (deco === "bones") {
+    if (r < 0.04) { g.fillStyle = "#8a7f66"; g.fillRect(px + 5, py + 8, 5, 1); g.fillRect(px + 4, py + 7, 1, 3); g.fillRect(px + 10, py + 7, 1, 3); }
+    else if (r < 0.07) { g.fillStyle = "#3d6b5a"; g.fillRect(px + 3, py + 3, 1, 2); g.fillRect(px + 4, py + 2, 1, 2); }
+  } else if (deco === "candles") {
+    if (r < 0.025) { g.fillStyle = "#d8cfb0"; g.fillRect(px + 7, py + 7, 2, 5); g.fillStyle = "#ffb347"; g.fillRect(px + 7, py + 5, 2, 2); g.fillStyle = "rgba(255,180,80,0.12)"; g.fillRect(px + 2, py + 2, 12, 12); }
+    else if (r < 0.06) { g.fillStyle = "#6b5640"; g.fillRect(px + 2, py + 9, 10, 2); }
+  } else if (deco === "puddles") {
+    if (r < 0.06) { g.fillStyle = "rgba(90,160,190,0.25)"; g.fillRect(px + 2, py + 5, 11, 5); g.fillStyle = "rgba(180,230,255,0.35)"; g.fillRect(px + 4, py + 6, 3, 1); }
+  } else if (deco === "moss") {
+    if (r < 0.08) { g.fillStyle = "#4f7a3a"; g.fillRect(px + 3, py + 9, 1, 3); g.fillRect(px + 5, py + 8, 1, 4); g.fillRect(px + 7, py + 10, 1, 2); }
+    else if (r < 0.1) { g.fillStyle = "#c25a7a"; g.fillRect(px + 9, py + 5, 2, 2); }
+  } else if (deco === "coins") {
+    if (r < 0.07) { g.fillStyle = "#e8c050"; g.fillRect(px + 4, py + 6, 2, 1); g.fillRect(px + 8, py + 10, 2, 1); g.fillStyle = "#fff0a0"; g.fillRect(px + 4, py + 6, 1, 1); }
+    else if (r < 0.08) { g.fillStyle = "#c9a23a"; g.fillRect(px + 4, py + 6, 7, 5); g.fillStyle = "#6a4f12"; g.fillRect(px + 4, py + 8, 7, 1); }
+  }
 }
