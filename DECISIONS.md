@@ -151,3 +151,4 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Extra projectiles: projectiles fired together are one volley. The first hit on an enemy does full damage, and further hits from the same volley do 30% (rift.json volleyRepeat). Extra projectiles now widen coverage instead of multiplying single-target damage.
 - Bonewright constructs: "+N projectiles" adds shots per turret volley, and "+N minions" raises how many can stand at once (one per cast). The Bone Battery ring grows instead.
 - Hideout station and portal names are drawn at screen resolution (they were blurry when scaled up).
+- Fast moves (dashes, blinks, knockback) are split into small steps, so nothing can skip into a wall; anyone who still ends up inside a wall is moved to the nearest floor.

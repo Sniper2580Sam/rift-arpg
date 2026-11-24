@@ -1,6 +1,7 @@
 // Every map layout generates, is connected, places packs, and a bot can clear it. The Good Luck map runs fast enough.
 import { createSim, step, NO_INPUT, PlayerInput, SimState, pickMap } from "../src/sim/sim";
 import { MAPS } from "../src/sim/data";
+import { isWallAt, moveWithWalls } from "../src/sim/map";
 const proc = (globalThis as any).process;
 let fails = 0;
 const check = (name: string, ok: boolean, extra = "") => { console.log(`${ok ? "ok  " : "FAIL"} ${name}${extra ? " " + extra : ""}`); if (!ok) fails++; };
@@ -52,5 +53,11 @@ const counts: Record<string, number> = {};
 for (let i = 0; i < 20000; i++) { const m = pickMap(i * 7919 + 13); counts[m.id] = (counts[m.id] ?? 0) + 1; }
 console.log("map odds /20000:", JSON.stringify(counts));
 check("eggs are rare", (counts.goodluck ?? 0) < 400 && (counts.goodluck ?? 0) > 20 && (counts.vault ?? 0) < 700);
+{ // a blink-speed move into a thick wall stops at the wall, never inside it
+  const m = { w: 10, h: 3, ts: 16, tiles: [1,1,1,1,1,1,1,1,1,1, 1,0,0,0,1,1,1,1,0,1, 1,1,1,1,1,1,1,1,1,1] };
+  const e = { x: 24, y: 24, r: 5 };
+  for (let i = 0; i < 4; i++) moveWithWalls(m, e, 46, 0);
+  check("fast move stops at the wall", !isWallAt(m, e.x, e.y) && e.x < 4 * 16);
+}
 if (fails) { console.log(`${fails} map checks failed`); proc.exit(1); }
 console.log("maps: all checks passed");

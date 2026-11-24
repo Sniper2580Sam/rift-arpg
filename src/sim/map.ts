@@ -176,6 +176,32 @@ export function isWallAt(m: TileMap, px: number, py: number): boolean {
 
 /** Circle-ish (AABB) vs grid. Moves along each axis separately so entities slide on walls. Returns true if blocked. */
 export function moveWithWalls(m: TileMap, e: { x: number; y: number; r: number }, dx: number, dy: number): boolean {
+  // fast moves (dashes, blinks, big knockbacks) go in small steps, so they can't skip into or through a wall
+  const max = Math.max(Math.abs(dx), Math.abs(dy)), lim = Math.min(m.ts * 0.4, Math.max(2, e.r));
+  if (max > lim) {
+    const n = Math.ceil(max / lim);
+    let blocked = false;
+    for (let i = 0; i < n; i++) if (moveStep(m, e, dx / n, dy / n)) blocked = true;
+    return blocked;
+  }
+  return moveStep(m, e, dx, dy);
+}
+/** If something ended up inside a wall anyway, move it to the nearest open floor. Returns true if it moved. */
+export function unstick(m: TileMap, e: { x: number; y: number; r: number }): boolean {
+  if (!isWallAt(m, e.x, e.y)) return false;
+  const tx = Math.floor(e.x / m.ts), ty = Math.floor(e.y / m.ts);
+  for (let d = 1; d < 12; d++) {
+    let best = -1, bd = 1e9;
+    for (let y = ty - d; y <= ty + d; y++) for (let x = tx - d; x <= tx + d; x++) {
+      if (x < 1 || y < 1 || x >= m.w - 1 || y >= m.h - 1 || m.tiles[y * m.w + x] !== 0) continue;
+      const dd = (x - tx) * (x - tx) + (y - ty) * (y - ty);
+      if (dd < bd) { bd = dd; best = y * m.w + x; }
+    }
+    if (best >= 0) { e.x = ((best % m.w) + 0.5) * m.ts; e.y = (Math.floor(best / m.w) + 0.5) * m.ts; return true; }
+  }
+  return false;
+}
+function moveStep(m: TileMap, e: { x: number; y: number; r: number }, dx: number, dy: number): boolean {
   let blocked = false;
   if (dx !== 0) {
     const nx = e.x + dx;

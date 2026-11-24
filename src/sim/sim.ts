@@ -2,7 +2,7 @@
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
 import { BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , MAP, MAPS, MapDef, ITEMS, HideoutLayout, hideoutTheme } from "./data";
 import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, equipTarget, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue, shardValue } from "./items";
-import { TileMap, flowField, genArena, genCave, genHideout, genLinear, genOpen, genRing, genRooms, moveWithWalls } from "./map";
+import { TileMap, flowField, genArena, genCave, genHideout, genLinear, genOpen, genRing, genRooms, moveWithWalls, unstick } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
 import { DIR_TABLE, len, norm, rotFine } from "./vec";
 
@@ -421,7 +421,8 @@ function updatePlayer(s: SimState, p: Player, inp: PlayerInput) {
   p.swingT -= DT;
   const [afx, afy] = norm(inp.ax - p.x, inp.ay - p.y);
   if (afx !== 0 || afy !== 0) { p.fx = afx; p.fy = afy; }
-  if (p.dashT > 0) { updateDash(s, p); return; }
+  if (p.dashT > 0) { updateDash(s, p); unstick(s.map, p); return; }
+  unstick(s.map, p);
 
   let mx = inp.mx, my = inp.my;
   const ml = len(mx, my);
