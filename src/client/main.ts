@@ -7,6 +7,7 @@ import { sfx, setMuted, unlockAudio } from "./audio";
 import { Input, KEY_LABELS } from "./input";
 import { Profile, char, isoWeek, loadProfile, saveProfile, setLocalSaves, setOnSaved, setupFor, syncFromSim, weeklySeed } from "./profile";
 import { queue as cloudQueue, startCloud } from "./cloud";
+import { driveQueue, startDrive } from "./gdrive";
 import { HubOp, applyHubOp } from "../shared/ops";
 import { RARITY_COLOR, Sprite, buildSprites, renderMap } from "./sprites";
 import { UI, fmtTime, modsLine } from "./ui";
@@ -1209,7 +1210,7 @@ else {
     online = d;
   }
   goHub();
-  setOnSaved((p) => cloudQueue(p));
+  setOnSaved((p) => { cloudQueue(p); driveQueue(p); });
   let pendingRemote: Profile | null = null;
   const useRemote = (p: Profile) => {
     if (mode !== "hub" || screen !== "hub") { pendingRemote = p; return; }
@@ -1219,6 +1220,7 @@ else {
     goHub();
   };
   startCloud(() => profile, useRemote);
+  startDrive(() => profile, (p) => { useRemote(p); }, () => { if (mode === "hub" && screen === "hub") ui.refreshDrive?.(); });
   (window as any).__applyPendingRemote = () => { if (pendingRemote) { const p = pendingRemote; pendingRemote = null; useRemote(p); } };
 }
 requestAnimationFrame(frame);

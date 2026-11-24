@@ -23,3 +23,13 @@ Without it, co-op usually works on the same Wi-Fi but often fails between a phon
 - Every push to `main` redeploys it automatically. Saves survive, because they're in the database.
 - Accounts are name + password, stored hashed. Anyone with the link can make an account.
 - Local play is unchanged: `npm run server` still uses files in `server-data/`.
+
+# Google sign-in for save sync (phone app), about 5 minutes
+The phone app (GitHub Pages) can keep each player's save in a hidden app folder in their own Google Drive. No server is needed. It stays hidden until `data/google.json` has a client ID.
+1. Open https://console.cloud.google.com and create a project, for example "Rift ARPG".
+2. **APIs & Services → Library**: search for **Google Drive API** and click **Enable**.
+3. **Google Auth Platform** (OAuth consent screen): fill in the app name and your email. For Audience pick **External**.
+4. **Data access → Add scopes**: add `.../auth/drive.appdata` ("See, create, and delete its own configuration data in your Google Drive").
+5. **Audience → Publish app**, so anyone with a Google account can sign in without being added by email.
+6. **Clients → Create client → Web application**. Under **Authorized JavaScript origins**, add `https://sniper2580sam.github.io`. Create it and copy the **Client ID** (it ends in `.apps.googleusercontent.com`).
+7. Put it in `data/google.json` as `{ "clientId": "…" }` and run `npm run site`, or send it to Claude. A client ID isn't a secret.

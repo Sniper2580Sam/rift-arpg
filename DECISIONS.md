@@ -118,3 +118,9 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Picking up an item for an empty gear slot equips it straight away.
 - Loot never lands in walls: drops snap to the nearest floor tile.
 - Premium skill effects (data/vfx.json): 8 styles, 2 per skill. They re-colour projectiles, casts, swings, blasts and chains. They're cosmetic only and free in the test build, like the other cosmetics.
+
+## Google sign-in sync (Samuel chose "your own Google Drive", 2026-11-24)
+- The phone app (GitHub Pages) has Settings → Google sync. Signing in stores the save in the player's own Drive app folder (scope drive.appdata). Every local save is mirrored there a few seconds later. On a new device, the newer save wins.
+- No server is involved, so the brief's "backend saves everything" still applies to the real game; when the server goes live, Google becomes a login there.
+- Google access tokens last an hour, and Google needs a tap to refresh one, so the game reconnects on the next tap. It's hidden in the artifact (which has its own Claude-account sync) and in the offline file.
+- Untested on a real iPhone home-screen app: Google's sign-in window may behave differently there.

@@ -1,5 +1,6 @@
 // DOM screens: hub (play / gear / skills / settings), inventory with compare + reroll, boon picker, results.
 import { AFFIX as AFFIX_DEF } from "../sim/data";
+import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { BOON, CLASSES, COSMETICS, CosKind, VFX, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
@@ -159,7 +160,7 @@ export class UI {
       this.root.querySelectorAll<HTMLElement>("[data-equip]").forEach((el) => el.onclick = () => { H.setSkill(this.skSlot, el.dataset.equip!); re(); });
     }
     if (this.tab === "looks") this.bindLooks(p, H, re);
-    if (this.tab === "settings") this.bindSettings(p, H, re);
+    if (this.tab === "settings") { this.bindSettings(p, H, re); this.bindDrive(); }
   }
 
   private playTab(p: Profile, c: CharSave, H: HubHandlers) {
@@ -479,9 +480,28 @@ export class UI {
   }
 
   // ---------------------------------------------------------------- settings
+  private driveHtml() {
+    if (!driveAvailable()) return "";
+    const st = driveStatus();
+    return `<div class="setting" id="drive-box"><b>Google sync</b><div class="dim small">Keeps your save in a hidden folder in your own Google Drive, so it follows you to other devices. Only this game can see that folder.</div>
+      <div class="dim small" id="drive-st">${esc(st.text)}</div>
+      <div class="opts">${st.signedIn ? `<button id="drive-out">Sign out</button>` : `<button id="drive-in">Sign in with Google</button>`}</div></div>`;
+  }
+  /** Redraws just the Google sync box (status changes arrive while the hub is open). */
+  refreshDrive() {
+    const box = this.root.querySelector("#drive-box");
+    if (!box) return;
+    box.outerHTML = this.driveHtml();
+    this.bindDrive();
+  }
+  private bindDrive() {
+    const i = this.root.querySelector<HTMLElement>("#drive-in"), o = this.root.querySelector<HTMLElement>("#drive-out");
+    if (i) i.onclick = () => { driveSignIn(); };
+    if (o) o.onclick = () => { driveSignOut(); };
+  }
   private settingsTab(p: Profile) {
     const filters: [Rarity, string][] = [["common", "Show everything"], ["magic", "Hide commons"], ["rare", "Hide common + magic"], ["legendary", "Only legendary, set, mythic"]];
-    return `
+    return `${this.driveHtml()}
       <div class="setting"><b>Loot filter</b><div class="dim small">Hidden items are auto-scrapped into materials when you walk over them.</div>
         <div class="opts">${filters.map(([r, l]) => `<button class="${p.filter === r ? "on" : ""}" data-filter="${r}">${l}</button>`).join("")}</div></div>
       <div class="setting"><b>Pet</b><div class="dim small">Cosmetic. Any pet picks up your loot in a radius (bigger from level 15).</div>
