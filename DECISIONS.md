@@ -58,3 +58,8 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Weapon and offhand base names match the class (swords and shields, bows and quivers, staves and orbs).
 - Two Stormcaller sets added: Stormweaver (lightning) and Arcanist (arcane). Their numbers are untuned, like the other sets.
 - Scrap materials are currently only used for Mystic rerolls. More uses are an open item.
+
+## Co-op hosting (Samuel chose "free cloud host", 2026-11-24)
+- Server deploys to Render's free tier from `render.yaml` (region Singapore, closest to Perth). Saves move to Upstash Redis when its two env vars are set; local play still uses JSON files.
+- STUN and TURN come from the server's settings (`/api/ice`). This resolves brief conflict 4 once a TURN service is added. Steps for Samuel: DEPLOY.md.
+- Free-tier trade-off: the server sleeps after about 15 idle minutes, and the first join after that takes about a minute.
