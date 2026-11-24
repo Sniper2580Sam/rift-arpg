@@ -4,8 +4,9 @@ import { BOON, CLASSES, COSMETICS, CosKind, validLoadout, EquipSlot, ITEMS, LEGE
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
-import { CharSave, Profile, WEEKLY_TIER, char, isoWeek, xpProgress } from "./profile";
+import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, WEEKLY_TIER, char, isoWeek, xpProgress } from "./profile";
 import { KEY_LABELS } from "./input";
+import type { HubOp } from "../shared/ops";
 
 const $ = (sel: string) => document.querySelector(sel) as HTMLElement;
 export const esc = (s: string) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
@@ -32,12 +33,12 @@ function icon(bank: SpriteBank, it: Item) {
 }
 function cellHtml(bank: SpriteBank, it: Item | undefined, attrs: string, extra = "", label = "") {
   if (!it) return `<button class="cell empty" ${attrs}>${label ? `<span>${label}</span>` : ""}</button>`;
-  return `<button class="cell r-${it.rarity} ${it.quality ? "q-" + it.quality : ""} ${extra}" ${attrs}><img alt="" src="${icon(bank, it)}">${extra.includes("isup") ? '<i class="up">▲</i>' : ""}</button>`;
+  return `<button class="cell r-${it.rarity} ${it.quality ? "q-" + it.quality : ""} ${extra}" ${attrs}><img alt="" src="${icon(bank, it)}">${extra.includes("isup") ? '<i class="up">▲</i>' : ""}${it.locked ? '<i class="lk" aria-label="locked">★</i>' : ""}</button>`;
 }
 
 export function itemHtml(it: Item, h?: Holder, ctx?: { cls: string; level: number }): string {
   const col = RARITY_COLOR[it.rarity];
-  let out = `<div class="it-name" style="color:${col}">${esc(it.name)}</div>`;
+  let out = `<div class="it-name" style="color:${col}">${it.locked ? "★ " : ""}${esc(it.name)}</div>`;
   out += `<div class="it-type">${it.quality ? `<b class="q-${it.quality}">${it.quality === "primal" ? "Primal" : "Ancestral"}</b> ` : ""}${RARITY_NAME[it.rarity]} ${SLOT_NAME[it.slot]} · item level ${it.ilvl}</div>`;
   if (it.dmgMin !== undefined) out += `<div class="it-base">${it.dmgMin}–${it.dmgMax} Damage</div>`;
   if (it.armor) out += `<div class="it-base">${it.armor} Armor</div>`;
@@ -87,6 +88,8 @@ export interface HubHandlers {
   setSkill: (slot: number, skill: string) => void;
   reroll: (bagOrSlot: { bag?: number; slot?: EquipSlot }, affixIdx: number, choice: Affix | null) => void;
   setting: (k: string, v: any) => void;
+  /** any other hub op (storage, arsenal) */
+  op?: (op: HubOp) => void;
   newSeason: () => void;
   reset: () => void;
   /** live build: the server rolls reroll options */
@@ -106,7 +109,8 @@ export interface CoopHub {
 export class UI {
   root = $("#ui");
   tab: Tab = "play";
-  sel: { where: "bag"; i: number } | { where: "eq"; slot: EquipSlot } | null = null;
+  sel: { where: "bag"; i: number } | { where: "eq"; slot: EquipSlot } | { where: "stash"; i: number } | null = null;
+  buildSel = -1;
   rerollState: { idx: number; options: Affix[] } | null = null;
   invOpen = false;
   skSlot = 0;
@@ -185,11 +189,11 @@ export class UI {
       ? `<div class="row small"><span class="dim">Your name</span><input id="co-name" value="${esc(co.name)}" maxlength="16" autocomplete="nickname" aria-label="Your name"></div>`
       : `<div class="dim small">Signed in as <b>${esc(co.name)}</b> · <button class="link" id="co-out">sign out</button></div>`;
     if (!l) return `<div class="coop"><b>Play together</b>${co.direct ? ` <span class="dim small">up to 4 · host on any phone or computer</span>` : ""}
-      ${co.connecting ? `<div class="dim small">Connecting…</div>` : `<div class="row"><button id="co-host">Host a room</button><input id="co-code" placeholder="room code" maxlength="4" autocomplete="off" autocapitalize="characters" aria-label="Room code"><button id="co-join">Join</button></div>`}${who}
+      ${co.connecting ? `<div class="dim small">Connecting…</div>` : `<div class="row"><button id="co-host">Host a room</button><input id="co-code" placeholder="room code" maxlength="4" autocomplete="off" autocapitalize="characters" aria-label="Room code"><button id="co-paste" title="Paste code">Paste</button><button id="co-join">Join</button></div>`}${who}
       ${co.direct ? `<div class="dim small">The host's device runs the game, so keep it on this screen while you play. Each player keeps their own loot and save.</div>` : ""}</div>`;
     const hostName = l.members.find((m) => m.pid === 0)?.name ?? "the host";
     const list = l.members.map((m) => `<li>${esc(m.name)}${m.pid === 0 ? " (host)" : ""} · ${esc(CLASSES[m.cls]?.name ?? m.cls)} Lv ${m.level}</li>`).join("");
-    return `<div class="coop"><b>Room ${esc(l.code)}</b> <span class="dim small">${l.members.length}/4 · share the code</span><ul>${list}</ul>
+    return `<div class="coop"><b>Room ${esc(l.code)}</b> <button id="co-copy" data-code="${esc(l.code)}">Copy code</button> <span class="dim small">${l.members.length}/4 · share the code</span><ul>${list}</ul>
       <div class="dim small">${l.host ? "Entering a rift takes everyone in the room with you. Friends can also join mid-run." : l.running ? `${esc(hostName)} is in a rift. Joining…` : `Waiting for ${esc(hostName)} to start a rift.`}</div>
       <button id="co-leave">Leave room</button>${who}</div>`;
   }
@@ -200,6 +204,17 @@ export class UI {
       b("#co-host", () => co.host());
       b("#co-join", () => { const v = (this.root.querySelector("#co-code") as HTMLInputElement).value.trim().toUpperCase(); if (v) co.join(v); });
       b("#co-leave", () => co.leave());
+      b("#co-copy", () => {
+        const btn = this.root.querySelector<HTMLButtonElement>("#co-copy")!; const code = btn.dataset.code ?? "";
+        const done = (ok: boolean) => { btn.textContent = ok ? "Copied" : "Copy failed"; setTimeout(() => { btn.textContent = "Copy code"; }, 1500); };
+        const fallback = () => { const t = document.createElement("textarea"); t.value = code; t.setAttribute("readonly", ""); t.style.position = "fixed"; t.style.opacity = "0"; document.body.appendChild(t); t.select(); t.setSelectionRange(0, code.length); let ok = false; try { ok = document.execCommand("copy"); } catch { ok = false; } t.remove(); done(ok); };
+        if (navigator.clipboard?.writeText) navigator.clipboard.writeText(code).then(() => done(true), fallback); else fallback();
+      });
+      b("#co-paste", () => {
+        const inp = this.root.querySelector<HTMLInputElement>("#co-code")!;
+        const fill = (t: string) => { const m = t.trim().toUpperCase().match(/\b[A-Z]{4}\b/g); if (m) inp.value = m[m.length - 1]; else inp.focus(); };
+        if (navigator.clipboard?.readText) navigator.clipboard.readText().then(fill, () => inp.focus()); else inp.focus();
+      });
       b("#co-out", () => co.signOut?.());
       const nm = this.root.querySelector<HTMLInputElement>("#co-name");
       if (nm && co.setName) nm.onchange = () => co.setName!(nm.value);
@@ -226,6 +241,7 @@ export class UI {
     let selItem: Item | undefined;
     if (sel?.where === "bag") selItem = h.bag[sel.i];
     if (sel?.where === "eq") selItem = h.equipment[sel.slot];
+    if (sel?.where === "stash") selItem = p?.stash?.[sel.i];
     if (!selItem) this.sel = null;
     const doll = (ITEMS.equipSlots as EquipSlot[]).map((slot) => cellHtml(this.bank, h.equipment[slot], `data-eq="${slot}" aria-label="${SLOT_NAME[slot]}"`, sel?.where === "eq" && sel.slot === slot ? "on" : "", SLOT_NAME[slot])).join("");
     let bag = "";
@@ -237,13 +253,18 @@ export class UI {
     if (selItem) {
       detail = itemHtml(selItem, h, ctx);
       detail += `<div class="row">`;
+      const lockBtn = `<button id="lock">${selItem.locked ? "★ Unlock" : "☆ Lock"}</button>`;
       if (this.sel!.where === "bag") {
         if (selItem.slot === "ring") detail += `<button id="equip-r1">Equip ring 1</button><button id="equip-r2">Equip ring 2</button>`;
         else detail += `<button id="equip">Equip</button>`;
-        detail += `<button id="scrap" class="warn">Scrap</button>`;
-      } else detail += `<button id="unequip">Unequip</button>`;
+        detail += lockBtn;
+        if (allowReroll && p) detail += `<button id="to-stash" ${(p.stash?.length ?? 0) >= STASH_SIZE ? "disabled" : ""}>To storage</button>`;
+        detail += selItem.locked ? `<button class="warn" disabled title="Unlock it first">Scrap (locked)</button>` : `<button id="scrap" class="warn">Scrap</button>`;
+      } else if (this.sel!.where === "stash") {
+        detail += `<button id="from-stash" ${h.bag.length >= BAG_SIZE ? "disabled" : ""}>Take to bag</button>${lockBtn}`;
+      } else detail += `<button id="unequip">Unequip</button>${lockBtn}`;
       detail += `</div>`;
-      if (allowReroll && p) detail += this.rerollHtml(selItem, p.materials);
+      if (allowReroll && p && this.sel!.where !== "stash") detail += this.rerollHtml(selItem, p.materials);
     }
     const sets = Object.entries(st.setCounts).filter(([, n]) => n >= 2).map(([id, n]) => `${SET[id].name} ${n}/6`).join(", ");
     void sets;
@@ -252,7 +273,34 @@ export class UI {
       <div class="doll">${doll}</div>
       <div class="bag-head"><span>Bag ${h.bag.length}/${BAG_SIZE}</span><span><button class="tiny-btn" data-scrapbelow="rare">Scrap common+magic</button><button class="tiny-btn" data-scrapbelow="legendary">Scrap all but legendary/set</button></span></div>
       <div class="bag">${bag}</div>
-      <div class="detail">${detail}</div>`;
+      <div class="detail">${detail}</div>
+      ${allowReroll && p ? this.arsenalHtml(p, char(p)) + this.stashHtml(p) : ""}`;
+  }
+
+  private stashHtml(p: Profile) {
+    const st = p.stash ?? [];
+    let cells = "";
+    const shown = Math.min(STASH_SIZE, Math.max(12, Math.ceil((st.length + 1) / 6) * 6));
+    for (let i = 0; i < shown; i++) {
+      const it = st[i];
+      cells += it ? cellHtml(this.bank, it, `data-stash="${i}"`, this.sel?.where === "stash" && this.sel.i === i ? "on" : "") : `<div class="cell empty"></div>`;
+    }
+    return `<div class="bag-head"><span>Storage ${st.length}/${STASH_SIZE}</span><span class="dim small">shared by all your characters</span></div><div class="bag">${cells}</div>`;
+  }
+  private arsenalHtml(p: Profile, c: CharSave) {
+    const b = c.builds ?? [];
+    const slots = Array.from({ length: BUILD_SLOTS }, (_, i) => `<button class="${this.buildSel === i ? "on" : ""} ${b[i] ? "" : "empty"}" data-build="${i}">${b[i] ? esc(b[i]!.name) : `Empty ${i + 1}`}</button>`).join("");
+    let detail = `<div class="dim small">Save your gear, skills and runes as a build, then swap builds with one tap. Items a build needs can be in your bag or storage.</div>`;
+    const sel = this.buildSel >= 0 ? b[this.buildSel] : undefined;
+    if (this.buildSel >= 0) {
+      if (sel) {
+        const all = new Set([...Object.values(c.equipment).map((it) => it!.id), ...c.bag.map((it) => it.id), ...(p.stash ?? []).map((it) => it.id)]);
+        const items = Object.values(sel.equipment), missing = items.filter((id) => id && !all.has(id)).length;
+        detail = `<div class="dim small">${items.length} items · ${sel.loadout.map((id) => esc(SKILL[id]?.name ?? id)).join(", ")}${missing ? ` · <span class="warn-t">${missing} item${missing > 1 ? "s" : ""} no longer owned</span>` : ""}</div>
+          <div class="row"><button id="b-load">Wear this build</button><button id="b-save">Overwrite with current</button><button id="b-del" class="warn">Delete</button></div>`;
+      } else detail = `<div class="row"><button id="b-save">Save current gear and skills here</button></div>`;
+    }
+    return `<div class="bag-head"><span>Arsenal</span><span class="dim small">${esc(CLASSES[c.cls].name)} builds</span></div><div class="builds">${slots}</div>${detail}`;
   }
 
   private rerollHtml(it: Item, mats: number) {
@@ -268,7 +316,9 @@ export class UI {
       <div class="opts">${it.affixes.map((a, i) => (lock === undefined || lock === i ? `<button data-reroll="${i}" ${mats < cost ? "disabled" : ""}>↻ ${esc(affixText(a))}</button>` : "")).join("")}</div></div>`;
   }
 
-  bindGear(p: Profile | null, c: Holder, H: Pick<HubHandlers, "invCmd" | "reroll" | "rerollOptions">, re: () => void, allowReroll: boolean) {
+  bindGear(p: Profile | null, c: Holder, H: Pick<HubHandlers, "invCmd" | "reroll" | "rerollOptions" | "op">, re: () => void, allowReroll: boolean) {
+    this.root.querySelectorAll<HTMLElement>("[data-stash]").forEach((el) => el.onclick = () => { this.sel = { where: "stash", i: +el.dataset.stash! }; this.rerollState = null; re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-build]").forEach((el) => el.onclick = () => { const i = +el.dataset.build!; this.buildSel = this.buildSel === i ? -1 : i; re(); });
     this.root.querySelectorAll<HTMLElement>("[data-eq]").forEach((el) => el.onclick = () => { this.sel = { where: "eq", slot: el.dataset.eq as EquipSlot }; this.rerollState = null; re(); });
     this.root.querySelectorAll<HTMLElement>("[data-bag]").forEach((el) => el.onclick = () => { this.sel = { where: "bag", i: +el.dataset.bag! }; this.rerollState = null; re(); });
     this.root.querySelectorAll<HTMLElement>("[data-scrapbelow]").forEach((el) => el.onclick = () => {
@@ -281,6 +331,18 @@ export class UI {
     bind("#equip", () => equip()); bind("#equip-r1", () => equip("ring1")); bind("#equip-r2", () => equip("ring2"));
     bind("#scrap", () => { H.invCmd({ type: "scrap", bagIndex: i }); this.sel = null; re(); });
     bind("#unequip", () => { H.invCmd({ type: "unequip", slot: (this.sel as any).slot }); this.sel = null; re(); });
+    bind("#lock", () => {
+      const s = this.sel; if (!s) return;
+      if (s.where === "stash") H.op?.({ t: "lockStash", stashIndex: s.i });
+      else H.invCmd(s.where === "bag" ? { type: "lock", bagIndex: s.i } : { type: "lock", slot: s.slot });
+      re();
+    });
+    bind("#to-stash", () => { H.op?.({ t: "stash", bagIndex: i }); this.sel = null; re(); });
+    bind("#from-stash", () => { if (this.sel?.where === "stash") H.op?.({ t: "unstash", stashIndex: this.sel.i }); this.sel = null; re(); });
+    bind("#b-load", () => { H.op?.({ t: "buildLoad", idx: this.buildSel }); this.sel = null; this.toast("Build equipped", "#7dff9a"); re(); });
+    bind("#b-save", () => { H.op?.({ t: "buildSave", idx: this.buildSel }); this.toast("Build saved", "#7dff9a"); re(); });
+    let armed = false;
+    bind("#b-del", () => { if (!armed) { armed = true; const el = this.root.querySelector<HTMLElement>("#b-del"); if (el) el.textContent = "Tap again to delete"; return; } H.op?.({ t: "buildDelete", idx: this.buildSel }); re(); });
     if (!allowReroll || !p) return;
     const target = this.sel?.where === "bag" ? { bag: this.sel.i } : this.sel?.where === "eq" ? { slot: this.sel.slot } : null;
     const it = this.sel?.where === "bag" ? c.bag[this.sel.i] : this.sel?.where === "eq" ? c.equipment[this.sel.slot] : undefined;

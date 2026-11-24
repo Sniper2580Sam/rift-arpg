@@ -11,6 +11,8 @@ export interface Item {
   affixes: Affix[];
   legendary?: string; set?: string; quality?: "ancestral" | "primal";
   rerollIdx?: number; rerolls?: number;
+  /** favourited by the player: scrapping skips it */
+  locked?: boolean;
 }
 export interface Holder { equipment: Partial<Record<EquipSlot, Item>>; bag: Item[]; materials: number }
 export const BAG_SIZE = 30;
@@ -268,7 +270,8 @@ export type InvCmd =
   | { type: "equip"; bagIndex: number; to?: EquipSlot }
   | { type: "unequip"; slot: EquipSlot }
   | { type: "scrap"; bagIndex: number }
-  | { type: "scrapBelow"; rarity: Rarity };
+  | { type: "scrapBelow"; rarity: Rarity }
+  | { type: "lock"; bagIndex?: number; slot?: EquipSlot };
 
 export function equipTarget(h: Holder, it: Item, to?: EquipSlot): EquipSlot {
   if (it.slot !== "ring") return it.slot as EquipSlot;
@@ -295,9 +298,15 @@ export function applyInvCmd(h: Holder, cmd: InvCmd): boolean {
     h.bag.push(it);
     return true;
   }
+  if (cmd.type === "lock") {
+    const it = cmd.bagIndex !== undefined ? h.bag[cmd.bagIndex] : cmd.slot ? h.equipment[cmd.slot] : undefined;
+    if (!it) return false;
+    if (it.locked) delete it.locked; else it.locked = true;
+    return true;
+  }
   if (cmd.type === "scrap") {
     const it = h.bag[cmd.bagIndex];
-    if (!it) return false;
+    if (!it || it.locked) return false;
     h.bag.splice(cmd.bagIndex, 1);
     h.materials += scrapValue(it);
     return true;
@@ -305,7 +314,7 @@ export function applyInvCmd(h: Holder, cmd: InvCmd): boolean {
   if (cmd.type === "scrapBelow") {
     const lim = RARITY_ORDER.indexOf(cmd.rarity);
     const keep: Item[] = [];
-    for (const it of h.bag) { if (RARITY_ORDER.indexOf(it.rarity) < lim) h.materials += scrapValue(it); else keep.push(it); }
+    for (const it of h.bag) { if (!it.locked && RARITY_ORDER.indexOf(it.rarity) < lim) h.materials += scrapValue(it); else keep.push(it); }
     const changed = keep.length !== h.bag.length;
     h.bag.splice(0, h.bag.length, ...keep); // in place: the hub passes a holder view whose bag is the character's own array
     return changed;

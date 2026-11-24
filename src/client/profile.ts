@@ -14,10 +14,17 @@ export interface CharSave {
   loadout?: string[];
   highestTier: number; pityAnc: number; pityPri: number; sigils: number;
   riftsCleared: number; bestTimes: Record<string, number>;
+  /** arsenal: saved builds (equipped item ids, skill bar, runes) */
+  builds?: (Build | null)[];
 }
+export interface Build { name: string; equipment: Partial<Record<EquipSlot, string>>; loadout: string[]; runes: Record<string, string> }
+export const STASH_SIZE = 60;
+export const BUILD_SLOTS = 5;
 export interface Profile {
   version: number; active: string; chars: Record<string, CharSave>;
   materials: number; pet: string; filter: Rarity; cos: CosChoice;
+  /** storage shared by every character */
+  stash: Item[];
   season: { n: number; started: string }; unlockedPets: string[];
   weekly: { week: string; best: number };
   settings: { mute: boolean; shake: boolean; autoTier: boolean };
@@ -34,7 +41,7 @@ export function newChar(cls: string): CharSave {
 export function newProfile(): Profile {
   return {
     version: SAVE_VERSION, active: "ashknight", chars: { ashknight: newChar("ashknight"), gloomstalker: newChar("gloomstalker"), stormcaller: newChar("stormcaller") },
-    materials: 0, pet: "none", filter: "common", cos: {}, season: { n: 1, started: new Date().toISOString().slice(0, 10) }, unlockedPets: ["none", "bat", "slime", "fox"],
+    materials: 0, pet: "none", filter: "common", cos: {}, stash: [], season: { n: 1, started: new Date().toISOString().slice(0, 10) }, unlockedPets: ["none", "bat", "slime", "fox"],
     weekly: { week: "", best: 0 }, settings: { mute: false, shake: true, autoTier: false },
   };
 }

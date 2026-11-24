@@ -48,7 +48,8 @@ export function mintFor(rng: Rng, m: RunMember, opts: MintOpts): Item {
   return it;
 }
 
-const same = (a: Item, b: Item) => JSON.stringify(a) === JSON.stringify(b);
+// the lock (favourite) flag is the player's own choice and may change mid-run
+const same = (a: Item, b: Item) => JSON.stringify({ ...a, locked: undefined }) === JSON.stringify({ ...b, locked: undefined });
 
 export interface SaveReport {
   equipment: CharSave["equipment"]; bag: Item[]; scrapped: string[]; materials: number;

@@ -1,8 +1,8 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
 import { CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, LOADOUT_SIZE, SKILL, validLoadout } from "../sim/data";
-import { Affix, InvCmd, applyInvCmd, rerollCost } from "../sim/items";
-import { Profile, char, holderOf, newProfile, startNewSeason } from "../client/profile";
+import { Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost } from "../sim/items";
+import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
 export type HubOp =
   | { t: "inv"; cmd: InvCmd }
@@ -11,6 +11,12 @@ export type HubOp =
   | { t: "setSkill"; slot: number; skill: string }
   | { t: "reroll"; target: { bag?: number; slot?: EquipSlot }; idx: number; choice: Affix | null }
   | { t: "setting"; k: string; v: any }
+  | { t: "stash"; bagIndex: number }
+  | { t: "unstash"; stashIndex: number }
+  | { t: "lockStash"; stashIndex: number }
+  | { t: "buildSave"; idx: number; name?: string }
+  | { t: "buildLoad"; idx: number }
+  | { t: "buildDelete"; idx: number }
   | { t: "newSeason" }
   | { t: "reset" };
 
@@ -67,6 +73,51 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       }
       if (SETTINGS.has(op.k)) { (p.settings as any)[op.k] = !!op.v; return true; }
       return false;
+    case "stash": {
+      const it = c.bag[op.bagIndex];
+      p.stash ??= [];
+      if (!it || p.stash.length >= STASH_SIZE) return false;
+      c.bag.splice(op.bagIndex, 1); p.stash.push(it); return true;
+    }
+    case "unstash": {
+      const it = p.stash?.[op.stashIndex];
+      if (!it || c.bag.length >= BAG_SIZE) return false;
+      p.stash.splice(op.stashIndex, 1); c.bag.push(it); return true;
+    }
+    case "lockStash": {
+      const it = p.stash?.[op.stashIndex]; if (!it) return false;
+      if (it.locked) delete it.locked; else it.locked = true; return true;
+    }
+    case "buildSave": {
+      if (op.idx < 0 || op.idx >= BUILD_SLOTS) return false;
+      c.builds ??= [];
+      const equipment: Partial<Record<EquipSlot, string>> = {};
+      for (const [slot, it] of Object.entries(c.equipment)) if (it) equipment[slot as EquipSlot] = it.id;
+      const name = String(op.name ?? c.builds[op.idx]?.name ?? `Build ${op.idx + 1}`).slice(0, 20);
+      c.builds[op.idx] = { name, equipment, loadout: validLoadout(c.cls, c.loadout), runes: { ...c.runes } };
+      return true;
+    }
+    case "buildDelete": { if (!c.builds?.[op.idx]) return false; c.builds[op.idx] = null; return true; }
+    case "buildLoad": {
+      const b = c.builds?.[op.idx]; if (!b) return false;
+      p.stash ??= [];
+      // every item this character can reach: worn, in the bag, or in storage
+      const where = new Map<string, { it: Item; from: "eq" | "bag" | "stash" }>();
+      for (const it of Object.values(c.equipment)) if (it) where.set(it.id, { it, from: "eq" });
+      for (const it of c.bag) where.set(it.id, { it, from: "bag" });
+      for (const it of p.stash) where.set(it.id, { it, from: "stash" });
+      const next: CharSave["equipment"] = {};
+      for (const [slot, id] of Object.entries(b.equipment)) { const w = id ? where.get(id) : undefined; if (w) next[slot as EquipSlot] = w.it; }
+      const wanted = new Set(Object.values(next).map((it) => it!.id));
+      const bag = c.bag.filter((it) => !wanted.has(it.id));
+      const stash = p.stash.filter((it) => !wanted.has(it.id));
+      for (const it of Object.values(c.equipment)) if (it && !wanted.has(it.id)) { if (bag.length < BAG_SIZE) bag.push(it); else if (stash.length < STASH_SIZE) stash.push(it); else return false; }
+      c.equipment = next; c.bag.splice(0, c.bag.length, ...bag); p.stash.splice(0, p.stash.length, ...stash);
+      c.loadout = validLoadout(c.cls, b.loadout);
+      c.runes = {};
+      for (const [sk, r] of Object.entries(b.runes)) { const d = SKILL[sk]?.runes.find((x) => x.id === r); if (d && (c.uses[sk] ?? 0) >= d.uses) c.runes[sk] = r; }
+      return true;
+    }
     case "newSeason": return startNewSeason(p);
     case "reset": return newProfile();
   }

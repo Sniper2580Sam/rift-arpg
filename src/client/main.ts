@@ -238,6 +238,7 @@ function goHub() {
     setSkill: (slot, skill) => hubOp({ t: "setSkill", slot, skill }),
     reroll: (target, idx, choice) => hubOp({ t: "reroll", target, idx, choice }),
     setting: (k, v) => hubOp({ t: "setting", k, v }),
+    op: hubOp,
     newSeason: () => { hubOp({ t: "newSeason" }); goHub(); },
     reset: () => { hubOp({ t: "reset" }); goHub(); },
     rerollOptions: online && !online.direct ? (target, idx) => (online as Online).rerollOptions(target, idx) : undefined,
