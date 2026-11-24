@@ -35,6 +35,8 @@ export interface Player extends Holder {
   x: number; y: number; px: number; py: number; r: number; hp: number; fx: number; fy: number; moving: boolean; walk: number;
   skills: string[]; cds: Num; charges: Num; chargeT: Num; swingT: number; swingCount: number;
   dashT: number; dashDx: number; dashDy: number; dashHit: number[]; dashSkill: string; trailT: number;
+  /** life-on-hit healed in the current second (capped, so many-hit skills can't out-heal everything) */
+  leech: number;
   invuln: number; deaths?: number; chillT?: number; thornT?: number; dead: boolean; deadT: number; buff: Buff; boons: string[]; cheatT: number;
   stats: Stats; sk: Record<string, ResolvedSkill>; uses: Num; connected: boolean;
   /** class resource (Embers / Focus / Mana) and seconds since the last hit dealt or taken */
@@ -249,7 +251,7 @@ export function addPlayer(s: SimState, ps: PlayerSetup): Player {
     equipment: clone(ps.equipment), bag: clone(ps.bag), materials: ps.materials, shards: ps.shards ?? 0, slotPlus: { ...(ps.slotPlus ?? {}) }, slotCrit: { ...(ps.slotCrit ?? {}) },
     x: s.startX + (s.players.length % 2) * 12 - 6, y: s.startY + Math.floor(s.players.length / 2) * 12, px: 0, py: 0, r: 5, hp: 1, fx: 1, fy: 0, moving: false, walk: 0,
     skills: [], cds: {}, charges: {}, chargeT: {}, swingT: 0, swingCount: 0,
-    dashT: 0, dashDx: 0, dashDy: 0, dashHit: [], dashSkill: "", trailT: 0,
+    dashT: 0, dashDx: 0, dashDy: 0, dashHit: [], dashSkill: "", trailT: 0, leech: 0,
     invuln: 1.5, dead: false, deadT: 0, buff: { armorPct: 0, dmgPct: 0, cdrPct: 0, t: 0 }, boons: [], cheatT: 0,
     stats: undefined as unknown as Stats, sk: {}, uses: {}, connected: true,
     res: CLASSES[cls].resource.start, combatT: 99,
@@ -416,6 +418,7 @@ function updatePlayer(s: SimState, p: Player, inp: PlayerInput) {
     return;
   }
   if (p.stats.regen > 0) p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.regen * DT);
+  if (s.tick % 30 === 0) p.leech = 0;
   updateResource(p);
   p.invuln = Math.max(0, p.invuln - DT);
   p.swingT -= DT;
@@ -806,7 +809,7 @@ function hitEnemy(s: SimState, e: Enemy, mult: number, p: Player | undefined, sk
     if (P.vulnOnHit) { e.vulnT = 3; e.vulnPct = Math.max(e.vulnPct, P.vulnOnHit); }
     if (P.tauntOnHit) { e.tauntT = P.tauntOnHit; e.tauntBy = p.pid; e.aggro = true; }
     if (P.chain && !o.chained && sk) chainFrom(s, e, mult, p, sk, P);
-    if (st.lifeOnHit > 0) heal(p, st.lifeOnHit);
+    if (st.lifeOnHit > 0) { const cap = p.stats.maxHp * RIFT.lifeOnHitCap, amt = Math.min(st.lifeOnHit, cap - p.leech); if (amt > 0) { p.leech += amt; heal(p, amt); } }
   }
   applyDamage(s, e, amount, crit, p.pid, P, false);
 }

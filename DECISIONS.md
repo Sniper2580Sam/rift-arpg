@@ -152,3 +152,6 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Bonewright constructs: "+N projectiles" adds shots per turret volley, and "+N minions" raises how many can stand at once (one per cast). The Bone Battery ring grows instead.
 - Hideout station and portal names are drawn at screen resolution (they were blurry when scaled up).
 - Fast moves (dashes, blinks, knockback) are split into small steps, so nothing can skip into a wall; anyone who still ends up inside a wall is moved to the nearest floor.
+- Life per Hit heals at most 4% of max life per second (rift.json lifeOnHitCap). Volley's 7 piercing arrows could land 20+ hits per cast, which healed more than a full health bar.
+- Runs started from the menu turn controls back on (they stayed off after the menu paused input).
+- The minimap keeps the map's shape, so enemy dots line up on the wide Catacombs.
