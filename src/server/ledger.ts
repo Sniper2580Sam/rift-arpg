@@ -53,7 +53,7 @@ const same = (a: Item, b: Item) => JSON.stringify({ ...a, locked: undefined }) =
 
 export interface SaveReport {
   equipment: CharSave["equipment"]; bag: Item[]; scrapped: string[]; materials: number; shards?: number;
-  level: number; xp: number; sigils: number; uses: Record<string, number>;
+  level: number; xp: number; sigils: number; uses: Record<string, number>; paragon?: number; pxp?: number;
   highestTier: number; pityAnc: number; pityPri: number; bestTimes: Record<string, number>; riftsCleared: number;
   weeklyBest?: number;
 }
@@ -101,6 +101,7 @@ export function applySave(p: Profile, cls: string, rep: SaveReport, m: RunMember
   const lvl = Math.max(c.level, Math.min(L, rep.level | 0, c.level + 6));
   if (lvl !== c.level || rep.xp !== c.xp) { c.level = lvl; c.xp = Math.max(0, rep.xp | 0); }
   c.sigils = Math.max(0, Math.min(rep.sigils | 0, c.sigils + 2));
+  if (c.level >= L && rep.paragon !== undefined) { c.paragon = Math.max(c.paragon ?? 0, Math.min(rep.paragon | 0, (c.paragon ?? 0) + 5)); c.pxp = Math.max(0, rep.pxp ?? 0); }
   for (const [k, v] of Object.entries(rep.uses ?? {})) c.uses[k] = Math.max(c.uses[k] ?? 0, Math.min(v | 0, (c.uses[k] ?? 0) + 5000));
   if (run?.completed && run.inTime && run.kind === "rift") {
     const up = Math.min(RIFT.tiers.max, run.tier + tierJump(run.time));

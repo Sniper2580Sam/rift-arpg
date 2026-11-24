@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { CLASSES, ENEMIES, HIDEOUT, guardianDef, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, endlessLivesLeft } from "../sim/sim";
@@ -354,7 +354,7 @@ function finishOnline() {
     online.send({ t: "complete", inTime: completeInfo?.inTime, time: completeInfo?.time });
     for (const pid of coop.live) online.sendR(pid, { t: "end" });
   }
-  online.send({ t: "save", report: { equipment: c.equipment, bag: c.bag, scrapped, materials: profile.materials, shards: profile.shards ?? 0, level: c.level, xp: c.xp, sigils: c.sigils, uses: c.uses, highestTier: c.highestTier, pityAnc: c.pityAnc, pityPri: c.pityPri, bestTimes: c.bestTimes, riftsCleared: c.riftsCleared }, week: isoWeek(), weeklyBest: run.weekly });
+  online.send({ t: "save", report: { equipment: c.equipment, bag: c.bag, scrapped, materials: profile.materials, shards: profile.shards ?? 0, level: c.level, xp: c.xp, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, sigils: c.sigils, uses: c.uses, highestTier: c.highestTier, pityAnc: c.pityAnc, pityPri: c.pityPri, bestTimes: c.bestTimes, riftsCleared: c.riftsCleared }, week: isoWeek(), weeklyBest: run.weekly });
   if (coop?.role === "host") online.send({ t: "runEnd" });
   else if (coop?.role === "guest" && !hostEnded && online.lobby) online.leave(); // a guest who leaves on their own leaves the party
   hostEnded = false;
@@ -513,6 +513,12 @@ function handleEvent(e: SimEvent) {
     case "guardianStun": showBanner("STUNNED", "", "#9be0ff", 1); break;
     case "phase": showBanner(`PHASE ${Math.min(3, e.n)}`, e.text, "#ff3b6b", 3); sfx.guardian(); addShake(6); break;
     case "timeUp": showBanner("TIME'S UP", "Finish for reduced rewards", "#ff7a3c", 2.5); break;
+    case "paragonUp":
+      if (!mine(e.pid)) break;
+      sfx.complete(); burst(me().x, me().y - 8, 40, ["#c9a0ff", "#fff", "#ffd23f"], 120, 1, 0.8);
+      showBanner(`PARAGON ${e.level}`, "A point to spend at the Skill Shrine", "#c9a0ff", 2.5);
+      syncFromSim(profile, sim!, ME);
+      break;
     case "levelUp":
       if (!mine(e.pid)) break;
       sfx.complete(); burst(me().x, me().y - 8, 40, ["#ffd23f", "#fff", "#7dff9a"], 120, 1, 0.8);
@@ -1011,8 +1017,8 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
   c.fillStyle = R.color; c.fillRect(L + 6, T + 25, lw * Math.max(0, Math.min(1, p.res / resMax(p))), 8);
   c.fillStyle = R.id === "marrow" ? "#140c1c" : "#fff"; c.font = font(9); c.fillText(`${R.name} ${Math.floor(p.res)} / ${resMax(p)}`, L + 9, T + 29.5);
   c.fillStyle = "#1b1424"; c.fillRect(L + 6, T + 36, lw, 3);
-  c.fillStyle = "#c9b8ff"; c.fillRect(L + 6, T + 36, lw * (p.level >= RIFT.levels.max ? 1 : p.xp / xpForLevel(p.level)), 3);
-  c.fillStyle = "#b8a8d0"; c.font = font(10); { let lv = `Lv ${p.level}${p.boons.length ? " · " + p.boons.join(", ") : ""}`; while (lv.length > 4 && c.measureText(lv).width > lw) lv = lv.slice(0, -2) + "…"; c.fillText(lv, L + 6, T + 48); }
+  c.fillStyle = "#c9b8ff"; c.fillRect(L + 6, T + 36, lw * (p.level >= RIFT.levels.max ? p.pxp / paragonXp(p.paragon) : p.xp / xpForLevel(p.level)), 3);
+  c.fillStyle = "#b8a8d0"; c.font = font(10); { let lv = `Lv ${p.level}${p.paragon ? ` · P${p.paragon}` : ""}${p.boons.length ? " · " + p.boons.join(", ") : ""}`; while (lv.length > 4 && c.measureText(lv).width > lw) lv = lv.slice(0, -2) + "…"; c.fillText(lv, L + 6, T + 48); }
   const r = s.rift;
   const narrow = W < 600;
   if (r.kind !== "hideout") {

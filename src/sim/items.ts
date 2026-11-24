@@ -208,7 +208,7 @@ export interface Stats {
   speed: number; dmgMult: number; takenMult: number;
 }
 
-export interface StatCtx { cls: string; level: number; effLevel?: number; boons?: string[]; riftMods?: string[]; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"] }
+export interface StatCtx { cls: string; level: number; paragon?: Partial<Record<string, number>>; effLevel?: number; boons?: string[]; riftMods?: string[]; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"] }
 
 export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
   const cd = CLASSES[c.cls];
@@ -272,6 +272,13 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
     const k = levelPower(c.effLevel) / lp;
     s.dmgMult *= k; s.maxHp = Math.round(s.maxHp * k);
   }
+  // paragon points (after max level)
+  const pa = c.paragon ?? {}, PS = RIFT.paragon.stats as Record<string, { per: number; cap: number }>;
+  const pv = (k: string) => Math.min(PS[k].cap, pa[k] ?? 0) * PS[k].per;
+  if (pv("power")) s.dmgPct += pv("power");
+  if (pv("vitality")) s.maxHp = Math.round(s.maxHp * (1 + pv("vitality") / 100));
+  if (pv("toughness")) s.takenMult *= 1 - pv("toughness") / 100;
+  if (pv("haste")) { s.cdr += pv("haste"); s.moveSpeed += pv("haste"); }
   s.critChance = Math.min(75, s.critChance);
   return s;
 }

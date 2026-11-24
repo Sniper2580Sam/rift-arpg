@@ -131,3 +131,13 @@ console.log("ledger: all checks passed");
   const t1 = resolveSkill("bone_turret", undefined, st1).p;
   check("minion boon lets more turrets stand, one per cast", t1.count === 1 && t1.maxCount === 4);
 }
+{ // paragon: points come from paragon levels, capped per stat, free respec, and they add stats
+  const p = newProfile(); const c = char(p);
+  check("paragon refused below max level", applyHubOp(p, { t: "paragon", stat: "power", d: 1 }) === false);
+  c.level = 30; c.paragon = 3;
+  check("paragon spend", applyHubOp(p, { t: "paragon", stat: "power", d: 1 }) === true && applyHubOp(p, { t: "paragon", stat: "power", d: 1 }) === true && applyHubOp(p, { t: "paragon", stat: "vitality", d: 1 }) === true);
+  check("no points left", applyHubOp(p, { t: "paragon", stat: "haste", d: 1 }) === false);
+  const base = computeStats({}, { cls: c.cls, level: 30 }), withP = computeStats({}, { cls: c.cls, level: 30, paragon: c.pAlloc });
+  check("paragon adds damage and life", withP.dmgPct === base.dmgPct + 2 && withP.maxHp > base.maxHp);
+  check("refund all", applyHubOp(p, { t: "paragon", reset: true }) === true && Object.keys(c.pAlloc ?? {}).length === 0);
+}

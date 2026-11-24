@@ -162,3 +162,9 @@ export function classAffinity(cls: string, tag: string | undefined): number {
 export interface GuardianDef { id: string; name: string; sub: string; weight: number; minTier: number; hp: number; dmg: number; speed: number; scale: number; kite?: number; pattern: string[]; adds: string[]; pal: Record<string, string>; tip: string }
 export const GUARDIANS = (guardiansJson as unknown as { list: GuardianDef[] }).list;
 export const guardianDef = (id?: string) => GUARDIANS.find((g) => g.id === id) ?? GUARDIANS[0];
+
+/** Paragon: after max level, XP keeps going into paragon levels; each gives a point to spend on four capped stats. */
+export type ParagonStat = "power" | "vitality" | "toughness" | "haste";
+export const PARAGON_STATS = Object.keys(RIFT.paragon.stats) as ParagonStat[];
+export const paragonXp = (n: number) => Math.round(RIFT.paragon.xpPer * Math.pow(RIFT.paragon.xpGrowth, n));
+export const paragonSpent = (a?: Partial<Record<ParagonStat, number>>) => Object.values(a ?? {}).reduce((x, y) => x + (y ?? 0), 0);

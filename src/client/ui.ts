@@ -3,7 +3,7 @@ import { AFFIX as AFFIX_DEF } from "../sim/data";
 import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
-import { BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -149,7 +149,7 @@ export class UI {
       <div class="panel hub">
         <div class="hub-head">
           <div><h1>RIFT ARPG</h1><div class="sub">working title · Season ${p.season.n} · ${H.coop ? "live build" : "test build"}</div></div>
-          <div class="who"><b>${cd.name}</b> · Lv ${c.level}<div class="xpbar"><i style="width:${Math.round(xpProgress(c) * 100)}%"></i></div></div>${H.close ? `<button id="hub-close" class="hub-close" aria-label="Back to hideout">✕</button>` : ""}
+          <div class="who"><b>${cd.name}</b> · Lv ${c.level}${c.paragon ? ` · P${c.paragon}` : ""}<div class="xpbar"><i style="width:${Math.round(xpProgress(c) * 100)}%"></i></div></div>${H.close ? `<button id="hub-close" class="hub-close" aria-label="Back to hideout">✕</button>` : ""}
         </div>
         <nav class="tabs">${tabs}</nav>
         <div class="tab-body">${body}</div>
@@ -163,6 +163,8 @@ export class UI {
       this.root.querySelectorAll<HTMLElement>("[data-rune]").forEach((el) => el.onclick = () => { const [sk, r] = el.dataset.rune!.split(":"); H.setRune(sk, r); re(); });
       this.root.querySelectorAll<HTMLElement>("[data-slot]").forEach((el) => el.onclick = () => { this.skSlot = +el.dataset.slot!; re(); });
       this.root.querySelectorAll<HTMLElement>("[data-equip]").forEach((el) => el.onclick = () => { H.setSkill(this.skSlot, el.dataset.equip!); re(); });
+      this.root.querySelectorAll<HTMLElement>("[data-pg]").forEach((el) => el.onclick = () => { const [k, d] = el.dataset.pg!.split(":"); H.op?.({ t: "paragon", stat: k, d: +d }); re(); });
+      const pr = this.root.querySelector<HTMLElement>("[data-pg-reset]"); if (pr) pr.onclick = () => { H.op?.({ t: "paragon", reset: true }); re(); };
     }
     if (this.tab === "looks" || this.tab === "shop") this.bindLooks(p, H, re);
     if (this.tab === "settings") { this.bindSettings(p, H, re); this.bindDrive(); }
@@ -431,7 +433,20 @@ export class UI {
       return `<div class="skill ${locked ? "locked" : ""} ${at >= 0 ? "inbar" : ""}"><div class="sk-head"><b>${esc(d.name)}</b>${at >= 0 ? ` <span class="eq">${KEY_LABELS[at]}</span>` : ""} <span class="dim">${esc(costText(id))}</span> ${btn}</div><div class="dim small">${esc(d.desc)}</div>${runes ? `<div class="runes">${runes}</div>` : `<div class="dim small">Runes for this skill come in a later update.</div>`}</div>`;
     }).join("");
     const groups = ([["generator", "Generators: build " + R.name], ["core", "Core: spend " + R.name], ["support", "Support"], ["ultimate", "Ultimate (one at a time)"]] as const).map(([t, title]) => `<h3 class="sk-type">${title}</h3>${group(t, title)}`).join("");
-    return `<div class="dim small">Pick any 4 skills, with at most one ultimate. Tap a slot, then a skill to put there. ${esc(R.name)}: ${R.regen ? `refills ${R.regen} per second` : `built by hits, fades after ${R.decayAfter}s out of combat`}, max ${R.max}. Runes unlock by using a skill.</div><div class="sk-bar">${slots}</div>${groups}`;
+    return `${this.paragonHtml(c)}<div class="dim small">Pick any 4 skills, with at most one ultimate. Tap a slot, then a skill to put there. ${esc(R.name)}: ${R.regen ? `refills ${R.regen} per second` : `built by hits, fades after ${R.decayAfter}s out of combat`}, max ${R.max}. Runes unlock by using a skill.</div><div class="sk-bar">${slots}</div>${groups}`;
+  }
+
+  /** Paragon: shown once you hit max level. Points go into four capped stats; respec is free. */
+  private paragonHtml(c: CharSave) {
+    const L = RIFT.levels.max;
+    if (c.level < L) return `<div class="setting dim small">Paragon unlocks at level ${L}: XP past the cap earns points for damage, life, toughness and haste.</div>`;
+    const PS = RIFT.paragon.stats as Record<string, { name: string; per: number; cap: number; text: string }>;
+    const a = c.pAlloc ?? {}, free = (c.paragon ?? 0) - paragonSpent(a);
+    const rows = PARAGON_STATS.map((k) => {
+      const n = a[k] ?? 0, d = PS[k];
+      return `<div class="pg-row"><span><b>${esc(d.name)}</b> <span class="dim small">${esc(d.text.replace("{v}", String(+(n * d.per).toFixed(1))))} · ${n}/${d.cap}</span></span><span class="opts"><button data-pg="${k}:-1" ${n ? "" : "disabled"}>−</button><button data-pg="${k}:1" ${free > 0 && n < d.cap ? "" : "disabled"}>+</button></span></div>`;
+    }).join("");
+    return `<div class="setting"><b>Paragon ${c.paragon ?? 0}</b> <span class="dim small">${free} point${free === 1 ? "" : "s"} to spend · next in ${Math.max(0, paragonXp(c.paragon ?? 0) - (c.pxp ?? 0)).toLocaleString()} XP</span>${rows}<div class="opts"><button data-pg-reset ${paragonSpent(a) ? "" : "disabled"}>Refund all</button></div></div>`;
   }
 
   // ---------------------------------------------------------------- looks (cosmetics)

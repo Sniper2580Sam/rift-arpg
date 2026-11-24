@@ -1,4 +1,5 @@
 {
+  "paragon": { "xpPer": 9000, "xpGrowth": 1.02, "stats": { "power": { "name": "Power", "per": 1, "cap": 50, "text": "+{v}% damage" }, "vitality": { "name": "Vitality", "per": 1, "cap": 50, "text": "+{v}% max life" }, "toughness": { "name": "Toughness", "per": 0.5, "cap": 50, "text": "-{v}% damage taken" }, "haste": { "name": "Haste", "per": 0.5, "cap": 40, "text": "+{v}% cooldown and move speed" } } },
   "lifeOnHitCap": 0.04,
   "volleyRepeat": 0.3,
   "name": "The Sunken Ossuary",

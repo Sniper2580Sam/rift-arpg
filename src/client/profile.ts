@@ -1,5 +1,5 @@
 // Local profile for OFFLINE_TEST builds (live builds keep this on the backend). Versioned save schema with migrations.
-import { AFFIX, CLASSES, CosChoice, EquipSlot, HideoutLayout, RIFT, Rarity, xpForLevel } from "../sim/data";
+import { AFFIX, CLASSES, CosChoice, EquipSlot, HideoutLayout, RIFT, Rarity, paragonXp, xpForLevel } from "../sim/data";
 import { Holder, Item, mintItem } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import type { PlayerSetup, SimState } from "../sim/sim";
@@ -16,7 +16,9 @@ export interface CharSave {
   equipment: Holder["equipment"]; bag: Item[];
   runes: Record<string, string>; uses: Record<string, number>;
   loadout?: string[];
-  highestTier: number; bestWave?: number; kings?: number; pityAnc: number; pityPri: number; sigils: number;
+  highestTier: number; bestWave?: number; kings?: number;
+  /** paragon levels after max level, XP toward the next, and points spent per stat */
+  paragon?: number; pxp?: number; pAlloc?: Partial<Record<string, number>>; pityAnc: number; pityPri: number; sigils: number;
   riftsCleared: number; bestTimes: Record<string, number>;
   /** arsenal: saved builds (equipped item ids, skill bar, runes) */
   builds?: (Build | null)[];
@@ -132,7 +134,7 @@ export function holderOf(p: Profile): Holder {
 
 export function setupFor(p: Profile, pid = 0, name = "You"): PlayerSetup {
   const c = char(p);
-  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos };
+  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, pAlloc: c.pAlloc ?? {} };
 }
 
 /** Pull the player's persistent state back out of a running sim (items picked up, XP, levels). Boons are not kept. */
@@ -142,7 +144,7 @@ export function syncFromSim(p: Profile, s: SimState, pid = 0) {
   const c = char(p);
   c.equipment = JSON.parse(JSON.stringify(me.equipment));
   c.bag = JSON.parse(JSON.stringify(me.bag));
-  c.level = me.level; c.xp = me.xp; c.sigils = me.sigils;
+  c.level = me.level; c.xp = me.xp; c.sigils = me.sigils; c.paragon = me.paragon; c.pxp = me.pxp;
   p.materials = me.materials; p.shards = me.shards ?? p.shards ?? 0;
   saveProfile(p);
 }
@@ -162,7 +164,7 @@ export function weeklySeed(week: string) {
 }
 export const WEEKLY_TIER = 4;
 
-export function xpProgress(c: CharSave) { return c.level >= RIFT.levels.max ? 1 : c.xp / xpForLevel(c.level); }
+export function xpProgress(c: CharSave) { return c.level >= RIFT.levels.max ? (c.pxp ?? 0) / paragonXp(c.paragon ?? 0) : c.xp / xpForLevel(c.level); }
 
 /** Season reset: gear and levels reset, cosmetics and pets carry over. Old characters are kept in an archive. */
 export function startNewSeason(p: Profile): Profile {
