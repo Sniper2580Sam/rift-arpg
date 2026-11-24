@@ -4,7 +4,8 @@ import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers } from "../sim/sim";
 import { sfx, setMuted, unlockAudio } from "./audio";
 import { Input, KEY_LABELS } from "./input";
-import { Profile, char, isoWeek, loadProfile, saveProfile, setLocalSaves, setupFor, syncFromSim, weeklySeed } from "./profile";
+import { Profile, char, isoWeek, loadProfile, saveProfile, setLocalSaves, setOnSaved, setupFor, syncFromSim, weeklySeed } from "./profile";
+import { queue as cloudQueue, startCloud } from "./cloud";
 import { HubOp, applyHubOp } from "../shared/ops";
 import { RARITY_COLOR, Sprite, buildSprites, renderMap } from "./sprites";
 import { UI, fmtTime, modsLine } from "./ui";
@@ -215,6 +216,7 @@ function hubOp(op: HubOp) {
 }
 function goHub() {
   mode = "hub"; screen = "hub";
+  const apply = (window as any).__applyPendingRemote; if (apply) { (window as any).__applyPendingRemote = null; setTimeout(apply, 0); }
   ui.showHub(profile, {
     enter: startRun,
     invCmd: (cmd) => hubOp({ t: "inv", cmd }),
@@ -1040,6 +1042,19 @@ async function bootLive() {
 // ------------------------------------------------------------------ boot
 resize();
 if (!OFFLINE_TEST) bootLive();
-else goHub();
+else {
+  goHub();
+  setOnSaved((p) => cloudQueue(p));
+  let pendingRemote: Profile | null = null;
+  const useRemote = (p: Profile) => {
+    if (mode !== "hub" || screen !== "hub") { pendingRemote = p; return; }
+    profile = p; setMuted(profile.settings.mute);
+    try { localStorage.setItem("rift-arpg-save", JSON.stringify(p)); } catch { /* ignore */ }
+    ui.toast("Save restored from your account", "#7dff9a");
+    goHub();
+  };
+  startCloud(() => profile, useRemote);
+  (window as any).__applyPendingRemote = () => { if (pendingRemote) { const p = pendingRemote; pendingRemote = null; useRemote(p); } };
+}
 requestAnimationFrame(frame);
 (window as any).__rift = { get sim() { return sim; }, startRun, get profile() { return profile; }, endRun, MODIFIER, get coop() { return coop; }, get online() { return online; }, stateHash };

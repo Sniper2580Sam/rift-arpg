@@ -20,6 +20,8 @@ export interface Profile {
   season: { n: number; started: string }; unlockedPets: string[];
   weekly: { week: string; best: number };
   settings: { mute: boolean; shake: boolean; autoTier: boolean };
+  /** ms timestamp of the last real change (used to pick the newer of the device and cloud copies) */
+  savedAt?: number;
 }
 
 export function newChar(cls: string): CharSave {
@@ -74,9 +76,20 @@ let lastSave = "";
 let localSaves = true;
 /** The live build keeps the profile on the server, so nothing is written to this device. */
 export function setLocalSaves(v: boolean) { localSaves = v; }
+/** Called after every real change (the artifact page mirrors the save to the cloud). */
+export let onSaved: ((p: Profile) => void) | null = null;
+export function setOnSaved(f: ((p: Profile) => void) | null) { onSaved = f; }
 export function saveProfile(p: Profile) {
   if (!localSaves) return;
-  try { const s = JSON.stringify(p); if (s !== lastSave) { localStorage.setItem(SAVE_KEY, s); lastSave = s; } } catch { /* ignore */ }
+  const s = JSON.stringify({ ...p, savedAt: 0 });
+  if (s === lastSave) return;
+  lastSave = s; p.savedAt = Date.now();
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(p)); } catch { /* private mode / storage blocked: the cloud copy still works */ }
+  onSaved?.(p);
+}
+/** True when a profile has no progress worth keeping (a fresh install). */
+export function isFresh(p: Profile) {
+  return p.materials === 0 && Object.values(p.chars).every((c) => c.level <= 1 && c.xp === 0 && c.bag.length === 0 && c.riftsCleared === 0);
 }
 
 export const char = (p: Profile) => p.chars[p.active];
