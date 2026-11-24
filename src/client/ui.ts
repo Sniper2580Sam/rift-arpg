@@ -177,7 +177,7 @@ export class UI {
         <div class="tier"><b>Tier ${t}</b><small>enemy life ×${hp.toFixed(1)} · legendary odds ×${leg.toFixed(2)}${anc ? ` · ancestral ${Math.round(anc * 100)}%` : ""}${t >= T.primalFrom ? " · primals can drop" : ""}</small></div>
         <button id="t-up" aria-label="Higher tier" ${t >= c.highestTier ? "disabled" : ""}>+</button>
       </div>
-      <div class="dim small">Clear a tier before the timer runs out to unlock the next one. Highest: ${c.highestTier}. Ancestral pity: ${c.pityAnc}/${T.ancestralPity}.</div>
+      <div class="dim small">Clear a tier in time to unlock the next one. Under 5 min unlocks 2, under 3 min unlocks 3. Highest: ${c.highestTier}. Ancestral pity: ${c.pityAnc}/${T.ancestralPity}.</div>
       <button id="enter" class="big">Enter a rift</button>
       <div class="row">
         <input id="seed" placeholder="rift code (optional)" maxlength="8" autocomplete="off" aria-label="Rift code">

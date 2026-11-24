@@ -1,6 +1,6 @@
 // Server-side item authority: minting drops for a run, and validating what a player brings back.
 // Pure functions (no I/O) so they can be unit tested.
-import { CLASSES, RIFT } from "../sim/data";
+import { CLASSES, RIFT , tierJump } from "../sim/data";
 import { Item, MintOpts, mintItem, scrapValue, shardValue } from "../sim/items";
 import { Rng, next } from "../sim/rng";
 import type { CharSave, Profile } from "../client/profile";
@@ -102,7 +102,10 @@ export function applySave(p: Profile, cls: string, rep: SaveReport, m: RunMember
   if (lvl !== c.level || rep.xp !== c.xp) { c.level = lvl; c.xp = Math.max(0, rep.xp | 0); }
   c.sigils = Math.max(0, Math.min(rep.sigils | 0, c.sigils + 2));
   for (const [k, v] of Object.entries(rep.uses ?? {})) c.uses[k] = Math.max(c.uses[k] ?? 0, Math.min(v | 0, (c.uses[k] ?? 0) + 5000));
-  if (run?.completed && run.inTime && run.kind === "rift" && rep.highestTier === run.tier + 1 && c.highestTier <= run.tier) c.highestTier = Math.min(RIFT.tiers.max, run.tier + 1);
+  if (run?.completed && run.inTime && run.kind === "rift") {
+    const up = Math.min(RIFT.tiers.max, run.tier + tierJump(run.time));
+    if (rep.highestTier > c.highestTier && rep.highestTier <= up) c.highestTier = rep.highestTier;
+  }
   if (run?.completed) {
     c.riftsCleared = Math.min(rep.riftsCleared | 0, c.riftsCleared + 1);
     c.pityAnc = Math.max(0, Math.min(rep.pityAnc | 0, c.pityAnc + 1));

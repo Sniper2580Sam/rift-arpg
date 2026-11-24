@@ -2,7 +2,7 @@
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
 import { BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , MAP, MAPS, MapDef, ITEMS } from "./data";
 import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, equipTarget, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue, shardValue } from "./items";
-import { TileMap, flowField, genArena, genCave, genLinear, genOpen, genRooms, moveWithWalls } from "./map";
+import { TileMap, flowField, genArena, genCave, genLinear, genOpen, genRing, genRooms, moveWithWalls } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
 import { DIR_TABLE, len, norm, rotFine } from "./vec";
 
@@ -43,7 +43,7 @@ export interface Player extends Holder {
   colossusT?: number; colossusSkill?: string;
 }
 
-export type EnemyKind = "ghoul" | "archer" | "brute" | "guardian" | "king" | "pylon";
+export type EnemyKind = "ghoul" | "archer" | "brute" | "guardian" | "king" | "pylon" | "hound";
 export interface Enemy {
   id: number; kind: EnemyKind;
   x: number; y: number; px: number; py: number; r: number;
@@ -149,6 +149,7 @@ export function createSim(cfg: SimConfig): SimState {
   const map = !md ? genArena(rng, 44, 44, RIFT.tileSize)
     : md.layout === "linear" ? genLinear(rng, md.w, md.h, RIFT.tileSize)
     : md.layout === "open" ? genOpen(rng, md.w, md.h, RIFT.tileSize)
+    : md.layout === "ring" ? genRing(rng, md.w, md.h, RIFT.tileSize)
     : md.layout === "rooms" ? genRooms(rng, md.w, md.h, RIFT.tileSize)
     : genCave(rng, md.w, md.h, RIFT.tileSize);
   const density = md?.density ? md.density[0] + Math.floor(next(rng) * (md.density[1] - md.density[0] + 1)) : 1;
@@ -189,7 +190,7 @@ export function createSim(cfg: SimConfig): SimState {
     if (len(x - startX, y - startY) < 220) continue;
     if (packs.some(([px, py]) => len(px - x, py - y) < RIFT.packSpacing)) continue;
     packs.push([x, y]);
-    const pack = weighted(rng, RIFT.packs);
+    const pack = weighted(rng, packsFor(s.rift.tier));
     const elitePack = chance(rng, eliteChance);
     let first = true;
     for (const [ek, lo, hi] of pack.members as [EnemyKind, number, number][]) {
@@ -261,7 +262,7 @@ function spawnEnemy(s: SimState, kind: EnemyKind, x: number, y: number, party: n
   const dmgM = Math.pow(RIFT.tiers.dmgGrowth, t - 1) * (t === 1 ? RIFT.tiers.tier1Dmg ?? 1 : 1) * (1 + RIFT.party.dmgPerExtra * (party - 1));
   const hp = Math.round(d.hp * hpM);
   const e: Enemy = {
-    id: s.nextId++, kind, x, y, px: x, py: y, r: d.radius, hp, maxHp: hp, dmgMult: dmgM, speedMult: modVal(s, "enemySpeed"),
+    id: s.nextId++, kind, x, y, px: x, py: y, r: d.radius, hp, maxHp: hp, dmgMult: dmgM, speedMult: modVal(s, "enemySpeed") * Math.min(RIFT.tiers.speedCap, 1 + RIFT.tiers.speedPerTier * (t - 1)),
     state: "chase", t: 0, atkCd: range(s.rng, 0.3, 1.0), aggro: false, target: -1, kbx: 0, kby: 0, flash: 0,
     burnDps: 0, burnT: 0, burnTick: 0, burnPid: 0, slowT: 0, slowPct: 0, vulnT: 0, vulnPct: 0, tauntT: 0, tauntBy: -1,
     tx: 0, ty: 0, dead: false, noProgress: false, pattern: 0, enraged: false, age: 0, chargeHit: false, phase: 1,
@@ -948,7 +949,7 @@ function updateEnemies(s: SimState) {
     if (e.elite) eliteAffixes(s, e, tgt, dist);
     const spd = (def?.speed ?? 0) * e.speedMult * (e.slowT > 0 ? 1 - e.slowPct / 100 : 1);
     switch (e.kind) {
-      case "ghoul": aiMelee(s, e, def, tgt, dist, dx, dy, spd); break;
+      case "ghoul": case "hound": aiMelee(s, e, def, tgt, dist, dx, dy, spd); break;
       case "brute": aiBrute(s, e, def, tgt, dist, dx, dy, spd); break;
       case "archer": aiArcher(s, e, def, tgt, dist, dx, dy, spd); break;
       case "guardian": aiGuardian(s, e, def, tgt, dist, dx, dy, spd); break;
@@ -1366,6 +1367,8 @@ function updateLoot(s: SimState) {
 /** Ambush: a pack spawns just off-screen around a random living player and hunts the party. */
 /** Fresh characters on tiers 1–2 meet thinner packs (and need less progress); full density from tier 3. */
 const ITEMS_EQUIP_SLOTS: string[] = (ITEMS as any).equipSlots;
+/** Packs that can appear on this tier (Bone Hounds join from tier 4). */
+const packsFor = (tier: number) => RIFT.packs.filter((p) => ((p as { minTier?: number }).minTier ?? 1) <= tier);
 function tierDensity(tier: number) { const d = (RIFT as any).densityByTier as number[] | undefined; return d?.[tier - 1] ?? 1; }
 
 function ambush(s: SimState) {
@@ -1385,7 +1388,7 @@ function ambush(s: SimState) {
   let count = Math.round((W.base + W.perMinute * (r.time / 60)) * (1 + 0.5 * (n - 1)) * modVal(s, "packMult") * tierDensity(r.tier) * (r.density ?? 1));
   const cap = (r.map && MAP[r.map]?.enemyCap) || 0;
   if (cap) { let alive = 0; for (const e of s.enemies) if (!e.dead) alive++; count = Math.max(0, Math.min(count, cap - alive)); }
-  const pack = weighted(s.rng, RIFT.packs);
+  const pack = weighted(s.rng, packsFor(s.rift.tier));
   const kinds = (pack.members as [EnemyKind, number, number][]).map((m) => m[0]);
   for (let i = 0; i < count; i++) {
     const k = i === 0 && kinds.includes("brute") && r.time > 120 ? "brute" : kinds[i % kinds.length] === "brute" ? "ghoul" : kinds[i % kinds.length];

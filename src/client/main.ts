@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { CLASSES, ENEMIES, MAP, MODIFIER, RIFT, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { CLASSES, ENEMIES, MAP, MODIFIER, RIFT, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax } from "../sim/sim";
@@ -184,7 +184,8 @@ function endRun() {
   if (completeInfo) {
     c.riftsCleared++;
     if (run.kind === "rift") {
-      if (completeInfo.inTime && run.tier >= c.highestTier && c.highestTier < T.max) { c.highestTier = run.tier + 1; lines.push(`Tier ${c.highestTier} unlocked!`); }
+      const up = Math.min(T.max, run.tier + tierJump(completeInfo.time));
+      if (completeInfo.inTime && up > c.highestTier) { const was = c.highestTier; c.highestTier = up; lines.push(up - Math.max(was, run.tier) > 1 ? `Fast clear! Tier ${up} unlocked (+${up - run.tier})` : `Tier ${up} unlocked!`); }
       const key = String(run.tier);
       if (completeInfo.inTime && (!c.bestTimes[key] || completeInfo.time < c.bestTimes[key])) c.bestTimes[key] = completeInfo.time;
       if (run.tier >= T.ancestralFrom) c.pityAnc = gotAncestral ? 0 : c.pityAnc + 1;
@@ -282,7 +283,7 @@ function burst(x: number, y: number, n: number, color: string | string[], speed 
 }
 const BLOOD: Record<string, string[]> = {
   ghoul: ["#6f8f5a", "#4a6640", "#9bc27a"], archer: ["#f2ead3", "#c9bf9f"], brute: ["#9a7aa8", "#6b4f7a", "#4a3456"], guardian: ["#f2ead3", "#ffd23f", "#2b1f3a"],
-  king: ["#f2ead3", "#ff3b6b", "#2b1f3a"], pylon: ["#f2ead3", "#ffd23f"],
+  king: ["#f2ead3", "#ff3b6b", "#2b1f3a"], hound: ["#f2ead3", "#c9bf9f", "#8a7f66"], pylon: ["#f2ead3", "#ffd23f"],
 };
 /** The premium effect a player picked for a skill, if any. */
 function fxOf(pid: number | undefined, skill: string | undefined): VfxStyle | undefined {
@@ -671,7 +672,7 @@ function telegraphCircle(g: CanvasRenderingContext2D, x: number, y: number, r: n
 
 function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, t: number) {
   const moving = Math.abs(e.x - e.px) + Math.abs(e.y - e.py) > 0.05;
-  const frames = e.kind === "ghoul" ? bank.ghoul : e.kind === "archer" ? bank.archer : e.kind === "brute" ? bank.brute : e.kind === "pylon" ? bank.pylon : bank.guardian;
+  const frames = e.kind === "ghoul" ? bank.ghoul : e.kind === "hound" ? bank.hound : e.kind === "archer" ? bank.archer : e.kind === "brute" ? bank.brute : e.kind === "pylon" ? bank.pylon : bank.guardian;
   const fr = frames[moving ? Math.floor(t * 8 + e.id) % frames.length : 0];
   const tgt = sim!.players.find((q) => q.pid === e.target);
   const flip = tgt ? tgt.x < e.x : false;

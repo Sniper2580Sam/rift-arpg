@@ -498,11 +498,34 @@ const PET_KEYS: Record<string, (c: Record<string, string>) => Record<string, str
 };
 const cosOf = (kind: "armor" | "wings" | "weapon" | "petSkin", id: string | undefined) => COSMETICS[kind].find((x) => x.id === id) as Record<string, any> | undefined;
 
+const HOUND = [
+  [
+    "..........kk.",
+    "k........kwwk",
+    ".kkkkkkkkkwek",
+    "kwkwkwkwwwwkk",
+    ".kwwwwwwwwk..",
+    ".kwk..kwk....",
+    "kwk....kwk...",
+    "kk......kk...",
+  ],
+  [
+    "..........kk.",
+    ".k.......kwwk",
+    "k.kkkkkkkkwek",
+    ".kwkwkwkwwwwk",
+    ".kwwwwwwwwk..",
+    "..kwk.kwk....",
+    "..kwkkwk.....",
+    "...kk.kk.....",
+  ],
+];
+
 const PYLON = ["..kk..", ".kwwk.", ".kwyk.", "kwwwwk", "kwyywk", "kwwwwk", "kWWWWk", "kkkkkk"];
 
 export interface SpriteBank {
   hero: Sprite[]; ranger: Sprite[]; mage: Sprite[]; wright: Sprite[]; colossus: Sprite[]; raven: Sprite[]; pets: Record<string, Sprite[]>; pylon: Sprite[];
-  ghoul: Sprite[]; archer: Sprite[]; brute: Sprite[]; guardian: Sprite[]; imp: Sprite[];
+  ghoul: Sprite[]; hound: Sprite[]; archer: Sprite[]; brute: Sprite[]; guardian: Sprite[]; imp: Sprite[];
   icon: (slot: Slot, rarity: Rarity) => Sprite;
   /** hero frames in an armour + weapon skin */
   heroSkin: (cls: string, armor?: string, weapon?: string) => Sprite[];
@@ -530,6 +553,7 @@ export function buildSprites(): SpriteBank {
     pets: Object.fromEntries(Object.entries(PETS).map(([k, v]) => [k, v.map((r) => make(r))])),
     pylon: [make(PYLON)],
     ghoul: GHOUL.map((r) => make(r)),
+    hound: HOUND.map((r) => make(r)),
     archer: ARCHER.map((r) => make(r)),
     brute: BRUTE.map((r) => make(r)),
     guardian: [make(GUARDIAN)],

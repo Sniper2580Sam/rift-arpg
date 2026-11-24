@@ -43,9 +43,14 @@ export const SKILL = Object.fromEntries(SKILLS.map((s) => [s.id, s])) as Record<
 export const CLASSES = classesJson as unknown as Record<string, ClassDef>;
 export const ENEMIES = enemiesJson as unknown as Record<string, EnemyDef>;
 export const RIFT = riftJson;
+/** Tiers a clear unlocks: fast clears skip ahead (under 3 min: +3, under 5 min: +2, in time: +1). */
+export function tierJump(time: number): number {
+  for (const [secs, n] of (RIFT as any).tierJumps as [number, number][]) if (time < secs) return n;
+  return 1;
+}
 export interface MapTheme { floor: string[]; speck: string[]; wallTop: string; wallFace: string; wallLight: string; wallLine: string; void: string; deco: string }
 export interface MapDef {
-  id: string; name: string; layout: "cave" | "linear" | "open" | "rooms"; w: number; h: number; weight: number; desc: string; egg?: boolean;
+  id: string; name: string; layout: "cave" | "linear" | "open" | "rooms" | "ring"; w: number; h: number; weight: number; desc: string; egg?: boolean;
   packMult?: number; dropMult?: number; legendaryWeightMult?: number; density?: [number, number]; enemyCap?: number; theme: MapTheme;
 }
 export const MAPS = mapsJson as MapDef[];

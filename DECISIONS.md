@@ -124,3 +124,10 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - No server is involved, so the brief's "backend saves everything" still applies to the real game; when the server goes live, Google becomes a login there.
 - Google access tokens last an hour, and Google needs a tap to refresh one, so the game reconnects on the next tap. It's hidden in the artifact (which has its own Claude-account sync) and in the offline file.
 - Untested on a real iPhone home-screen app: Google's sign-in window may behave differently there.
+
+## Tier skips and kiting pressure (2026-11-24)
+- Samuel (level 12, tier 7, mage) still found it easy. In bot tests a stand-still bot struggles at T7, so the gap is kiting.
+- Fast clears skip tiers: under 3 min unlocks +3, under 5 min +2, in time +1 (`tierJumps` in rift.json; the ledger allows the same jump).
+- Enemies move 3% faster per tier (up to +40%).
+- New Bone Hound (fast, fragile pack hunter, speed 104 vs heroes' ~80) in packs from tier 4.
+- Maps: the Flooded Cavern is now a round, irregular cavern instead of a box. New ring map, the Hollow Pit, loops around a central chasm. Normal maps now have about equal odds.

@@ -81,16 +81,50 @@ export function genLinear(r: Rng, w: number, h: number, ts: number): TileMap {
   return { w, h, ts, tiles: t };
 }
 
-/** Open: one big hall with scattered pillars and rubble. */
+/** A wobbly radius: base size bent by a few random waves, so outlines are never circles or boxes. */
+function wobble(r: Rng, k: number): (a: number) => number {
+  const waves = Array.from({ length: k }, (_, i) => ({ f: i + 2 + Math.floor(next(r) * 3), amp: 0.05 + next(r) * 0.1, ph: next(r) * Math.PI * 2 }));
+  return (a) => 1 + waves.reduce((v, w) => v + w.amp * Math.sin(a * w.f + w.ph), 0);
+}
+
+/** Open: one huge irregular cavern with scattered pillars and rubble. */
 export function genOpen(r: Rng, w: number, h: number, ts: number): TileMap {
   const t = new Array(w * h).fill(1);
-  carveRect(t, w, h, 3, 3, w - 4, h - 4);
-  const n = Math.floor((w * h) / 70);
-  for (let i = 0; i < n; i++) {
-    const cx = ri(r, 6, w - 7), cy = ri(r, 6, h - 7), sz = ri(r, 0, 2);
-    for (let y = cy - sz; y <= cy + sz; y++) for (let x = cx - sz; x <= cx + sz; x++) if (next(r) < 0.8) t[y * w + x] = 1;
+  const cx = w / 2, cy = h / 2, R0 = Math.min(w, h) / 2 - 4, f = wobble(r, 4);
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const dx = x - cx, dy = (y - cy) * 1.1, d = Math.hypot(dx, dy);
+    if (d < R0 * Math.min(1, f(Math.atan2(dy, dx)))) t[y * w + x] = 0;
   }
-  erode(r, t, w, h, 0.15);
+  const n = Math.floor((w * h) / 90);
+  for (let i = 0; i < n; i++) {
+    const px = ri(r, 6, w - 7), py = ri(r, 6, h - 7), sz = ri(r, 0, 2);
+    for (let y = py - sz; y <= py + sz; y++) for (let x = px - sz; x <= px + sz; x++) if (next(r) < 0.8) t[y * w + x] = 1;
+  }
+  erode(r, t, w, h, 0.2);
+  keepLargest(t, w, h);
+  return { w, h, ts, tiles: t };
+}
+
+/** Ring: a wide loop around a bottomless central pit, with a few side caves off the outer wall. */
+export function genRing(r: Rng, w: number, h: number, ts: number): TileMap {
+  const t = new Array(w * h).fill(1);
+  const cx = w / 2, cy = h / 2, R0 = Math.min(w, h) / 2 - 4, fo = wobble(r, 3), fi = wobble(r, 3);
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+    if (d < R0 * Math.min(1, fo(a)) && d > R0 * 0.45 * fi(a)) t[y * w + x] = 0;
+  }
+  // side caves bulging outward, and a few pillars in the loop
+  for (let i = 0; i < 6; i++) {
+    const a = next(r) * Math.PI * 2, d = R0 * 0.85, rr = ri(r, 3, 5);
+    const bx = Math.round(cx + Math.cos(a) * d), by = Math.round(cy + Math.sin(a) * d);
+    for (let y = by - rr; y <= by + rr; y++) for (let x = bx - rr; x <= bx + rr; x++)
+      if (x > 1 && y > 1 && x < w - 2 && y < h - 2 && Math.hypot(x - bx, y - by) <= rr) t[y * w + x] = 0;
+  }
+  for (let i = 0; i < Math.floor((w * h) / 160); i++) {
+    const px = ri(r, 4, w - 5), py = ri(r, 4, h - 5);
+    if (next(r) < 0.7) t[py * w + px] = 1;
+  }
+  erode(r, t, w, h, 0.2);
   keepLargest(t, w, h);
   return { w, h, ts, tiles: t };
 }
