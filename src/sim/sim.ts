@@ -15,7 +15,7 @@ export const NO_INPUT: PlayerInput = { mx: 0, my: 0, ax: 0, ay: 0, act: 0 };
 export type PlayerCmd = InvCmd | { type: "boon"; id: string } | { type: "setLoadout"; setup: PlayerSetup };
 export type HostCmd =
   | { type: "spawnLoot"; owner: number; item: Item; x: number; y: number }
-  | { type: "join"; setup: PlayerSetup }
+  | { type: "join"; setup: PlayerSetup; pity?: { ancestral?: boolean; primal?: boolean } }
   | { type: "leave"; pid: number };
 
 export interface PlayerSetup {
@@ -67,7 +67,7 @@ export type SimEvent =
   | { type: "drop"; x: number; y: number; rarity: Rarity; name: string; owner: number; quality?: string }
   | { type: "dropRequest"; owner: number; x: number; y: number; opts: MintOpts }
   | { type: "pickup"; pid: number; rarity: Rarity; name: string; item: Item }
-  | { type: "scrapped"; pid: number; name: string; mats: number }
+  | { type: "scrapped"; pid: number; name: string; mats: number; id: string }
   | { type: "bagFull"; pid: number }
   | { type: "swing"; pid: number; x: number; y: number; fx: number; fy: number; ring: boolean; range: number; hits: number; arcCos: number }
   | { type: "cast"; pid: number; skill: string; x: number; y: number; r?: number }
@@ -221,8 +221,8 @@ function refreshPlayer(s: SimState, p: Player, minEff: number) {
 function spawnEnemy(s: SimState, kind: EnemyKind, x: number, y: number, party: number): Enemy {
   const d = ENEMIES[kind] ?? { hp: 300, radius: 7 } as EnemyDef;
   const t = s.rift.tier;
-  const hpM = Math.pow(RIFT.tiers.hpGrowth, t - 1) * (1 + RIFT.party.hpPerExtra * (party - 1)) * modVal(s, "enemyHp");
-  const dmgM = Math.pow(RIFT.tiers.dmgGrowth, t - 1) * (1 + RIFT.party.dmgPerExtra * (party - 1));
+  const hpM = Math.pow(RIFT.tiers.hpGrowth, t - 1) * (t === 1 ? RIFT.tiers.tier1Hp ?? 1 : 1) * (1 + RIFT.party.hpPerExtra * (party - 1)) * modVal(s, "enemyHp");
+  const dmgM = Math.pow(RIFT.tiers.dmgGrowth, t - 1) * (t === 1 ? RIFT.tiers.tier1Dmg ?? 1 : 1) * (1 + RIFT.party.dmgPerExtra * (party - 1));
   const hp = Math.round(d.hp * hpM);
   const e: Enemy = {
     id: s.nextId++, kind, x, y, px: x, py: y, r: d.radius, hp, maxHp: hp, dmgMult: dmgM, speedMult: modVal(s, "enemySpeed"),
@@ -274,7 +274,7 @@ function applyHostCmd(s: SimState, c: HostCmd) {
     s.loot.push({ id: s.nextId++, x: c.x, y: c.y, item: c.item, age: 0, owner: c.owner });
     s.events.push({ type: "drop", x: c.x, y: c.y, rarity: c.item.rarity, name: c.item.name, owner: c.owner, quality: c.item.quality });
   } else if (c.type === "join") {
-    if (!s.players.some((p) => p.pid === c.setup.pid)) addPlayer(s, c.setup);
+    if (!s.players.some((p) => p.pid === c.setup.pid)) { addPlayer(s, c.setup); if (c.pity) s.pity[c.setup.pid] = c.pity; }
   } else if (c.type === "leave") {
     const p = s.players.find((q) => q.pid === c.pid);
     if (p) { s.players.splice(s.players.indexOf(p), 1); s.summons.forEach((m) => { if (m.pid === c.pid) m.dead = true; }); s.loot = s.loot.filter((l) => l.owner !== c.pid); refreshAll(s); }
@@ -1085,7 +1085,7 @@ function updateLoot(s: SimState) {
       // auto-scrap: anything the loot filter hides turns into materials on pickup
       const v = scrapValue(l.item);
       p.materials += v; s.loot.splice(i, 1);
-      s.events.push({ type: "scrapped", pid: p.pid, name: l.item.name, mats: v });
+      s.events.push({ type: "scrapped", pid: p.pid, name: l.item.name, mats: v, id: l.item.id });
       continue;
     }
     if (p.bag.length >= BAG_SIZE) { if (s.tick % 45 === 0) s.events.push({ type: "bagFull", pid: p.pid }); continue; }

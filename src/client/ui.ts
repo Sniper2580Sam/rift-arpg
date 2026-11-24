@@ -87,6 +87,14 @@ export interface HubHandlers {
   setting: (k: string, v: any) => void;
   newSeason: () => void;
   reset: () => void;
+  /** live build: the server rolls reroll options */
+  rerollOptions?: (target: { bag?: number; slot?: EquipSlot }, idx: number) => Promise<Affix[]>;
+  coop?: CoopHub;
+}
+export interface CoopHub {
+  name: string;
+  lobby: { code: string; pid: number; host: boolean; members: { pid: number; name: string; cls: string; level: number }[]; running: boolean } | null;
+  host: () => void; join: (code: string) => void; leave: () => void; signOut: () => void;
 }
 
 export class UI {
@@ -110,14 +118,14 @@ export class UI {
     const cd = CLASSES[c.cls];
     const tabs = (["play", "gear", "skills", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("");
     let body = "";
-    if (this.tab === "play") body = this.playTab(p, c);
+    if (this.tab === "play") body = this.playTab(p, c, H);
     if (this.tab === "gear") body = this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials }, true);
     if (this.tab === "skills") body = this.skillsTab(c);
     if (this.tab === "settings") body = this.settingsTab(p);
     this.root.innerHTML = `
       <div class="panel hub">
         <div class="hub-head">
-          <div><h1>RIFT ARPG</h1><div class="sub">working title · Season ${p.season.n} · test build</div></div>
+          <div><h1>RIFT ARPG</h1><div class="sub">working title · Season ${p.season.n} · ${H.coop ? "live build" : "test build"}</div></div>
           <div class="who"><b>${cd.name}</b> · Lv ${c.level}<div class="xpbar"><i style="width:${Math.round(xpProgress(c) * 100)}%"></i></div></div>
         </div>
         <nav class="tabs">${tabs}</nav>
@@ -131,14 +139,14 @@ export class UI {
     if (this.tab === "settings") this.bindSettings(p, H, re);
   }
 
-  private playTab(p: Profile, c: CharSave) {
+  private playTab(p: Profile, c: CharSave, H: HubHandlers) {
     const t = this.tier, T = RIFT.tiers;
     const hp = Math.pow(T.hpGrowth, t - 1), leg = 1 + T.legendaryGrowth * (t - 1);
     const anc = t >= T.ancestralFrom ? Math.min(T.ancestralCap, T.ancestralBase + T.ancestralPerTier * (t - T.ancestralFrom)) : 0;
     const week = isoWeek();
     const wbest = p.weekly.week === week && p.weekly.best ? fmtTime(p.weekly.best) : "—";
     const classes = Object.entries(CLASSES).map(([id, d]) => `<button class="cls-card ${p.active === id ? "on" : ""}" data-cls="${id}"><b>${d.name}</b><span>Lv ${p.chars[id].level} · ${d.role}</span><small>${esc(d.desc)}</small></button>`).join("");
-    return `
+    return `${H.coop ? this.coopBox(H.coop) : ""}
       <div class="classes">${classes}</div>
       <div class="tier-row">
         <button id="t-down" aria-label="Lower tier">−</button>
@@ -158,7 +166,27 @@ export class UI {
         <b>Touch:</b> left thumb moves · six buttons on the right · aiming is automatic (bosses and elites first)
       </div>`;
   }
+  private coopBox(co: CoopHub) {
+    const l = co.lobby;
+    const who = `<div class="dim small">Signed in as <b>${esc(co.name)}</b> · <button class="link" id="co-out">sign out</button></div>`;
+    if (!l) return `<div class="coop"><b>Play together</b>
+      <div class="row"><button id="co-host">Host a room</button><input id="co-code" placeholder="room code" maxlength="4" autocomplete="off" aria-label="Room code"><button id="co-join">Join</button></div>${who}</div>`;
+    const hostName = l.members.find((m) => m.pid === 0)?.name ?? "the host";
+    const list = l.members.map((m) => `<li>${esc(m.name)}${m.pid === 0 ? " (host)" : ""} · ${esc(CLASSES[m.cls]?.name ?? m.cls)} Lv ${m.level}</li>`).join("");
+    return `<div class="coop"><b>Room ${esc(l.code)}</b> <span class="dim small">${l.members.length}/4 · share the code</span><ul>${list}</ul>
+      <div class="dim small">${l.host ? "Entering a rift takes everyone in the room with you. Friends can also join mid-run." : l.running ? `${esc(hostName)} is in a rift. Joining…` : `Waiting for ${esc(hostName)} to start a rift.`}</div>
+      <button id="co-leave">Leave room</button>${who}</div>`;
+  }
   private bindPlay(p: Profile, c: CharSave, H: HubHandlers, re: () => void) {
+    const co = H.coop;
+    if (co) {
+      const b = (id: string, f: () => void) => { const el = this.root.querySelector<HTMLElement>(id); if (el) el.onclick = f; };
+      b("#co-host", () => co.host());
+      b("#co-join", () => { const v = (this.root.querySelector("#co-code") as HTMLInputElement).value.trim().toUpperCase(); if (v) co.join(v); });
+      b("#co-leave", () => co.leave());
+      b("#co-out", () => co.signOut());
+      if (co.lobby && !co.lobby.host) for (const id of ["#enter", "#weekly", "#chase"]) { const el = this.root.querySelector<HTMLButtonElement>(id); if (el) el.disabled = true; }
+    }
     this.root.querySelectorAll<HTMLElement>("[data-cls]").forEach((el) => el.onclick = () => { H.setClass(el.dataset.cls!); this.tier = char(p).highestTier; re(); });
     $("#t-down").onclick = () => { this.tier = Math.max(1, this.tier - 1); re(); };
     $("#t-up").onclick = () => { this.tier = Math.min(c.highestTier, this.tier + 1); re(); };
@@ -222,7 +250,7 @@ export class UI {
       <div class="opts">${it.affixes.map((a, i) => (lock === undefined || lock === i ? `<button data-reroll="${i}" ${mats < cost ? "disabled" : ""}>↻ ${esc(affixText(a))}</button>` : "")).join("")}</div></div>`;
   }
 
-  bindGear(p: Profile | null, c: Holder, H: Pick<HubHandlers, "invCmd" | "reroll">, re: () => void, allowReroll: boolean) {
+  bindGear(p: Profile | null, c: Holder, H: Pick<HubHandlers, "invCmd" | "reroll" | "rerollOptions">, re: () => void, allowReroll: boolean) {
     this.root.querySelectorAll<HTMLElement>("[data-eq]").forEach((el) => el.onclick = () => { this.sel = { where: "eq", slot: el.dataset.eq as EquipSlot }; this.rerollState = null; re(); });
     this.root.querySelectorAll<HTMLElement>("[data-bag]").forEach((el) => el.onclick = () => { this.sel = { where: "bag", i: +el.dataset.bag! }; this.rerollState = null; re(); });
     this.root.querySelectorAll<HTMLElement>("[data-scrapbelow]").forEach((el) => el.onclick = () => {
@@ -241,6 +269,7 @@ export class UI {
     this.root.querySelectorAll<HTMLElement>("[data-reroll]").forEach((el) => el.onclick = () => {
       if (!it) return;
       const idx = +el.dataset.reroll!;
+      if (H.rerollOptions && target) { H.rerollOptions(target, idx).then((options) => { this.rerollState = { idx, options }; re(); }); return; }
       this.rerollState = { idx, options: rerollOptions(makeRng((Math.random() * 2 ** 32) >>> 0), it, idx, 2) };
       re();
     });

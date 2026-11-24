@@ -71,7 +71,11 @@ export function loadProfile(): Profile {
   return newProfile();
 }
 let lastSave = "";
+let localSaves = true;
+/** The live build keeps the profile on the server, so nothing is written to this device. */
+export function setLocalSaves(v: boolean) { localSaves = v; }
 export function saveProfile(p: Profile) {
+  if (!localSaves) return;
   try { const s = JSON.stringify(p); if (s !== lastSave) { localStorage.setItem(SAVE_KEY, s); lastSave = s; } } catch { /* ignore */ }
 }
 

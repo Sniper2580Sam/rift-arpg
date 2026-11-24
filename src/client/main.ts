@@ -1,16 +1,18 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
 import { CLASSES, ENEMIES, MODIFIER, RIFT, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
-import { DT, Enemy, Player, PlayerInput, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, step, rollModifiers } from "../sim/sim";
+import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers } from "../sim/sim";
 import { sfx, setMuted, unlockAudio } from "./audio";
 import { Input, KEY_LABELS } from "./input";
-import { Profile, char, holderOf, isoWeek, loadProfile, newProfile, saveProfile, setupFor, startNewSeason, syncFromSim, weeklySeed } from "./profile";
+import { Profile, char, isoWeek, loadProfile, saveProfile, setLocalSaves, setupFor, syncFromSim, weeklySeed } from "./profile";
+import { HubOp, applyHubOp } from "../shared/ops";
 import { RARITY_COLOR, Sprite, buildSprites, renderMap } from "./sprites";
 import { UI, fmtTime, modsLine } from "./ui";
-import { startOnline, onlineAvailable } from "./net";
+import { Online, onlineAvailable, signIn, signOut } from "./net";
 
 declare const OFFLINE_TEST: boolean;
-const ME = 0;
+let ME = 0;
+let online: Online | null = null;
 
 // ------------------------------------------------------------------ setup
 const canvas = document.getElementById("game") as HTMLCanvasElement;
@@ -60,6 +62,20 @@ let gotAncestral = false, gotPrimal = false, gotSigil = 0, startLevel = 1;
 let completeInfo: { inTime: boolean; time: number } | null = null;
 let run: { kind: "rift" | "chase"; tier: number; weekly: boolean; seed: number } | null = null;
 let leaveArmed = 0;
+let screen: "hub" | "results" | "rift" = "hub";
+let runIds = new Set<string>(), scrappedIds: string[] = [];
+
+// co-op: the host runs the sim and streams each tick's inputs; guests replay them (deterministic lockstep).
+interface Coop {
+  role: "host" | "guest"; cfg: SimConfig;
+  remote: Map<number, { inp: PlayerInput; cmds: PlayerCmd[] }>; hostCmds: HostCmd[]; localCmds: PlayerCmd[];
+  live: Set<number>; joining: Set<number>;
+  queue: any[]; resyncing: boolean; inputAcc: number;
+}
+let coop: Coop | null = null;
+const newCoop = (role: Coop["role"], cfg: SimConfig): Coop => ({ role, cfg, remote: new Map(), hostCmds: [], localCmds: [], live: new Set(), joining: new Set(), queue: [], resyncing: false, inputAcc: 0 });
+/** Solo (or a live host with nobody connected) may pause and hit-stop; a shared sim never stops. */
+const canFreeze = () => !coop || (coop.role === "host" && coop.live.size === 0 && coop.joining.size === 0);
 const pets = new Map<number, { x: number; y: number; flip: boolean }>();
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; grav: number }
@@ -70,19 +86,29 @@ interface Ghost { x: number; y: number; t: number; flip: boolean; cls: string }
 const particles: Particle[] = [], nums: Num[] = [], rings: Ring[] = [], arcs: Arc[] = [], ghosts: Ghost[] = [];
 const me = () => sim!.players.find((p) => p.pid === ME)!;
 
-function startRun(o: { tier: number; seed: number | null; kind: "rift" | "chase"; weekly?: boolean }) {
+type RunOpts = { tier: number; seed: number | null; kind: "rift" | "chase"; weekly?: boolean };
+type RunInfo = { kind: "rift" | "chase"; tier: number; weekly: boolean; seed: number };
+function startRun(o: RunOpts) {
   unlockAudio();
+  if (online) return startLiveRun(o);
   const c = char(profile);
   let seed = o.seed ?? ((Math.random() * 0xffffffff) >>> 0);
   if (o.weekly) seed = weeklySeed(isoWeek());
   if (o.kind === "chase") { if (c.sigils <= 0) return; c.sigils--; saveProfile(profile); }
   const T = RIFT.tiers;
-  sim = createSim({
+  const cfg: SimConfig = {
     seed, kind: o.kind, tier: o.tier, players: [setupFor(profile, ME)],
     mods: o.kind === "chase" ? [] : rollModifiers(seed, o.tier),
     pity: { [ME]: { ancestral: c.pityAnc >= T.ancestralPity, primal: c.pityPri >= T.primalPity } },
-  });
-  run = { kind: o.kind, tier: o.tier, weekly: !!o.weekly, seed };
+  };
+  beginRun(cfg, { kind: o.kind, tier: o.tier, weekly: !!o.weekly, seed });
+}
+
+function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
+  const c = char(profile);
+  sim = existing ?? createSim(cfg);
+  run = info;
+  const seed = info.seed;
   mapCanvas = renderMap(sim.map.tiles, sim.map.w, sim.map.h, sim.map.ts, seed);
   miniCanvas = document.createElement("canvas");
   miniCanvas.width = sim.map.w; miniCanvas.height = sim.map.h;
@@ -92,11 +118,13 @@ function startRun(o: { tier: number; seed: number | null; kind: "rift" | "chase"
   camX = p.x - wb.width / 2; camY = p.y - wb.height / 2;
   particles.length = nums.length = rings.length = arcs.length = ghosts.length = 0; pets.clear();
   found = {}; foundLegs = []; completeInfo = null; acc = 0; hitstop = 0; paused = false; gotAncestral = gotPrimal = false; gotSigil = 0; startLevel = c.level;
-  mode = "rift";
+  runIds = new Set([...Object.values(p.equipment).map((it) => it!.id), ...p.bag.map((it) => it.id)]); scrappedIds = [];
+  mode = "rift"; screen = "rift";
   ui.hide();
   riftButtons();
-  if (o.kind === "chase") showBanner(RIFT.chase.name, "Three phases. Dodge the fire, break the pylons.", "#ff3b6b", 3.5);
-  else showBanner(o.weekly ? "WEEKLY RIFT" : RIFT.name, `Tier ${o.tier} · code ${seed.toString(36).toUpperCase()} · ${modsLine(sim.rift.mods)}`, "#c9b8ff", 3.5);
+  const party = sim.players.length > 1 ? ` · party of ${sim.players.length}` : "";
+  if (info.kind === "chase") showBanner(RIFT.chase.name, "Three phases. Dodge the fire, break the pylons.", "#ff3b6b", 3.5);
+  else showBanner(info.weekly ? "WEEKLY RIFT" : RIFT.name, `Tier ${info.tier} · code ${seed.toString(36).toUpperCase()} · ${modsLine(sim.rift.mods)}${party}`, "#c9b8ff", 3.5);
 }
 
 function riftButtons() {
@@ -113,11 +141,18 @@ function riftButtons() {
 }
 
 function resume() { paused = false; input.enabled = true; riftButtons(); }
+function pause() { if (canFreeze()) paused = true; input.enabled = false; }
+/** Inventory and boon picks: applied directly when nobody else shares the sim, otherwise sent as a tick input. */
+function playerCmd(c: PlayerCmd) {
+  if (!sim) return;
+  if (canFreeze()) { if (applyPlayerCmd(sim, me(), c)) syncFromSim(profile, sim, ME); return; }
+  if (coop!.role === "host") coop!.localCmds.push(c); else online!.sendR(0, { t: "cmd", c });
+}
 function openRiftInventory() {
   if (!sim) return;
-  paused = true; input.enabled = false; // solo only: co-op never pauses the shared sim
-  const s = sim, p = me();
-  ui.showRiftInventory(p, p.materials, (c: InvCmd) => { if (applyPlayerCmd(s, p, c)) syncFromSim(profile, s, ME); }, resume);
+  pause();
+  const p = me();
+  ui.showRiftInventory(p, p.materials, (c: InvCmd) => playerCmd(c), resume);
 }
 
 function endRun() {
@@ -147,39 +182,51 @@ function endRun() {
     saveProfile(profile);
     const title = run.kind === "chase" ? "The Ossuary King falls" : completeInfo.inTime ? "Rift cleared in time!" : "Guardian slain";
     const sub = completeInfo.inTime ? "Bonus loot for time remaining." : "The timer ran out, so the rewards were smaller.";
+    finishOnline();
+    screen = "results";
     ui.showResults({ title, sub, time: completeInfo.time, kills: s.rift.kills, found, legendaries: foundLegs, lines }, goHub);
-  } else { saveProfile(profile); goHub(); }
+  } else { saveProfile(profile); finishOnline(); goHub(); }
   sim = null; run = null; mode = "hub";
 }
 
+/** Live build: hand in this run's results to the server, and tell the party the run is over. */
+function finishOnline() {
+  if (!online || !run) return;
+  const c = char(profile);
+  const have = new Set([...Object.values(c.equipment).map((it) => it!.id), ...c.bag.map((it) => it.id)]);
+  const scrapped = [...new Set([...scrappedIds, ...[...runIds].filter((id) => !have.has(id))])];
+  if (coop?.role === "host") {
+    online.send({ t: "complete", inTime: completeInfo?.inTime, time: completeInfo?.time });
+    for (const pid of coop.live) online.sendR(pid, { t: "end" });
+  }
+  online.send({ t: "save", report: { equipment: c.equipment, bag: c.bag, scrapped, materials: profile.materials, level: c.level, xp: c.xp, sigils: c.sigils, uses: c.uses, highestTier: c.highestTier, pityAnc: c.pityAnc, pityPri: c.pityPri, bestTimes: c.bestTimes, riftsCleared: c.riftsCleared }, week: isoWeek(), weeklyBest: run.weekly });
+  if (coop?.role === "host") online.send({ t: "runEnd" });
+  else if (coop?.role === "guest" && !hostEnded && online.lobby) online.leave(); // a guest who leaves on their own leaves the party
+  hostEnded = false;
+  coop = null;
+}
+
+function hubOp(op: HubOp) {
+  const r = applyHubOp(profile, op);
+  if (r && typeof r === "object") profile = r;
+  if (op.t === "setting" && op.k === "mute") setMuted(profile.settings.mute);
+  saveProfile(profile);
+  online?.op(op);
+}
 function goHub() {
-  mode = "hub";
-  const H = holderOf(profile);
+  mode = "hub"; screen = "hub";
   ui.showHub(profile, {
     enter: startRun,
-    invCmd: (c) => { applyInvCmd(holderOf(profile), c); saveProfile(profile); },
-    setClass: (cls) => { profile.active = cls; saveProfile(profile); },
-    setRune: (sk, r) => { const c = char(profile); if (r) c.runes[sk] = r; else delete c.runes[sk]; saveProfile(profile); },
-    reroll: (t, idx, choice) => {
-      const c = char(profile);
-      const it = t.bag !== undefined ? c.bag[t.bag] : c.equipment[t.slot!];
-      if (!it) return;
-      const cost = rerollCost(it);
-      if (profile.materials < cost) return;
-      profile.materials -= cost;
-      it.rerollIdx = idx; it.rerolls = (it.rerolls ?? 0) + 1;
-      if (choice) it.affixes[idx] = choice;
-      saveProfile(profile);
-    },
-    setting: (k, v) => {
-      if (k === "filter") profile.filter = v; else if (k === "pet") profile.pet = v;
-      else { (profile.settings as any)[k] = v; if (k === "mute") setMuted(v); }
-      saveProfile(profile);
-    },
-    newSeason: () => { profile = startNewSeason(profile); saveProfile(profile); goHub(); },
-    reset: () => { profile = newProfile(); saveProfile(profile); goHub(); },
+    invCmd: (cmd) => hubOp({ t: "inv", cmd }),
+    setClass: (cls) => hubOp({ t: "setClass", cls }),
+    setRune: (skill, rune) => hubOp({ t: "setRune", skill, rune }),
+    reroll: (target, idx, choice) => hubOp({ t: "reroll", target, idx, choice }),
+    setting: (k, v) => hubOp({ t: "setting", k, v }),
+    newSeason: () => { hubOp({ t: "newSeason" }); goHub(); },
+    reset: () => { hubOp({ t: "reset" }); goHub(); },
+    rerollOptions: online ? (target, idx) => online!.rerollOptions(target, idx) : undefined,
+    coop: online ? { name: online.name, lobby: online.lobby, host: () => online!.host(), join: (code) => online!.join(code), leave: () => online!.leave(), signOut: () => { signOut(); location.reload(); } } : undefined,
   });
-  void H;
 }
 
 input.onKey = (k) => {
@@ -265,12 +312,12 @@ function handleEvent(e: SimEvent) {
       break;
     case "pickup":
       if (!mine(e.pid)) break;
-      sfx.pickup(); found[e.rarity] = (found[e.rarity] ?? 0) + 1;
+      sfx.pickup(); found[e.rarity] = (found[e.rarity] ?? 0) + 1; runIds.add(e.item.id);
       if (e.rarity === "legendary" || e.rarity === "set" || e.rarity === "mythic") foundLegs.push({ name: e.name, rarity: e.rarity, quality: e.item.quality });
       if (e.rarity !== "common" && e.rarity !== "magic") ui.toast(`Picked up ${e.name} · Bag to equip`, RARITY_COLOR[e.rarity]);
       syncFromSim(profile, sim!, ME);
       break;
-    case "scrapped": if (mine(e.pid) && nums.length < 70) { const p = me(); nums.push({ x: p.x, y: p.y - 18, text: `+${e.mats} mat`, color: "#b8a8d0", size: 0.7, t: 0, vx: 0 }); } break;
+    case "scrapped": if (mine(e.pid)) scrappedIds.push(e.id); if (mine(e.pid) && nums.length < 70) { const p = me(); nums.push({ x: p.x, y: p.y - 18, text: `+${e.mats} mat`, color: "#b8a8d0", size: 0.7, t: 0, vx: 0 }); } break;
     case "bagFull": if (mine(e.pid)) ui.toast("Bag full! Open the Bag and scrap something.", "#ff6a6a"); break;
     case "guardianSpawn": showBanner(e.kind === "king" ? "THE OSSUARY KING" : "THE HOLLOW WARDEN", "rises from the bone pit", "#ffd23f", 3); addShake(8); sfx.guardian(); burst(e.x, e.y, 60, ["#2b1f3a", "#ffd23f", "#f2ead3"], 140, 2, 0.9); break;
     case "enrage": showBanner("ENRAGED", "Faster and deadlier", "#ff4a4a", 2); sfx.guardian(); break;
@@ -285,8 +332,8 @@ function handleEvent(e: SimEvent) {
       break;
     case "boonOffer":
       if (!mine(e.pid) || !sim) break;
-      { const s = sim; paused = true; input.enabled = false;
-        ui.showBoons(s.boonOffers[ME], (id) => { applyPlayerCmd(s, me(), { type: "boon", id }); sfx.complete(); resume(); }); }
+      pause();
+      ui.showBoons(sim.boonOffers[ME], (id) => { playerCmd({ type: "boon", id }); sfx.complete(); resume(); });
       break;
     case "sigil": if (mine(e.pid)) { gotSigil++; showBanner("BONE SIGIL", "Opens the Throne of the Ossuary King", "#ff3b6b", 2.5); } break;
     case "riftComplete":
@@ -305,16 +352,19 @@ let last = performance.now();
 function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
-  if (mode === "rift" && sim) {
+  if (mode === "rift" && sim && coop && !canFreeze()) {
+    coopFrame(dt);
+    updateFx(dt);
+    if (sim) render(Math.min(1, acc / DT), dt);
+  } else if (mode === "rift" && sim) {
     if (hitstop > 0) hitstop -= dt; // solo only: freezes the sim; co-op uses a render-only freeze
     else if (!paused) acc += dt;
     let steps = 0;
     while (acc >= DT && steps < 4 && !paused) {
       const p = me();
       const inp: PlayerInput = input.read(sim, p, toWorld);
-      step(sim, { [ME]: inp });
-      for (const e of sim.events) handleEvent(e);
-      for (const q of sim.players) if (q.dashT > 0) ghosts.push({ x: q.x, y: q.y, t: 0, flip: q.fx < 0, cls: q.cls });
+      if (coop) hostStep(inp);
+      else { step(sim, { [ME]: inp }); afterStep(); }
       acc -= DT; steps++;
       if (hitstop > 0) { acc = 0; break; }
     }
@@ -784,15 +834,212 @@ function drawHubBackdrop(t: number) {
   ctx.drawImage(wb, 0, 0, W * pix, H * pix);
 }
 
+// ------------------------------------------------------------------ co-op / live
+function afterStep() {
+  const s = sim!;
+  for (const e of s.events) handleEvent(e);
+  if (sim) for (const q of sim.players) if (q.dashT > 0) ghosts.push({ x: q.x, y: q.y, t: 0, flip: q.fx < 0, cls: q.cls });
+}
+function snapOf(s: SimState) {
+  const { map, events, _flows, ...rest } = s;
+  return { ...rest, _flows: _flows.map((f) => Array.from(f)) };
+}
+function restoreSim(cfg: SimConfig, snap: any): SimState {
+  const s = createSim(cfg);
+  Object.assign(s, snap);
+  s._flows = (snap._flows as number[][]).map((a) => Int16Array.from(a));
+  s.events = [];
+  return s;
+}
+const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.max(-1e5, Math.min(1e5, v)) : 0);
+const cleanInput = (i: any): PlayerInput => ({ mx: num(i?.mx), my: num(i?.my), ax: num(i?.ax), ay: num(i?.ay), act: num(i?.act) | 0 });
+
+function hostStep(local: PlayerInput) {
+  const s = sim!, co = coop!;
+  const inputs: Record<number, PlayerInput> = {};
+  if (co.localCmds.length) local = { ...local, cmds: co.localCmds.splice(0) };
+  inputs[ME] = local;
+  const host = co.hostCmds.splice(0);
+  const joiningNow = new Set(host.filter((h) => h.type === "join").map((h) => (h as any).setup.pid as number));
+  let myCmds = !!local.cmds;
+  for (const [pid, r] of co.remote) {
+    if (!s.players.some((p) => p.pid === pid) && !joiningNow.has(pid)) continue;
+    const i: PlayerInput = { ...r.inp };
+    if (r.cmds.length) i.cmds = r.cmds.splice(0);
+    inputs[pid] = i;
+  }
+  step(s, inputs, host);
+  const f = { t: "f", k: s.tick, i: inputs, h: host.length ? host : undefined };
+  for (const pid of co.live) online!.sendR(pid, f);
+  for (const pid of co.joining) { online!.sendR(pid, { t: "snap", cfg: co.cfg, info: run, state: snapOf(s) }); co.live.add(pid); }
+  co.joining.clear();
+  if (s.tick % 30 === 0 && co.live.size) { const h = stateHash(s); for (const pid of co.live) online!.sendR(pid, { t: "hash", k: s.tick, h }); }
+  for (const e of s.events) if (e.type === "riftComplete") online!.send({ t: "complete", inTime: e.inTime, time: e.time });
+  for (const e of s.events) if (e.type === "dropRequest") online!.send({ t: "drop", owner: e.owner, opts: e.opts, x: e.x, y: e.y });
+  afterStep();
+  if (myCmds && ui.invOpen) openRiftInventory();
+}
+
+function guestStep(f: any) {
+  const s = sim!, co = coop!;
+  if (f.k <= s.tick) return;
+  if (f.k !== s.tick + 1) { requestResync(); return; }
+  step(s, f.i, f.h);
+  afterStep();
+  if (f.i?.[ME]?.cmds && ui.invOpen) openRiftInventory();
+  void co;
+}
+function requestResync() {
+  if (!coop || coop.resyncing) return;
+  coop.resyncing = true; coop.queue = [];
+  online!.sendR(0, { t: "resync" });
+}
+
+function coopFrame(dt: number) {
+  const co = coop!;
+  hitstop = 0;
+  if (co.role === "host") {
+    acc += dt;
+    let steps = 0;
+    while (acc >= DT && steps < 4) { hostStep(input.read(sim!, me(), toWorld)); acc -= DT; steps++; if (!sim || !coop) return; }
+    if (steps === 4) acc = 0;
+    return;
+  }
+  // guest: send our input at the tick rate, replay the host's ticks with a small jitter buffer
+  co.inputAcc += dt;
+  if (co.inputAcc >= DT) { co.inputAcc = Math.min(co.inputAcc - DT, DT); online!.sendU(0, { t: "in", i: input.read(sim!, me(), toWorld) }); }
+  acc += dt;
+  const frames = () => co.queue.filter((q) => q.t === "f").length;
+  let steps = 0;
+  while (co.queue.length && steps < 8) {
+    const behind = frames() > 4;
+    if (co.queue[0].t === "hash") { const h = co.queue.shift(); if (h.k === sim!.tick && h.h !== stateHash(sim!)) { console.warn("desync at", h.k); requestResync(); } continue; }
+    if (acc < DT && !behind) break;
+    guestStep(co.queue.shift());
+    if (!sim || !coop) return;
+    acc = Math.max(0, acc - DT); steps++;
+  }
+  if (!co.queue.length) acc = Math.min(acc, DT);
+}
+
+let hostEnded = false;
+let pendingStart: (RunOpts & { sent?: boolean }) | null = null;
+function startLiveRun(o: RunOpts) {
+  const o2 = online!;
+  if (o2.lobby && !o2.lobby.host) return;
+  pendingStart = { ...o };
+  if (!o2.lobby) { o2.host(); return; } // solo in the live build is a room of one: the server still mints every item
+  pendingStart.sent = true;
+  o2.send({ t: "runStart", kind: o.kind, tier: o.tier });
+}
+function onRunOk(m: any) {
+  const o = pendingStart; pendingStart = null;
+  if (!o || !online) return;
+  profile = m.profile;
+  let seed = o.seed ?? ((Math.random() * 0xffffffff) >>> 0);
+  if (o.weekly) seed = weeklySeed(isoWeek());
+  const T = RIFT.tiers, c = char(profile);
+  const peers = online.openPeers().filter((pid) => online!.peerInfo.has(pid));
+  const players = [setupFor(profile, ME, online.name), ...peers.map((pid) => ({ ...online!.peerInfo.get(pid)!.setup, pid }))];
+  const pity: SimConfig["pity"] = { [ME]: { ancestral: c.pityAnc >= T.ancestralPity, primal: c.pityPri >= T.primalPity } };
+  for (const pid of peers) pity[pid] = online.peerInfo.get(pid)!.pity;
+  const cfg: SimConfig = { seed, kind: m.kind, tier: m.tier, players, mods: m.kind === "chase" ? [] : rollModifiers(seed, m.tier), mint: "external", pity };
+  coop = newCoop("host", cfg);
+  const info: RunInfo = { kind: m.kind, tier: m.tier, weekly: !!o.weekly && peers.length === 0, seed };
+  for (const pid of peers) { online.sendR(pid, { t: "start", cfg, info }); coop.live.add(pid); coop.remote.set(pid, { inp: NO_INPUT, cmds: [] }); }
+  beginRun(cfg, info);
+}
+
+function wireOnline(o: Online) {
+  o.onProfile = (p) => { profile = p; setMuted(profile.settings.mute); if (screen === "hub" && mode === "hub") goHub(); };
+  o.onLobby = () => {
+    ME = o.lobby ? o.lobby.pid : 0;
+    if (pendingStart && !pendingStart.sent && o.lobby?.host) { pendingStart.sent = true; o.send({ t: "runStart", kind: pendingStart.kind, tier: pendingStart.tier }); }
+    if (screen === "hub" && mode === "hub") goHub();
+  };
+  o.onServer = (m) => {
+    switch (m.t) {
+      case "runOk": onRunOk(m); break;
+      case "runFail": pendingStart = null; ui.toast(m.reason, "#ff6a6a"); break;
+      case "joinFail": ui.toast(m.reason, "#ff6a6a"); break;
+      case "dropOk": if (coop?.role === "host") coop.hostCmds.push({ type: "spawnLoot", owner: m.owner, item: m.item, x: m.x, y: m.y }); break;
+      case "peerLeft": if (coop?.role === "host") hostDropPeer(m.pid); break;
+      case "roomClosed": if (coop?.role === "guest" && sim) { ui.toast("The host closed the room.", "#ff6a6a"); endRun(); } break;
+    }
+  };
+  o.onPeerOpen = (pid) => {
+    if (coop?.role !== "host" || !sim) return;
+    const info = o.peerInfo.get(pid);
+    if (!info || coop.live.has(pid) || coop.joining.has(pid)) return;
+    coop.hostCmds.push({ type: "join", setup: { ...info.setup, pid }, pity: info.pity });
+    coop.remote.set(pid, { inp: NO_INPUT, cmds: [] });
+    coop.joining.add(pid);
+    if (paused) { ui.hide(); resume(); } // the sim can't stay paused once someone shares it
+    ui.toast(`${info.name} joined`, "#7dff9a");
+  };
+  o.onPeerClose = (pid) => {
+    if (coop?.role === "host") hostDropPeer(pid);
+    else if (coop?.role === "guest" && pid === 0 && sim) { ui.toast("Lost the host.", "#ff6a6a"); endRun(); }
+  };
+  o.onPeerMsg = (pid, m) => {
+    if (coop?.role === "host") {
+      const r = coop.remote.get(pid);
+      if (m.t === "in" && r) r.inp = cleanInput(m.i);
+      else if (m.t === "cmd" && r && r.cmds.length < 20) r.cmds.push(m.c);
+      else if (m.t === "resync" && coop.live.has(pid)) { coop.live.delete(pid); coop.joining.add(pid); }
+      return;
+    }
+    if (pid !== 0) return;
+    if (m.t === "start" && !sim) { coop = newCoop("guest", m.cfg); beginRun(m.cfg, m.info); return; }
+    if (m.t === "snap") {
+      const s = restoreSim(m.cfg, m.state);
+      if (!sim || !coop) { coop = newCoop("guest", m.cfg); beginRun(m.cfg, m.info, s); }
+      else { sim = s; coop.resyncing = false; coop.queue = []; }
+      // events that happened inside the gap are gone; recover the ones that matter from state
+      if (s.rift.done && !completeInfo) { completeInfo = { inTime: s.rift.doneAt <= s.rift.limit, time: s.rift.doneAt }; riftButtons(); }
+      if (s.boonOffers[ME] && !ui.invOpen) handleEvent({ type: "boonOffer", pid: ME });
+      return;
+    }
+    if (!coop || coop.role !== "guest") return;
+    if (m.t === "f" || m.t === "hash") { if (!coop.resyncing) coop.queue.push(m); return; }
+    if (m.t === "end") { hostEnded = true; if (sim) endRun(); }
+  };
+  o.onClosed = () => {
+    mode = "blocked";
+    const root = document.getElementById("ui")!;
+    root.className = "screen";
+    root.innerHTML = `<div class="panel hub"><h1>RIFT ARPG</h1><p>Lost the connection to the server.</p><button class="big" onclick="location.reload()">Reconnect</button></div>`;
+  };
+}
+function hostDropPeer(pid: number) {
+  if (!coop) return;
+  coop.live.delete(pid); coop.joining.delete(pid); coop.remote.delete(pid);
+  if (sim?.players.some((p) => p.pid === pid)) coop.hostCmds.push({ type: "leave", pid });
+}
+
+async function bootLive() {
+  const root = document.getElementById("ui")!;
+  mode = "blocked";
+  if (!onlineAvailable()) {
+    root.className = "screen";
+    root.innerHTML = `<div class="panel hub"><h1>RIFT ARPG</h1><p>Live build: sign-in is required. Start the server with <code>npm run server</code> and open the page it serves.</p></div>`;
+    return;
+  }
+  let msg = "";
+  for (;;) {
+    const token = await signIn(root, msg);
+    const o = new Online();
+    wireOnline(o);
+    if (await o.connect(token)) { online = o; break; }
+    signOut(); msg = "Please sign in again.";
+  }
+  setLocalSaves(false);
+  goHub();
+}
+
 // ------------------------------------------------------------------ boot
 resize();
-if (!OFFLINE_TEST) {
-  mode = "blocked";
-  if (onlineAvailable()) startOnline(document.getElementById("ui")!);
-  else {
-    document.getElementById("ui")!.className = "screen";
-    document.getElementById("ui")!.innerHTML = `<div class="panel hub"><h1>RIFT ARPG</h1><p>Live build: sign-in is required. Start the server with <code>npm run server</code> and open the page it serves.</p></div>`;
-  }
-} else goHub();
+if (!OFFLINE_TEST) bootLive();
+else goHub();
 requestAnimationFrame(frame);
-(window as any).__rift = { get sim() { return sim; }, startRun, get profile() { return profile; }, endRun, MODIFIER };
+(window as any).__rift = { get sim() { return sim; }, startRun, get profile() { return profile; }, endRun, MODIFIER, get coop() { return coop; }, get online() { return online; }, stateHash };
