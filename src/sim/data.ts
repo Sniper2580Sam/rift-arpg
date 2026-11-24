@@ -4,6 +4,7 @@ import enemiesJson from "../../data/enemies.json";
 import riftJson from "../../data/rift.json";
 import vfxJson from "../../data/vfx.json";
 import hideoutJson from "../../data/hideout.json";
+import guardiansJson from "../../data/guardians.json";
 import mapsJson from "../../data/maps.json";
 import affixesJson from "../../data/affixes.json";
 import itemsJson from "../../data/items.json";
@@ -156,3 +157,8 @@ export function classAffinity(cls: string, tag: string | undefined): number {
   }
   return a[tag] ?? 0.05;
 }
+
+/** Rift guardians: one per rift, picked from the seed. Multipliers apply to the base guardian. */
+export interface GuardianDef { id: string; name: string; sub: string; weight: number; minTier: number; hp: number; dmg: number; speed: number; scale: number; kite?: number; pattern: string[]; adds: string[]; pal: Record<string, string>; tip: string }
+export const GUARDIANS = (guardiansJson as unknown as { list: GuardianDef[] }).list;
+export const guardianDef = (id?: string) => GUARDIANS.find((g) => g.id === id) ?? GUARDIANS[0];

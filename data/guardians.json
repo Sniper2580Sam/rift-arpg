@@ -1,0 +1,17 @@
+{
+ "_note": "Rift guardians. One is picked per rift from the rift's seed. hp/dmg/speed multiply the base guardian in enemies.json. pal recolours the guardian sprite (w bone, W bone shade, V robe, v robe light, y crown, e eyes).",
+ "list": [
+  { "id": "warden", "name": "The Hollow Warden", "sub": "rises from the bone pit", "weight": 10, "minTier": 1,
+    "hp": 1, "dmg": 1, "speed": 1, "scale": 1, "pattern": ["nova", "charge", "nova", "raise", "charge"], "adds": ["ghoul"],
+    "pal": {}, "tip": "Charges into walls stun it." },
+  { "id": "matron", "name": "The Drowned Matron", "sub": "drags herself out of the black water", "weight": 10, "minTier": 2,
+    "hp": 1.15, "dmg": 0.9, "speed": 0.8, "scale": 1.1, "pattern": ["mire", "raise", "nova", "mire", "mire"], "adds": ["hound", "ghoul"],
+    "pal": { "w": "#9fc7a8", "W": "#6f9a80", "V": "#1f3a3a", "v": "#2f5a55", "y": "#7dd6c8", "e": "#c6ff6a" }, "tip": "Her pools slow you. Keep moving." },
+  { "id": "reaver", "name": "The Bell Reaver", "sub": "tolls three times, then charges", "weight": 10, "minTier": 3,
+    "hp": 0.9, "dmg": 1.15, "speed": 1.25, "scale": 0.95, "pattern": ["rush", "fire", "rush", "nova"], "adds": ["brute"],
+    "pal": { "w": "#c9cfe0", "W": "#8d93ab", "V": "#4a1a22", "v": "#7a2a35", "y": "#ff8a1f", "e": "#ff3b3b" }, "tip": "Three charges in a row. Bait them into walls." },
+  { "id": "scribe", "name": "The Ashen Scribe", "sub": "keeps its distance and writes your end", "weight": 10, "minTier": 4,
+    "hp": 0.85, "dmg": 1, "speed": 1, "scale": 1, "kite": 110, "pattern": ["spiral", "blink", "fire", "spiral", "raise"], "adds": ["archer"],
+    "pal": { "w": "#e8dcc0", "W": "#b0a080", "V": "#3a2a10", "v": "#6a4a1a", "y": "#c06aff", "e": "#c06aff" }, "tip": "It blinks away. Close in fast." }
+ ]
+}

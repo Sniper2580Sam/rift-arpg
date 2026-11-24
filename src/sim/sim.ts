@@ -1,6 +1,6 @@
 // Pure deterministic simulation for 1–6 players. No DOM, no Math.random, no wall-clock time.
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
-import { BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , MAP, MAPS, MapDef, ITEMS, HideoutLayout, hideoutTheme } from "./data";
+import { BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , GUARDIANS, GuardianDef, guardianDef, MAP, MAPS, MapDef, ITEMS, HideoutLayout, hideoutTheme } from "./data";
 import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, equipTarget, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue, shardValue } from "./items";
 import { TileMap, flowField, genArena, genCave, genHideout, genLinear, genOpen, genRing, genRooms, moveWithWalls, unstick } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
@@ -59,6 +59,8 @@ export interface Enemy {
   tx: number; ty: number; dead: boolean; noProgress: boolean;
   pattern: number; enraged: boolean; age: number; chargeHit: boolean; phase: number;
   elite: boolean; affixes: string[]; shieldT: number; shieldCd: number; affT: number; aff2T: number; scale: number;
+  /** guardians: which one (data/guardians.json), and a counter for multi-step attacks */
+  variant?: string; combo?: number;
 }
 export interface Projectile {
   id: number; team: 0 | 1; kind: "lance" | "wave" | "arrow" | "bone" | "bolt";
@@ -71,7 +73,7 @@ export interface Projectile {
 export interface Summon { id: number; pid: number; skill: string; x: number; y: number; px: number; py: number; r: number; life: number; atkT: number; fx: number; dead: boolean; ox: number; oy: number; size: number; kind: string;
   /** constructs (Bonewright): stationary; 1 turret, 2 mortar, 3 totem, 4 lantern, 5 battery turret */ build?: number; boostT?: number; boostPct?: number }
 export interface Hazard { id: number; pid: number; skill: string; x: number; y: number; r: number; mult: number; life: number; max: number; tickT: number; tags: string[]; slowPct: number; slowT: number; dead: boolean; kind: string }
-export interface Zone { id: number; x: number; y: number; r: number; delay: number; life: number; dmg: number; kind: "blast" | "pool" | "frost"; tickT: number; dead: boolean }
+export interface Zone { id: number; x: number; y: number; r: number; delay: number; life: number; dmg: number; kind: "blast" | "pool" | "frost" | "mire"; tickT: number; dead: boolean }
 export interface Loot { id: number; x: number; y: number; item: Item; age: number; owner: number }
 interface Pending { t: number; pid: number; skill: string }
 
@@ -90,7 +92,7 @@ export type SimEvent =
   | { type: "playerDeath"; pid: number } | { type: "respawn"; pid: number } | { type: "cheatDeath"; pid: number }
   | { type: "slam"; x: number; y: number; r: number; big: boolean }
   | { type: "explosion"; x: number; y: number; r: number; cold?: boolean; pid?: number; skill?: string }
-  | { type: "guardianSpawn"; x: number; y: number; kind: EnemyKind }
+  | { type: "guardianSpawn"; x: number; y: number; kind: EnemyKind; variant?: string }
   | { type: "enrage" } | { type: "guardianStun" } | { type: "timeUp" } | { type: "phase"; n: number; text: string }
   | { type: "riftComplete"; inTime: boolean; time: number }
   | { type: "levelUp"; pid: number; level: number }
@@ -1121,7 +1123,6 @@ function aiArcher(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: number,
   else if (dist < 70) { const [nx, ny] = norm(dx, dy); moveWithWalls(s.map, e, -nx * spd * DT, -ny * spd * DT); }
 }
 
-const GUARDIAN_PATTERN = ["nova", "charge", "nova", "raise", "charge"];
 
 function bossCommon(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: number, dx: number, dy: number, spd: number, pattern: string[], adds: EnemyKind[]): void {
   const en = e.enraged;
@@ -1155,8 +1156,12 @@ function bossCommon(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: numbe
     case "charging": {
       const blocked = moveWithWalls(s.map, e, e.tx * def.chargeSpeed! * DT, e.ty * def.chargeSpeed! * DT);
       for (const q of s.players) if (!e.chargeHit && !q.dead && len(q.x - e.x, q.y - e.y) < e.r + q.r + 2) { e.chargeHit = true; damagePlayer(s, q, dmg * 1.6); }
-      if (blocked) { e.state = "stun"; e.t = 1.6; s.events.push({ type: "guardianStun" }); s.events.push({ type: "slam", x: e.x, y: e.y, r: 24, big: true }); }
-      else if (e.t <= 0) { e.state = "idle"; e.t = en ? 0.5 : 1.0; }
+      if (blocked) { e.combo = 0; e.state = "stun"; e.t = 1.6; s.events.push({ type: "guardianStun" }); s.events.push({ type: "slam", x: e.x, y: e.y, r: 24, big: true }); }
+      else if (e.t <= 0) {
+        // the Reaver chains up to three charges, re-aiming each time
+        if ((e.combo ?? 0) > 1) { e.combo! -= 1; const [nx, ny] = norm(p.x - e.x, p.y - e.y); e.tx = nx; e.ty = ny; e.state = "chargeWind"; e.t = en ? 0.3 : 0.45; }
+        else { e.combo = 0; e.state = "idle"; e.t = en ? 0.5 : 1.0; }
+      }
       return;
     }
     case "raise":
@@ -1171,6 +1176,41 @@ function bossCommon(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: numbe
           g.aggro = true; g.noProgress = true;
         }
         e.state = "idle"; e.t = 1.0;
+      }
+      return;
+    case "mire":
+      if (e.t <= 0) {
+        // the Matron spits slowing pools at everyone, plus a few around her
+        for (const q of s.players) if (!q.dead) s.zones.push({ id: s.nextId++, x: q.x, y: q.y, r: 22, delay: 0.9, life: 5, dmg: dmg * 0.5, kind: "mire", tickT: 0.9, dead: false });
+        for (let i = 0; i < 3; i++) { const d = DIR_TABLE[(e.pattern * 5 + i * 11) % 32], x = e.x + d[0] * 60, y = e.y + d[1] * 60; if (!isWall(s.map, x, y)) s.zones.push({ id: s.nextId++, x, y, r: 26, delay: 0.9, life: 6, dmg: dmg * 0.5, kind: "mire", tickT: 0.9, dead: false }); }
+        e.state = "idle"; e.t = en ? 0.7 : 1.1;
+      }
+      return;
+    case "spiral":
+      if (e.t <= 0) {
+        // the Scribe: three rotating rings of bone shards with gaps to slip through
+        const k = e.combo ?? 0;
+        for (let i = k * 3; i < 32 + k * 3; i += 3) {
+          const [cx, cy] = DIR_TABLE[i % 32];
+          s.projectiles.push(mkProj(s, 1, "bone", e.x, e.y, cx * def.novaSpeed! * 0.85, cy * def.novaSpeed! * 0.85, 4, -1, "", 0, dmg * 0.8, [], false, 3.5, 0));
+        }
+        s.events.push({ type: "slam", x: e.x, y: e.y, r: 16, big: false });
+        e.combo = k + 1;
+        if (e.combo < 3) e.t = en ? 0.25 : 0.4; else { e.combo = 0; e.state = "idle"; e.t = en ? 0.6 : 1.0; }
+      }
+      return;
+    case "blink":
+      if (e.t <= 0) {
+        // the Scribe vanishes and reappears at range, then answers with a ring of shards
+        let bx = e.x, by = e.y;
+        for (let i = 0; i < 16; i++) {
+          const d = DIR_TABLE[(e.pattern * 7 + i * 5) % 32], x = p.x + d[0] * 120, y = p.y + d[1] * 120;
+          if (!isWall(s.map, x, y) && !isWall(s.map, x + 12, y) && !isWall(s.map, x - 12, y) && !isWall(s.map, x, y + 12) && !isWall(s.map, x, y - 12)) { bx = x; by = y; break; }
+        }
+        s.events.push({ type: "teleport", x: e.x, y: e.y });
+        e.x = e.px = bx; e.y = e.py = by;
+        s.events.push({ type: "teleport", x: bx, y: by });
+        e.state = "nova"; e.t = en ? 0.5 : 0.8;
       }
       return;
     case "fire":
@@ -1198,6 +1238,10 @@ function bossCommon(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: numbe
         if (nxt === "nova") { e.state = "nova"; e.t = en ? 0.7 : 1.0; }
         else if (nxt === "raise") { e.state = "raise"; e.t = 0.8; }
         else if (nxt === "fire") { e.state = "fire"; e.t = 0.6; }
+        else if (nxt === "mire") { e.state = "mire"; e.t = 0.7; }
+        else if (nxt === "spiral") { e.state = "spiral"; e.t = 0.7; e.combo = 0; }
+        else if (nxt === "blink") { e.state = "blink"; e.t = 0.5; }
+        else if (nxt === "rush") { const [nx, ny] = norm(dx, dy); e.combo = 3; e.state = "chargeWind"; e.t = en ? 0.55 : 0.85; e.tx = nx; e.ty = ny; }
         else { const [nx, ny] = norm(dx, dy); e.state = "chargeWind"; e.t = en ? 0.55 : 0.85; e.tx = nx; e.ty = ny; }
         return;
       }
@@ -1206,9 +1250,20 @@ function bossCommon(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: numbe
   }
 }
 
+/** Which guardian guards this rift: weighted by data, only those unlocked at this tier. */
+function pickGuardian(s: SimState): GuardianDef {
+  const ok = GUARDIANS.filter((g) => g.minTier <= s.rift.tier);
+  return weighted(s.rng, ok.length ? ok : [GUARDIANS[0]]);
+}
 function aiGuardian(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: number, dx: number, dy: number, spd: number) {
   if (!e.enraged && e.age >= def.enrageAfter!) { e.enraged = true; s.events.push({ type: "enrage" }); }
-  bossCommon(s, e, def, p, dist, dx, dy, spd, GUARDIAN_PATTERN, ["ghoul"]);
+  const gd = guardianDef(e.variant);
+  // the Scribe backs away when you get close (but not while winding up an attack)
+  if (gd.kite && e.state === "idle" && dist < gd.kite && e.t > 0.2) {
+    const [nx, ny] = norm(dx, dy);
+    moveWithWalls(s.map, e, -nx * spd * 0.9 * DT, -ny * spd * 0.9 * DT);
+  }
+  bossCommon(s, e, def, p, dist, dx, dy, spd, gd.pattern, gd.adds as EnemyKind[]);
 }
 
 /** Chase boss: three phases that each test a role (dodge hazards, hold adds, burn a damage check). */
@@ -1355,7 +1410,7 @@ function updateZones(s: SimState) {
     } else {
       z.life -= DT; z.tickT -= DT;
       if (z.life <= 0) { z.dead = true; continue; }
-      if (z.tickT <= 0) { z.tickT = 0.5; for (const p of s.players) if (!p.dead && len(p.x - z.x, p.y - z.y) < z.r + p.r) damagePlayer(s, p, z.dmg * 0.5); }
+      if (z.tickT <= 0) { z.tickT = 0.5; for (const p of s.players) if (!p.dead && len(p.x - z.x, p.y - z.y) < z.r + p.r) { damagePlayer(s, p, z.dmg * 0.5); if (z.kind === "mire") p.chillT = Math.max(p.chillT ?? 0, 0.8); } }
     }
   }
 }
@@ -1469,10 +1524,12 @@ function updateRift(s: SimState) {
       if (found) break;
     }
     const g = spawnEnemy(s, "guardian", gx, gy, s.players.length);
+    const gd = pickGuardian(s);
+    g.variant = gd.id; g.hp = g.maxHp = Math.round(g.maxHp * gd.hp); g.dmgMult *= gd.dmg; g.speedMult *= gd.speed; g.scale = gd.scale; g.r = Math.round(g.r * gd.scale);
     g.aggro = true; g.state = "intro"; g.t = 1.6; g.atkCd = 2;
     r.guardianId = g.id;
     for (const e of s.enemies) if (e !== g && !e.dead && len(e.x - gx, e.y - gy) < 120) { e.dead = true; s.events.push({ type: "kill", x: e.x, y: e.y, kind: e.kind, elite: e.elite }); }
-    s.events.push({ type: "guardianSpawn", x: gx, y: gy, kind: "guardian" });
+    s.events.push({ type: "guardianSpawn", x: gx, y: gy, kind: "guardian", variant: gd.id });
   }
 }
 

@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { CLASSES, ENEMIES, HIDEOUT, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { CLASSES, ENEMIES, HIDEOUT, guardianDef, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, endlessLivesLeft } from "../sim/sim";
@@ -508,7 +508,7 @@ function handleEvent(e: SimEvent) {
     case "scrapped": if (mine(e.pid)) scrappedIds.push(e.id); if (mine(e.pid) && nums.length < 70) { const p = me(); nums.push({ x: p.x, y: p.y - 18, text: `+${e.mats} mat`, color: "#b8a8d0", size: 0.7, t: 0, vx: 0 }); } break;
     case "bagFull": if (mine(e.pid)) ui.toast("Bag full! Open the Bag and scrap something.", "#ff6a6a"); break;
     case "ambush": ui.toast("Ambush! Enemies close in", "#ff8a5a", 1600); addShake(3); break;
-    case "guardianSpawn": showBanner(e.kind === "king" ? "THE OSSUARY KING" : "THE HOLLOW WARDEN", "rises from the bone pit", "#ffd23f", 3); addShake(8); sfx.guardian(); burst(e.x, e.y, 60, ["#2b1f3a", "#ffd23f", "#f2ead3"], 140, 2, 0.9); break;
+    case "guardianSpawn": showBanner(e.kind === "king" ? "THE OSSUARY KING" : guardianDef(e.variant).name.toUpperCase(), e.kind === "king" ? "rises from the bone pit" : `${guardianDef(e.variant).sub} · ${guardianDef(e.variant).tip}`, "#ffd23f", 3); addShake(8); sfx.guardian(); burst(e.x, e.y, 60, ["#2b1f3a", "#ffd23f", "#f2ead3"], 140, 2, 0.9); break;
     case "enrage": showBanner("ENRAGED", "Faster and deadlier", "#ff4a4a", 2); sfx.guardian(); break;
     case "guardianStun": showBanner("STUNNED", "", "#9be0ff", 1); break;
     case "phase": showBanner(`PHASE ${Math.min(3, e.n)}`, e.text, "#ff3b6b", 3); sfx.guardian(); addShake(6); break;
@@ -634,7 +634,14 @@ function render(alpha: number, dt: number) {
   }
   for (const z of s.zones) {
     if (!onScreen(z.x, z.y)) continue;
-    if (z.kind === "pool") { g.globalAlpha = 0.55; g.fillStyle = (Math.floor(t * 10 + z.id) % 2) ? "#c2361f" : "#e0521f"; g.beginPath(); g.ellipse(z.x, z.y, z.r, z.r * 0.6, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
+    if (z.kind === "mire") {
+      // the Matron's pools: a ring while landing, then murky water that slows
+      const landing = z.tickT > 0 && z.life > 4.4;
+      g.globalAlpha = landing ? 0.3 : 0.5; g.fillStyle = (Math.floor(t * 4 + z.id) % 2) ? "#2f5a55" : "#3a6a5a";
+      g.beginPath(); g.ellipse(z.x, z.y, z.r, z.r * 0.6, 0, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = landing ? 0.9 : 0.4; g.strokeStyle = "#7dd6c8"; g.stroke(); g.globalAlpha = 1;
+      if (Math.random() < 0.05) particles.push({ x: z.x + (Math.random() - 0.5) * z.r, y: z.y, vx: 0, vy: -12, life: 0.5, max: 0.5, color: "#c6ff6a", size: 1, grav: 0 });
+    } else if (z.kind === "pool") { g.globalAlpha = 0.55; g.fillStyle = (Math.floor(t * 10 + z.id) % 2) ? "#c2361f" : "#e0521f"; g.beginPath(); g.ellipse(z.x, z.y, z.r, z.r * 0.6, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
     else telegraphCircle(g, z.x, z.y, z.r, 1 - z.delay / 1.4, z.kind === "frost");
   }
   for (const e of s.enemies) {
@@ -817,7 +824,7 @@ function telegraphCircle(g: CanvasRenderingContext2D, x: number, y: number, r: n
 
 function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, t: number) {
   const moving = Math.abs(e.x - e.px) + Math.abs(e.y - e.py) > 0.05;
-  const frames = e.kind === "ghoul" ? bank.ghoul : e.kind === "hound" ? bank.hound : e.kind === "archer" ? bank.archer : e.kind === "brute" ? bank.brute : e.kind === "pylon" ? bank.pylon : bank.guardian;
+  const frames = e.kind === "ghoul" ? bank.ghoul : e.kind === "hound" ? bank.hound : e.kind === "archer" ? bank.archer : e.kind === "brute" ? bank.brute : e.kind === "pylon" ? bank.pylon : e.variant ? bank.guardianOf(e.variant) : bank.guardian;
   const fr = frames[moving ? Math.floor(t * 8 + e.id) % frames.length : 0];
   const tgt = sim!.players.find((q) => q.pid === e.target);
   const flip = tgt ? tgt.x < e.x : false;
@@ -1030,7 +1037,7 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
   c.fillStyle = "#1b1424"; c.fillRect(bx, topY + 20, bw, 12);
   if (r.guardianSpawned && gd) {
     c.fillStyle = gd.enraged ? "#ff3b3b" : gd.kind === "king" ? "#ff3b6b" : "#ffd23f"; c.fillRect(bx, topY + 20, (bw * gd.hp) / gd.maxHp, 12);
-    c.fillStyle = "#140c1c"; c.font = font(10); c.fillText((gd.kind === "king" ? "THE OSSUARY KING" : "THE HOLLOW WARDEN") + (gd.enraged ? " — ENRAGED" : ""), W / 2, topY + 26);
+    c.fillStyle = "#140c1c"; c.font = font(10); c.fillText((gd.kind === "king" ? "THE OSSUARY KING" : guardianDef(gd.variant).name.toUpperCase()) + (gd.enraged ? " — ENRAGED" : ""), W / 2, topY + 26);
   } else {
     c.fillStyle = r.done ? "#7dff9a" : "#8a5cff"; c.fillRect(bx, topY + 20, (bw * r.progress) / r.need, 12);
     for (const at of RIFT.boonsAt) { c.fillStyle = "#ffd23f"; c.fillRect(bx + (bw * at) / 100, topY + 20, 1, 12); }

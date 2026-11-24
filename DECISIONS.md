@@ -155,3 +155,6 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Life per Hit heals at most 4% of max life per second (rift.json lifeOnHitCap). Volley's 7 piercing arrows could land 20+ hits per cast, which healed more than a full health bar.
 - Runs started from the menu turn controls back on (they stayed off after the menu paused input).
 - The minimap keeps the map's shape, so enemy dots line up on the wide Catacombs.
+
+## Content pass (2026-11-24, Samuel: "do all of 1-6")
+- **Guardians:** four, one picked per rift from its seed (data/guardians.json). Hollow Warden (novas, charges, raises ghouls). Drowned Matron (tier 2+, slowing mire pools under you, raises hounds). Bell Reaver (tier 3+, three charges in a row, re-aiming each time, fire grid). Ashen Scribe (tier 4+, backs away, blinks to range, spiral shard rings). Each has its own colours, size and a tip on the spawn banner. A sim test checks every guardian uses its own attacks and can be beaten.

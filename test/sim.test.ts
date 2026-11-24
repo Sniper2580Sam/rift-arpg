@@ -2,7 +2,7 @@
 import { createSim, step, stateHash, NO_INPUT, PlayerInput, PlayerSetup, SimState } from "../src/sim/sim";
 import { mintItem, computeStats, Holder } from "../src/sim/items";
 import { makeRng } from "../src/sim/rng";
-import { LEGENDARIES, MYTHICS, SETS, CLASSES, SKILL, SlotType, EquipSlot } from "../src/sim/data";
+import { GUARDIANS, LEGENDARIES, MYTHICS, SETS, CLASSES, SKILL, SlotType, EquipSlot } from "../src/sim/data";
 const proc = (globalThis as any).process;
 
 function setup(pid: number, cls = "ashknight", level = 1, equipment: Holder["equipment"] = {}, runes: Record<string, string> = {}): PlayerSetup {
@@ -94,6 +94,25 @@ const kit = (lvl: number, rar: "rare" | "legendary", seed = 42): Holder["equipme
 };
 run({ seed: 3, tier: 5, players: [setup(0, "ashknight", 20, kit(20, "rare"), { cleave: "searing" })] }, "T5 lvl20 rare kit knight");
 run({ seed: 4, tier: 10, players: [setup(0, "ashknight", 30, kit(30, "legendary"))] }, "T10 lvl30 legendary kit knight");
+// every guardian: spawns, uses its own attacks, and can be beaten by a geared hero
+for (const gd of GUARDIANS) {
+  for (const cls of ["ashknight", "gloomstalker"]) {
+    const s = createSim({ seed: 11, tier: 10, players: [setup(0, cls, 30, kit(30, "legendary"))], mods: [] });
+    s.rift.progress = s.rift.need;
+    let g: any = null, deaths = 0; const states = new Set<string>();
+    for (let t = 0; t < 30 * 300 && !s.rift.done; t++) {
+      step(s, { 0: bot(s, 0, t) });
+      if (s.boonOffers[0]) step(s, { 0: { ...NO_INPUT, cmds: [{ type: "boon", id: s.boonOffers[0][0] }] } });
+      if (!g) { g = s.enemies.find((e) => e.kind === "guardian"); if (g) g.variant = gd.id; }
+      if (g) states.add(g.state);
+      for (const e of s.events) if (e.type === "playerDeath") deaths++;
+    }
+    const own = gd.pattern.filter((x) => !["nova", "raise", "fire", "charge"].includes(x)).map((x) => x === "rush" ? "charging" : x);
+    const used = own.every((x) => states.has(x));
+    console.log(`guardian ${gd.id} vs ${cls}: killed=${s.rift.done} in ${s.rift.time.toFixed(0)}s deaths=${deaths} own attacks used=${used}`);
+    if (!s.rift.done || !used) { console.error("GUARDIAN FAIL", gd.id, cls, [...states]); proc.exit(1); }
+  }
+}
 { // Bonewright at level 20: turrets, totem and the Colossus in the loadout
   const ps = setup(0, "bonewright", 20, kit(20, "rare"));
   ps.loadout = ["rivet_shot", "bone_turret", "mending_lantern", "ossuary_colossus"];

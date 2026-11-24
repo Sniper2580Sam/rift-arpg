@@ -1,5 +1,5 @@
 // All art is drawn in code: palette-indexed string arrays rendered once to offscreen canvases and cached.
-import { COSMETICS, Rarity, SlotType as Slot } from "../sim/data";
+import { COSMETICS, guardianDef, Rarity, SlotType as Slot } from "../sim/data";
 
 export type Sprite = { img: HTMLCanvasElement; flash: HTMLCanvasElement; w: number; h: number };
 
@@ -526,6 +526,8 @@ const PYLON = ["..kk..", ".kwwk.", ".kwyk.", "kwwwwk", "kwyywk", "kwwwwk", "kWWW
 export interface SpriteBank {
   hero: Sprite[]; ranger: Sprite[]; mage: Sprite[]; wright: Sprite[]; colossus: Sprite[]; raven: Sprite[]; pets: Record<string, Sprite[]>; pylon: Sprite[];
   ghoul: Sprite[]; hound: Sprite[]; archer: Sprite[]; brute: Sprite[]; guardian: Sprite[]; imp: Sprite[];
+  /** a guardian recoloured for its variant (data/guardians.json pal) */
+  guardianOf: (id: string) => Sprite[];
   icon: (slot: Slot, rarity: Rarity) => Sprite;
   /** hero frames in an armour + weapon skin */
   heroSkin: (cls: string, armor?: string, weapon?: string, dye?: string) => Sprite[];
@@ -557,6 +559,7 @@ export function buildSprites(): SpriteBank {
     archer: ARCHER.map((r) => make(r)),
     brute: BRUTE.map((r) => make(r)),
     guardian: [make(GUARDIAN)],
+    guardianOf(id) { return cached(`g:${id}`, () => [make(GUARDIAN, { ...BASE, ...guardianDef(id).pal })])!; },
     imp: IMP.map((r) => make(r)),
     heroSkin(cls, armor, weapon, dye) {
       return cached(`h:${cls}:${armor}:${weapon}:${dye}`, () => {
