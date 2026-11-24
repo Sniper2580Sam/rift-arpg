@@ -52,6 +52,8 @@ export interface Profile {
   relics?: string[]; relicDust?: number;
   /** boss trophies (account-wide, reset with the season) */
   kingShards?: number; hallows?: number;
+  /** Echo Cores (Endless; account-wide, reset with the season) */
+  echoCores?: number;
   /** this season's journey counters (reset with the season) */
   journey?: { season: number; stats: Partial<Life> };
   weekly: { week: string; best: number };

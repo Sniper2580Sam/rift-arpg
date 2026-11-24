@@ -1,6 +1,6 @@
 // Server-side item authority: minting drops for a run, and validating what a player brings back.
 // Pure functions (no I/O) so they can be unit tested.
-import { trophiesForRun, dustForRun, aetherForFeats, aetherForRun, CLASSES, GEM, GEMS, gemCap, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
+import { coresForRun, trophiesForRun, dustForRun, aetherForFeats, aetherForRun, CLASSES, GEM, GEMS, gemCap, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
 import { Item, MintOpts, mintItem, scrapValue, shardValue } from "../sim/items";
 import { Rng, next } from "../sim/rng";
 import type { CharSave, Profile } from "../client/profile";
@@ -159,5 +159,6 @@ function countRun(p: Profile, c: CharSave, rep: SaveReport, m: RunMember, run: R
   if (keys.length) p.feats = [...(p.feats ?? []), ...keys];
   p.aether = (p.aether ?? 0) + aetherForRun(tally) + aetherForFeats(keys);
   p.relicDust = (p.relicDust ?? 0) + dustForRun(tally);
+  p.echoCores = (p.echoCores ?? 0) + coresForRun(tally);
   const tro = trophiesForRun(tally); p.kingShards = (p.kingShards ?? 0) + tro.shards; p.hallows = (p.hallows ?? 0) + tro.hallows;
 }

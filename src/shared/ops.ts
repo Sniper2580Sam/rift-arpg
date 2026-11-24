@@ -2,7 +2,7 @@
 // client (instant feedback) AND on the server, whose copy is the one that counts.
 import { makeRng } from "../sim/rng";
 import { SET, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
-import { hallowItem, mintItem, Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
+import { echoCost, hallowItem, mintItem, Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
 export type HubOp =
@@ -27,6 +27,7 @@ export type HubOp =
   | { t: "extract"; bag: number }
   | { t: "craftSet"; set: string; slot: string }
   | { t: "hallow"; bag?: number; slot?: string }
+  | { t: "echo"; bag?: number; slot?: string }
   | { t: "relic"; slot: string; id: string | null }
   | { t: "hideout"; theme?: string; place?: { id: string; x: number; y: number }; remove?: number }
   | { t: "newSeason" }
@@ -161,6 +162,13 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       let h = 2166136261; for (const ch of `${c.cls}:${op.set}:${sl}:${n}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
       c.bag.push(mintItem(makeRng(h >>> 0), `craft-${c.cls}-${n}-${(h >>> 0).toString(36)}`, { rarity: "set", set: op.set, slot: sl, ilvl: c.level, cls: c.cls }));
       return true;
+    }
+    case "echo": {
+      // Echo Cores: +1 echo on an item (up to 5), each costing one more core than the last
+      const it = op.bag !== undefined ? c.bag[op.bag] : op.slot ? c.equipment[op.slot as EquipSlot] : undefined;
+      if (!it || (it.echo ?? 0) >= RIFT.echo.maxPerItem || (p.echoCores ?? 0) < echoCost(it)) return false;
+      p.echoCores = (p.echoCores ?? 0) - echoCost(it);
+      it.echo = (it.echo ?? 0) + 1; return true;
     }
     case "hallow": {
       // Seraph Hallow: make a legendary or set item ancestral

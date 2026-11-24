@@ -189,6 +189,18 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   check("can't hallow twice", applyHubOp(p, { t: "hallow", bag: c.bag.length - 1 }) === false);
 }
 
+{ // Echo Cores: Endless pays them, each echo costs one more, capped at 5, and they raise damage and life
+  const p = newProfile(), c = p.chars.ashknight;
+  const rep: any = base(p); rep.tally = { kills: 100, elites: 0, deaths: 0, wave: 24 };
+  applySave(p, "ashknight", rep, member(), { kind: "endless", tier: 5, completed: true, inTime: false, time: 600 }, 1);
+  check("wave 24 pays 3 cores", p.echoCores === 3);
+  p.echoCores = 20;
+  for (let i = 0; i < 6; i++) applyHubOp(p, { t: "echo", slot: "weapon" });
+  check("five echoes cost 15 and stop at 5", c.equipment.weapon!.echo === 5 && p.echoCores === 5);
+  const a = computeStats({}, { cls: "ashknight", level: 30 }), b = computeStats({ weapon: c.equipment.weapon }, { cls: "ashknight", level: 30 }), b0 = computeStats({ weapon: { ...c.equipment.weapon!, echo: 0 } }, { cls: "ashknight", level: 30 });
+  check("echo adds damage and life", b.dmgPct === b0.dmgPct + 7.5 && b.maxHp > b0.maxHp && a.maxHp === b0.maxHp);
+}
+
 if (fails) { console.log(`${fails} ledger checks failed`); process.exit(1); }
 console.log("ledger: all checks passed");
 

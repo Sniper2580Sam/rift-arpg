@@ -5,7 +5,7 @@ import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
-import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
+import { echoCost, BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, WEEKLY_TIER, char, isoWeek, seasonStats, xpProgress } from "./profile";
@@ -55,6 +55,7 @@ export function itemHtml(raw: Item, h?: Holder, ctx?: { cls: string; level: numb
     const q = Math.round(affixQuality(a) * 100);
     out += `<div class="it-affix${it.rerollIdx === i ? " locked" : ""}${a.id === crit ? " mw" : ""}">${a.id === crit ? "✦ " : ""}${esc(affixText(a))} <small class="range">${a.min}–${a.max}${q >= 100 ? " ★" : ""}</small></div>`;
   });
+  if (it.echo) out += `<div class="it-plus">Echo ${"◆".repeat(it.echo)}: +${+(it.echo * RIFT.echo.dmgPct).toFixed(1)}% damage, +${+(it.echo * RIFT.echo.lifePct).toFixed(1)}% life</div>`;
   if (it.legendary) out += `<div class="it-power ${LEGENDARY[it.legendary].mythic ? "mythic" : ""}">${esc(powerText(it))}</div>`;
   if (it.set) {
     const sd = SET[it.set];
@@ -143,7 +144,7 @@ export class UI {
     const tabs = (["play", "gear", "skills", "looks", "shop", "journey", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}"${t === "settings" ? ` aria-label="Settings"` : ""}>${t === "settings" ? "⚙" : t[0].toUpperCase() + t.slice(1)}</button>`).join("");
     let body = "";
     if (this.tab === "play") body = this.playTab(p, c, H);
-    if (this.tab === "gear") body = this.gemsHtml(c) + this.relicsHtml(p, c) + this.trophiesHtml(p, c) + this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
+    if (this.tab === "gear") body = this.gemsHtml(c) + this.relicsHtml(p, c) + this.trophiesHtml(p, c) + this.echoHtml(p, c) + this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
     if (this.tab === "skills") body = this.skillsTab(c);
     if (this.tab === "looks") body = this.looksTab(p);
     if (this.tab === "shop") body = this.shopTab(p, H);
@@ -164,6 +165,7 @@ export class UI {
     const cl = this.root.querySelector<HTMLElement>("#hub-close"); if (cl) cl.onclick = () => H.close!();
     if (this.tab === "play") this.bindPlay(p, c, H, re);
     if (this.tab === "gear") this.bindGear(p, { equipment: c.equipment, bag: c.bag, materials: p.materials }, H, re, true);
+    this.root.querySelectorAll<HTMLElement>("[data-echo]").forEach((el) => el.onclick = () => { H.op?.({ t: "echo", slot: el.dataset.echo! }); re(); });
     const cs = this.root.querySelector<HTMLSelectElement>("[data-craft-set]"); if (cs) cs.onchange = () => { this.craftSet = cs.value; re(); };
     this.root.querySelectorAll<HTMLElement>("[data-craft]").forEach((el) => el.onclick = () => { const [set, slot] = el.dataset.craft!.split(":"); H.op?.({ t: "craftSet", set, slot }); this.toast("Crafted. It's in your bag.", "#7dff9a"); re(); });
     this.root.querySelectorAll<HTMLElement>("[data-hallow]").forEach((el) => el.onclick = () => {
@@ -457,6 +459,14 @@ export class UI {
   }
 
   /** Paragon: shown once you hit max level. Points go into four capped stats; respec is free. */
+  /** Echo Cores (Endless): strengthen worn items a step at a time. */
+  private echoHtml(p: Profile, c: CharSave) {
+    const n = p.echoCores ?? 0, E = RIFT.echo;
+    if (!n) return `<div class="setting dim small">Echo Cores: reach Endless wave ${E.fromWave}+ to earn them. Each one adds ${E.dmgPct}% damage and ${E.lifePct}% life to an item, up to ${E.maxPerItem} per item.</div>`;
+    const worn = Object.entries(c.equipment).filter(([, it]) => it) as [string, Item][];
+    return `<div class="setting"><b>Echo Cores</b> <span class="dim small">${n} cores · each echo adds ${E.dmgPct}% damage and ${E.lifePct}% life · costs 1, 2, 3… cores · up to ${E.maxPerItem} per item</span>
+      <div class="opts">${worn.map(([sl, it]) => { const e = it.echo ?? 0, cost = echoCost(it); return `<button data-echo="${sl}" ${e < E.maxPerItem && n >= cost ? "" : "disabled"}>${esc(it.name)} ${"◆".repeat(e)}${e < E.maxPerItem ? ` · ${cost}` : " · max"}</button>`; }).join("")}</div></div>`;
+  }
   /** Boss trophies: King's Shards craft a chosen set piece; Seraph Hallows make a legendary or set item ancestral. */
   craftSet = "";
   private trophiesHtml(p: Profile, c: CharSave) {

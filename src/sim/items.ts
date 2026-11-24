@@ -10,6 +10,8 @@ export interface Item {
   dmgMin?: number; dmgMax?: number; armor?: number;
   affixes: Affix[];
   legendary?: string; set?: string; quality?: "ancestral" | "primal";
+  /** Echo Cores spent on this item (Endless reward): each adds a little damage and life */
+  echo?: number;
   rerollIdx?: number; rerolls?: number;
   /** favourited by the player: scrapping skips it */
   locked?: boolean;
@@ -132,6 +134,8 @@ export function shardValue(it: Item): number {
 }
 const scaleVal = (v: number, m: number) => (Number.isInteger(v) ? Math.round(v * m) : Math.round(v * m * 10) / 10);
 /** The item as it counts in a slot upgraded to `plus` (with an optional masterwork crit affix): values scaled. */
+/** Echo Cores for the next echo on an item: 1, 2, 3, 4, 5. */
+export const echoCost = (it: Item) => (it.echo ?? 0) + 1;
 /** Hallowed: a legendary or set item made ancestral (its numbers grow by the ancestral multiplier). */
 export function hallowItem(it: Item): Item {
   const m = ITEMS.ancestralMult;
@@ -232,8 +236,10 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
   };
   const worn = new Set<string>(); // legendary powers from items (a relic of the same power adds nothing)
   const setSeen = new Set<string>();
+  let echoLife = 0;
   for (const [slot, raw] of Object.entries(eq)) {
     if (!raw) continue;
+    if (raw.echo) { const n = Math.min(RIFT.echo.maxPerItem, raw.echo); s.dmgPct += n * RIFT.echo.dmgPct; echoLife += n * RIFT.echo.lifePct; }
     const it = scaledItem(raw, c.slotPlus?.[slot as EquipSlot] ?? 0, c.slotCrit?.[slot as EquipSlot]);
     if (it.dmgMin !== undefined) { s.dmgMin = it.dmgMin; s.dmgMax = it.dmgMax!; }
     if (it.armor) s.armor += it.armor;
@@ -293,6 +299,7 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
   if (pv("vitality")) s.maxHp = Math.round(s.maxHp * (1 + pv("vitality") / 100));
   if (pv("toughness")) s.takenMult *= 1 - pv("toughness") / 100;
   if (pv("haste")) { s.cdr += pv("haste"); s.moveSpeed += pv("haste"); }
+  if (echoLife) s.maxHp = Math.round(s.maxHp * (1 + echoLife / 100));
   // rift gems
   for (const [id, lvl] of Object.entries(c.gems ?? {})) {
     const [a, b] = gemVals(id, lvl);

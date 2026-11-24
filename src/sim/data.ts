@@ -163,6 +163,8 @@ export function trophiesForRun(t: RunTally): { shards: number; hallows: number }
   if (!t.completed || t.kind !== "chase") return { shards: 0, hallows: 0 };
   return t.boss === "seraph" ? { shards: 0, hallows: T.seraphHallows } : { shards: T.kingShards + (t.inTime ? T.kingShardsInTime : 0), hallows: 0 };
 }
+/** Echo Cores from an Endless run: one per 5 waves from wave 10. */
+export const coresForRun = (t: RunTally) => (t.kind === "endless" && t.wave >= RIFT.echo.fromWave ? Math.floor((t.wave - RIFT.echo.fromWave) / RIFT.echo.wavesPerCore) + 1 : 0);
 /** Relic Dust from a run: finished bounties only. */
 export const dustForRun = (t: RunTally) => (t.completed && t.kind === "bounty" ? RIFT.bounty.dust + Math.floor(t.tier / RIFT.bounty.dustPerTiers) : 0);
 

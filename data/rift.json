@@ -205,6 +205,13 @@
     "seraphHallows": 1,
     "hallowCost": 1
   },
+  "echo": {
+    "fromWave": 10,
+    "wavesPerCore": 5,
+    "maxPerItem": 5,
+    "dmgPct": 1.5,
+    "lifePct": 1.5
+  },
   "reliquary": {
     "extractCost": 2,
     "unlock": { "weapon": 0, "armor": 5, "jewelry": 15 }
