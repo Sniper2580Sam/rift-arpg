@@ -1,7 +1,7 @@
 // DOM screens: hub (play / gear / skills / settings), inventory with compare + reroll, boon picker, results.
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { BOON, CLASSES, COSMETICS, CosKind, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
-import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix } from "../sim/items";
+import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, canMerge, mergeCost, mergeFodder, scaledItem } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, WEEKLY_TIER, char, isoWeek, xpProgress } from "./profile";
@@ -33,12 +33,14 @@ function icon(bank: SpriteBank, it: Item) {
 }
 function cellHtml(bank: SpriteBank, it: Item | undefined, attrs: string, extra = "", label = "") {
   if (!it) return `<button class="cell empty" ${attrs}>${label ? `<span>${label}</span>` : ""}</button>`;
-  return `<button class="cell r-${it.rarity} ${it.quality ? "q-" + it.quality : ""} ${extra}" ${attrs}><img alt="" src="${icon(bank, it)}">${extra.includes("isup") ? '<i class="up">▲</i>' : ""}${it.locked ? '<i class="lk" aria-label="locked">★</i>' : ""}</button>`;
+  return `<button class="cell r-${it.rarity} ${it.quality ? "q-" + it.quality : ""} ${extra}" ${attrs}><img alt="" src="${icon(bank, it)}">${extra.includes("isup") ? '<i class="up">▲</i>' : ""}${it.locked ? '<i class="lk" aria-label="locked">★</i>' : ""}${it.plus ? `<i class="pl">+${it.plus}</i>` : ""}</button>`;
 }
 
-export function itemHtml(it: Item, h?: Holder, ctx?: { cls: string; level: number }): string {
+export function itemHtml(raw: Item, h?: Holder, ctx?: { cls: string; level: number }): string {
+  const it = scaledItem(raw);
   const col = RARITY_COLOR[it.rarity];
-  let out = `<div class="it-name" style="color:${col}">${it.locked ? "★ " : ""}${esc(it.name)}</div>`;
+  let out = `<div class="it-name" style="color:${col}">${it.locked ? "★ " : ""}${it.plus ? `+${it.plus} ` : ""}${esc(it.name)}</div>`;
+  if (it.plus) out += `<div class="it-plus">+${it.plus}: base stats and affixes +${Math.round(ITEMS.merge.perPlus * 100 * it.plus)}%</div>`;
   out += `<div class="it-type">${it.quality ? `<b class="q-${it.quality}">${it.quality === "primal" ? "Primal" : "Ancestral"}</b> ` : ""}${RARITY_NAME[it.rarity]} ${SLOT_NAME[it.slot]} · item level ${it.ilvl}</div>`;
   if (it.dmgMin !== undefined) out += `<div class="it-base">${it.dmgMin}–${it.dmgMax} Damage</div>`;
   if (it.armor) out += `<div class="it-base">${it.armor} Armor</div>`;
@@ -265,6 +267,7 @@ export class UI {
       } else detail += `<button id="unequip">Unequip</button>${lockBtn}`;
       detail += `</div>`;
       if (allowReroll && p && this.sel!.where !== "stash") detail += this.rerollHtml(selItem, p.materials);
+      if (allowReroll && p) detail += this.mergeHtml(selItem, h.bag, p.stash ?? [], p.materials);
     }
     const sets = Object.entries(st.setCounts).filter(([, n]) => n >= 2).map(([id, n]) => `${SET[id].name} ${n}/6`).join(", ");
     void sets;
@@ -303,17 +306,29 @@ export class UI {
     return `<div class="bag-head"><span>Arsenal</span><span class="dim small">${esc(CLASSES[c.cls].name)} builds</span></div><div class="builds">${slots}</div>${detail}`;
   }
 
+  private mergeHtml(it: Item, bag: Item[], stash: Item[], mats: number) {
+    if (it.rarity !== "legendary" && it.rarity !== "set") return "";
+    if (!canMerge(it)) return `<div class="reroll"><b>Merge:</b> +${it.plus} is the maximum.</div>`;
+    const pl = it.plus ?? 0, cost = mergeCost(it), have = mergeFodder(it, bag, stash).length;
+    const ok = have >= 2 && mats >= cost;
+    const why = have < 2 ? `Find ${2 - have} more unlocked ${pl ? "+" + pl + " " : ""}cop${2 - have > 1 ? "ies" : "y"} (bag or storage).` : mats < cost ? `Need ${cost - mats} more materials.` : "Uses 2 unlocked copies from your bag or storage.";
+    return `<div class="reroll"><b>Merge to +${pl + 1}:</b> 3 × ${pl ? "+" + pl : "this item"} → +${pl + 1} (+${Math.round(ITEMS.merge.perPlus * 100)}% stats). Costs ${cost} materials. <span class="mats ${ok ? "" : "short"}">Copies ${have + 1}/3 · You have ${mats} · ${why}</span>
+      <div class="opts"><button id="merge" ${ok ? "" : "disabled"}>⇪ Merge to +${pl + 1}</button></div></div>`;
+  }
+
   private rerollHtml(it: Item, mats: number) {
     const cost = rerollCost(it);
+    // show values as they count in play (scaled by the item's + level)
+    const sc = (a: Affix) => scaledItem({ ...it, affixes: [a] }).affixes[0];
     if (this.rerollState) {
-      const cur = it.affixes[this.rerollState.idx];
+      const cur = sc(it.affixes[this.rerollState.idx]);
       return `<div class="reroll"><b>Reroll:</b> pick one <span class="mats">Materials: ${mats}</span><div class="opts">
         <button data-pick="-1">Keep: ${esc(affixText(cur))}</button>
-        ${this.rerollState.options.map((a, i) => `<button data-pick="${i}">${esc(affixText(a))} <small>${a.min}–${a.max}</small></button>`).join("")}</div></div>`;
+        ${this.rerollState.options.map((a, i) => `<button data-pick="${i}">${esc(affixText(sc(a)))} <small>${a.min}–${a.max}</small></button>`).join("")}</div></div>`;
     }
     const lock = it.rerollIdx;
     return `<div class="reroll"><b>Mystic:</b> reroll one stat for ${cost} materials${lock !== undefined ? " (only the stat you rerolled before)" : ""}. <span class="mats ${mats < cost ? "short" : ""}">You have ${mats}${mats < cost ? ` · need ${cost - mats} more (scrap items to get materials)` : ""}</span>
-      <div class="opts">${it.affixes.map((a, i) => (lock === undefined || lock === i ? `<button data-reroll="${i}" ${mats < cost ? "disabled" : ""}>↻ ${esc(affixText(a))}</button>` : "")).join("")}</div></div>`;
+      <div class="opts">${it.affixes.map((a, i) => (lock === undefined || lock === i ? `<button data-reroll="${i}" ${mats < cost ? "disabled" : ""}>↻ ${esc(affixText(sc(a)))}</button>` : "")).join("")}</div></div>`;
   }
 
   bindGear(p: Profile | null, c: Holder, H: Pick<HubHandlers, "invCmd" | "reroll" | "rerollOptions" | "op">, re: () => void, allowReroll: boolean) {
@@ -344,6 +359,21 @@ export class UI {
     let armed = false;
     bind("#b-del", () => { if (!armed) { armed = true; const el = this.root.querySelector<HTMLElement>("#b-del"); if (el) el.textContent = "Tap again to delete"; return; } H.op?.({ t: "buildDelete", idx: this.buildSel }); re(); });
     if (!allowReroll || !p) return;
+    bind("#merge", () => {
+      const s = this.sel; if (!s) return;
+      const stash = p.stash ?? [];
+      const cur = s.where === "bag" ? c.bag[s.i] : s.where === "stash" ? stash[s.i] : c.equipment[s.slot];
+      if (!cur) return;
+      const id = cur.id, before = cur.plus ?? 0;
+      H.op?.({ t: "merge", target: s.where === "bag" ? { bag: s.i } : s.where === "stash" ? { stash: s.i } : { slot: s.slot } });
+      // indices shift when copies are used up: follow the merged item
+      const bi = c.bag.findIndex((x) => x.id === id), si = stash.findIndex((x) => x.id === id);
+      if (s.where === "bag" && bi >= 0) this.sel = { where: "bag", i: bi };
+      else if (s.where === "stash" && si >= 0) this.sel = { where: "stash", i: si };
+      const now = bi >= 0 ? c.bag[bi] : si >= 0 ? stash[si] : s.where === "eq" ? c.equipment[s.slot] : undefined;
+      if ((now?.plus ?? 0) > before) this.toast(`Merged: +${now!.plus} ${now!.name}`, "#ffd23f");
+      this.rerollState = null; re();
+    });
     const target = this.sel?.where === "bag" ? { bag: this.sel.i } : this.sel?.where === "eq" ? { slot: this.sel.slot } : null;
     const it = this.sel?.where === "bag" ? c.bag[this.sel.i] : this.sel?.where === "eq" ? c.equipment[this.sel.slot] : undefined;
     this.root.querySelectorAll<HTMLElement>("[data-reroll]").forEach((el) => el.onclick = () => {

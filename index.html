@@ -37,6 +37,8 @@
   .doll { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-bottom:10px; }
   .bag { display:grid; grid-template-columns:repeat(8,1fr); gap:4px; }
   .cell { aspect-ratio:1; background:#1b1424; border:2px solid #2f2540; display:flex; align-items:center; justify-content:center; position:relative; cursor:pointer; font-size:10px; color:var(--dim); }
+  .cell .pl { position:absolute; bottom:0; left:2px; color:#7dff9a; font-style:normal; font-size:10px; font-weight:bold; text-shadow:0 0 2px #000, 0 0 2px #000; }
+  .it-plus { color:#7dff9a; font-size:12px; }
   .cell .lk { position:absolute; top:0; right:2px; color:#ffd23f; font-style:normal; font-size:11px; text-shadow:0 0 2px #000; }
   .builds { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin:4px 0 6px; } .builds button { font-size:12px; padding:6px 2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .builds button.on { border-color:#ffd23f; background:#3a2a1a; } .builds button.empty { color:var(--dim); }
   .warn-t { color:#ff8a5a; }

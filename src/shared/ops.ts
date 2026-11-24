@@ -1,7 +1,7 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
 import { CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, LOADOUT_SIZE, SKILL, validLoadout } from "../sim/data";
-import { Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost } from "../sim/items";
+import { Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, canMerge, mergeCost, mergeFodder, rerollCost } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
 export type HubOp =
@@ -17,6 +17,7 @@ export type HubOp =
   | { t: "buildSave"; idx: number; name?: string }
   | { t: "buildLoad"; idx: number }
   | { t: "buildDelete"; idx: number }
+  | { t: "merge"; target: { bag?: number; slot?: EquipSlot; stash?: number } }
   | { t: "newSeason" }
   | { t: "reset" };
 
@@ -60,6 +61,19 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       p.materials -= cost;
       it.rerollIdx = op.idx; it.rerolls = (it.rerolls ?? 0) + 1;
       if (op.choice) it.affixes[op.idx] = op.choice;
+      return true;
+    }
+    case "merge": {
+      const stash = p.stash ?? [];
+      const it = op.target.bag !== undefined ? c.bag[op.target.bag] : op.target.stash !== undefined ? stash[op.target.stash] : op.target.slot ? c.equipment[op.target.slot] : undefined;
+      if (!it || !canMerge(it)) return false;
+      const cost = mergeCost(it);
+      const fod = mergeFodder(it, c.bag, stash);
+      if (fod.length < 2 || p.materials < cost) return false;
+      p.materials -= cost;
+      // remove highest index first so earlier indices stay valid
+      for (const f of [...fod].sort((a, b) => b.i - a.i)) (f.where === "bag" ? c.bag : stash).splice(f.i, 1);
+      it.plus = (it.plus ?? 0) + 1;
       return true;
     }
     case "setting":

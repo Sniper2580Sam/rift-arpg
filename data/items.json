@@ -278,5 +278,17 @@
         "Focus Crystal"
       ]
     }
+  },
+  "merge": {
+    "maxPlus": 5,
+    "perPlus": 0.1,
+    "cost": [
+      30,
+      60,
+      120,
+      240,
+      480
+    ],
+    "dropPlusChance": 0.15
   }
 }

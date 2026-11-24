@@ -11,6 +11,8 @@ export interface Item {
   affixes: Affix[];
   legendary?: string; set?: string; quality?: "ancestral" | "primal";
   rerollIdx?: number; rerolls?: number;
+  /** merge level: 3 copies at +N merge into one +N+1 (each + scales its stats by merge.perPlus) */
+  plus?: number;
   /** favourited by the player: scrapping skips it */
   locked?: boolean;
 }
@@ -106,7 +108,41 @@ export function mintItem(r: Rng, id: string, o: MintOpts = {}): Item {
   if (legendary) item.legendary = legendary;
   if (set) item.set = set;
   if (quality) item.quality = quality;
+  // some legendary and set drops arrive already at +1 (decided by the id, so it costs no rng roll)
+  if ((rarity === "legendary" || rarity === "set") && idHash01(id) < ITEMS.merge.dropPlusChance) item.plus = 1;
   return item;
+}
+
+function idHash01(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0) / 4294967296;
+}
+
+// ------------------------------------------------------------------ + merging
+export const plusMult = (it: Item) => 1 + ITEMS.merge.perPlus * (it.plus ?? 0);
+const scaleVal = (v: number, m: number) => (Number.isInteger(v) ? Math.round(v * m) : Math.round(v * m * 10) / 10);
+/** The item as it counts in play: base damage, armor and affix values scaled by its + level. */
+export function scaledItem(it: Item): Item {
+  const m = plusMult(it);
+  if (m === 1) return it;
+  return {
+    ...it,
+    dmgMin: it.dmgMin !== undefined ? scaleVal(it.dmgMin, m) : undefined, dmgMax: it.dmgMax !== undefined ? scaleVal(it.dmgMax, m) : undefined,
+    armor: it.armor ? scaleVal(it.armor, m) : it.armor,
+    affixes: it.affixes.map((a) => ({ ...a, value: scaleVal(a.value, m) })),
+  };
+}
+export const canMerge = (it: Item) => (it.rarity === "legendary" || it.rarity === "set") && (it.plus ?? 0) < ITEMS.merge.maxPlus;
+export const mergeKey = (it: Item) => (it.legendary ? "L:" + it.legendary : it.set ? `S:${it.set}:${it.slot}` : "");
+export const mergeCost = (it: Item) => ITEMS.merge.cost[Math.min(it.plus ?? 0, ITEMS.merge.cost.length - 1)];
+/** Unlocked copies (same named item, same + level) that a merge into `it` would use up, from the bag first, then storage. */
+export function mergeFodder(it: Item, bag: Item[], stash: Item[]): { where: "bag" | "stash"; i: number }[] {
+  const k = mergeKey(it), pl = it.plus ?? 0, out: { where: "bag" | "stash"; i: number }[] = [];
+  if (!k) return out;
+  const scan = (list: Item[], where: "bag" | "stash") => list.forEach((x, i) => { if (out.length < 2 && x !== it && x.id !== it.id && !x.locked && mergeKey(x) === k && (x.plus ?? 0) === pl) out.push({ where, i }); });
+  scan(bag, "bag"); scan(stash, "stash");
+  return out;
 }
 
 function rollAffix(r: Rng, id: string, ilvl: number, qm: number, max: boolean): Affix {
@@ -176,8 +212,9 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
     maxHp: cd.baseHp + cd.hpPerLevel * (c.level - 1), armor: 0, regen: 0, moveSpeed: 0, cdr: 0, lifeOnHit: 0, eliteDmg: 0, resRegen: 0, costRed: 0, resMax: 0, areaPct: 0,
     tagDmg: {}, mods: [], flags: {}, setCounts: {}, speed: cd.speed, dmgMult: 1, takenMult: 1,
   };
-  for (const it of Object.values(eq)) {
-    if (!it) continue;
+  for (const raw of Object.values(eq)) {
+    if (!raw) continue;
+    const it = scaledItem(raw);
     if (it.dmgMin !== undefined) { s.dmgMin = it.dmgMin; s.dmgMax = it.dmgMax!; }
     if (it.armor) s.armor += it.armor;
     for (const a of it.affixes) {

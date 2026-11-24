@@ -70,3 +70,18 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - The host's device runs the game, and the others send their moves to it (the same lockstep as before). Items are made inside the shared game, and each player saves their own progress on their own device. **No anti-cheat in this mode** (Samuel: fine at this stage).
 - ⚠ This departs from the brief ("backend mints and saves every item") for test builds only. The hosted server path (render.yaml, DEPLOY.md) stays for the real game.
 - If the host switches apps or locks their phone, Safari pauses the game for everyone.
+
+## Rift pacing (2026-11-24)
+- Samuel cleared maps in about 1 minute. Rifts now have denser and bigger packs, need more progress (320), and give 7 minutes. Ambush waves of 5+ enemies spawn around the player every 22–30 s from 35 s on, with more per minute. In bot tests the guardian appears at about 2–4 minutes.
+
+## Lock, storage, arsenal (2026-11-24)
+- ★ Lock on any item: it can't be scrapped (single or bulk), and merges never use it up. Lock is ignored by the anti-cheat item check.
+- Storage: 60 slots shared by all characters, hub only. Arsenal: 5 saved builds per character (gear, skills, runes). Loading a build pulls items from equipment, bag and storage. Items it takes off go to the bag, or to storage if the bag is full.
+- Room code has Copy and Paste buttons.
+
+## + merging (Samuel chose "same named item, costs materials", 2026-11-24)
+- Three copies of the same legendary (or the same set piece in the same slot) at +N merge into one +N+1, up to +5. The kept item is the one you selected, with its own rolls. The other two must be unlocked and can come from the bag or storage.
+- Each + level scales base damage, armor and affix values by 10% (+5 = +50%). Legendary powers are not scaled.
+- Cost in materials: 30 / 60 / 120 / 240 / 480 for +1 … +5. This gives scrap a second use.
+- 15% of legendary and set drops arrive at +1. This is decided from the item id, so it doesn't shift the random rolls.
+- ⚠ Balance: +5 on a full kit is a big power jump. The numbers are a first pass, and merging only happens in the hub.

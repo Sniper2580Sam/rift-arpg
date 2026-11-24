@@ -1,8 +1,8 @@
 // Server item authority: forged items, edited items, inflated materials and forced rarities are refused.
-import { newProfile } from "../src/client/profile";
+import { char, newProfile } from "../src/client/profile";
 import { applyHubOp } from "../src/shared/ops";
 import { RunInfo, RunMember, applySave, mintFor, sanitizeOpts } from "../src/server/ledger";
-import { mintItem, scrapValue } from "../src/sim/items";
+import { computeStats, mintItem, scrapValue } from "../src/sim/items";
 import { makeRng } from "../src/sim/rng";
 
 let fails = 0;
@@ -70,6 +70,21 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   c.bag = [mintItem(r, "a", { rarity: "common" }), mintItem(r, "b", { rarity: "magic" }), mintItem(r, "c", { rarity: "rare" })];
   applyHubOp(p, { t: "inv", cmd: { type: "scrapBelow", rarity: "rare" } });
   check("hub scrap below removes items from the bag", c.bag.length === 1 && c.bag[0].rarity === "rare" && p.materials > 0);
+}
+{
+  // + merging: 3 copies of the same legendary at +0 make one +1; locked copies are never used up
+  const p = newProfile(); const c = char(p); const r = makeRng(9);
+  const leg = (id: string) => { const it = mintItem(r, id, { rarity: "legendary", slot: "weapon" }); return it; };
+  const a = leg("m1"), b = { ...leg("m2"), legendary: a.legendary, name: a.name, plus: undefined }, d = { ...leg("m3"), legendary: a.legendary, name: a.name, plus: undefined };
+  a.plus = undefined;
+  c.bag = [a, b, d]; p.materials = 0;
+  check("merge refused without materials", applyHubOp(p, { t: "merge", target: { bag: 0 } }) === false && c.bag.length === 3);
+  p.materials = 100; b.locked = true;
+  check("merge refused when a copy is locked", applyHubOp(p, { t: "merge", target: { bag: 0 } }) === false);
+  b.locked = false; p.stash = [];
+  check("merge 3 into +1", applyHubOp(p, { t: "merge", target: { bag: 0 } }) === true && c.bag.length === 1 && c.bag[0].id === "m1" && c.bag[0].plus === 1 && p.materials === 70);
+  const st = computeStats({ weapon: c.bag[0] }, { cls: c.cls, level: 1 });
+  check("+1 scales weapon damage", st.dmgMax >= Math.round(a.dmgMax! * 1.1) - 1 && st.dmgMax > a.dmgMax!);
 }
 if (fails) { console.log(`${fails} ledger checks failed`); process.exit(1); }
 console.log("ledger: all checks passed");
