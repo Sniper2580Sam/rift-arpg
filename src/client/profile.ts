@@ -1,5 +1,5 @@
 // Local profile for OFFLINE_TEST builds (live builds keep this on the backend). Versioned save schema with migrations.
-import { AFFIX, CLASSES, CosChoice, EquipSlot, HideoutLayout, RIFT, Rarity, paragonXp, xpForLevel } from "../sim/data";
+import { AFFIX, CLASSES, CosChoice, EquipSlot, HideoutLayout, Life, RIFT, Rarity, lifeStats, paragonXp, xpForLevel } from "../sim/data";
 import { Holder, Item, mintItem } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import type { PlayerSetup, SimState } from "../sim/sim";
@@ -38,6 +38,8 @@ export interface Profile {
   /** storage shared by every character */
   stash: Item[];
   season: { n: number; started: string }; unlockedPets: string[];
+  /** feats (achievements) done, and the lifetime counters they read; both survive season resets */
+  feats?: string[]; life?: Partial<Life>;
   weekly: { week: string; best: number };
   settings: { mute: boolean; shake: boolean; autoTier: boolean };
   /** ms timestamp of the last real change (used to pick the newer of the device and cloud copies) */
@@ -171,6 +173,8 @@ export function startNewSeason(p: Profile): Profile {
   const n = newProfile();
   n.season = { n: p.season.n + 1, started: new Date().toISOString().slice(0, 10) };
   n.unlockedPets = p.unlockedPets; n.pet = p.pet; n.cos = p.cos; n.settings = p.settings; n.filter = p.filter;
+  // account-wide things carry over: purchases, the hideout, feats and the lifetime counters (baked from the old heroes)
+  n.owned = p.owned; n.hideout = p.hideout; n.feats = p.feats; n.life = lifeStats(p);
   try { localStorage.setItem(`${SAVE_KEY}-season-${p.season.n}`, JSON.stringify(p)); } catch { /* ignore */ }
   return n;
 }

@@ -16,6 +16,7 @@ import modifiersJson from "../../data/modifiers.json";
 import boonsJson from "../../data/boons.json";
 import petsJson from "../../data/pets.json";
 import cosmeticsJson from "../../data/cosmetics.json";
+import achievementsJson from "../../data/achievements.json";
 
 export type SlotType = "weapon" | "offhand" | "helm" | "shoulders" | "chest" | "bracers" | "gloves" | "belt" | "pants" | "boots" | "amulet" | "ring";
 export type EquipSlot = Exclude<SlotType, "ring"> | "ring1" | "ring2";
@@ -80,15 +81,51 @@ export const COS_KINDS: CosKind[] = ["armor", "wings", "weapon", "petSkin", "dye
 
 // ------------------------------------------------------------------ ownership (shop, earnables)
 /** What the unlock rules need from a profile: owned premium keys and per-character progress. */
-export interface UnlockCtx { owned?: string[]; chars: Record<string, { highestTier: number; bestWave?: number; kings?: number; seraphs?: number }> }
-export interface Earn { tier?: number; wave?: number; king?: number; seraph?: number }
-export const earnText = (e: Earn) => e.tier ? `Clear tier ${e.tier}` : e.wave ? `Reach Endless wave ${e.wave}` : e.king ? "Slay the Ossuary King" : e.seraph ? "Slay the Pale Seraph" : "";
+type CharProgress = { level?: number; highestTier: number; bestWave?: number; kings?: number; seraphs?: number; paragon?: number };
+export interface UnlockCtx { owned?: string[]; chars: Record<string, CharProgress>; feats?: string[]; life?: Partial<Life> }
+
+// ------------------------------------------------------------------ achievements (feats)
+/** Account-wide lifetime counters. They survive season resets. */
+export interface Life { rifts: number; tier: number; kills: number; elites: number; flawless: number; kings: number; seraphs: number; wave: number; mythics: number; ancestrals: number; paragon: number; maxed: number; party6: number }
+export type LifeStat = keyof Life;
+export interface Achievement { id: string; name: string; desc: string; stat: LifeStat; goal: number; reward?: string }
+export const ACHIEVEMENTS = achievementsJson as Achievement[];
+/** The counters an achievement reads: what's stored, topped up from the current heroes (so old saves count). */
+export function lifeStats(p: UnlockCtx): Life {
+  const L = p.life ?? {}, cs = Object.values(p.chars ?? {});
+  const max = (f: (c: CharProgress) => number) => cs.reduce((m, c) => Math.max(m, f(c)), 0);
+  const sum = (f: (c: CharProgress) => number) => cs.reduce((m, c) => m + f(c), 0);
+  return {
+    rifts: L.rifts ?? 0, kills: L.kills ?? 0, elites: L.elites ?? 0, flawless: L.flawless ?? 0, mythics: L.mythics ?? 0, ancestrals: L.ancestrals ?? 0, party6: L.party6 ?? 0,
+    tier: Math.max(L.tier ?? 0, max((c) => c.highestTier - 1)),
+    wave: Math.max(L.wave ?? 0, max((c) => c.bestWave ?? 0)),
+    kings: Math.max(L.kings ?? 0, sum((c) => c.kings ?? 0)),
+    seraphs: Math.max(L.seraphs ?? 0, sum((c) => c.seraphs ?? 0)),
+    paragon: Math.max(L.paragon ?? 0, max((c) => c.paragon ?? 0)),
+    maxed: Math.max(L.maxed ?? 0, cs.filter((c) => (c.level ?? 0) >= RIFT.levels.max).length),
+  };
+}
+/** A reward key ("cos:wings:judgement") as a readable name. */
+export function rewardName(key: string) {
+  const [, kind, id] = key.split(":");
+  const c = COSMETICS[kind as CosKind]?.find((x) => x.id === id);
+  return c ? `${c.name} ${({ armor: "armour", wings: "", weapon: "weapon", petSkin: "pet skin", dye: "dye" } as Record<string, string>)[kind] ?? ""}`.trim() : key;
+}
+/** Achievements reached but not yet in the done list. */
+export function newFeats(p: UnlockCtx): Achievement[] {
+  const L = lifeStats(p), done = new Set(p.feats ?? []);
+  return ACHIEVEMENTS.filter((a) => !done.has(a.id) && L[a.stat] >= a.goal);
+}
+export interface Earn { tier?: number; wave?: number; king?: number; seraph?: number; ach?: string }
+export const earnText = (e: Earn) => e.ach ? (ACHIEVEMENTS.find((a) => a.id === e.ach)?.desc ?? "").replace(/\.$/, "") : e.tier ? `Clear tier ${e.tier}` : e.wave ? `Reach Endless wave ${e.wave}` : e.king ? "Slay the Ossuary King" : e.seraph ? "Slay the Pale Seraph" : "";
 export function earned(p: UnlockCtx, e: Earn): boolean {
   const cs = Object.values(p.chars ?? {});
   if (e.tier && !cs.some((c) => c.highestTier > e.tier!)) return false;
   if (e.wave && !cs.some((c) => (c.bestWave ?? 0) >= e.wave!)) return false;
   if (e.king && !cs.some((c) => (c.kings ?? 0) >= e.king!)) return false;
   if (e.seraph && !cs.some((c) => (c.seraphs ?? 0) >= e.seraph!)) return false;
+  // a feat counts once it's in the done list, or as soon as its counter is reached (the server has no done list to update)
+  if (e.ach && !(p.feats ?? []).includes(e.ach)) { const a = ACHIEVEMENTS.find((x) => x.id === e.ach); if (!a || lifeStats(p)[a.stat] < a.goal) return false; }
   return true;
 }
 /** Every premium thing has a shop key: "cos:armor:gilded", "fx:cleave:voidfire", "theme:gilded", "decor:statue". */

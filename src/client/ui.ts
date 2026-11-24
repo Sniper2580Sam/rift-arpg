@@ -3,7 +3,7 @@ import { AFFIX as AFFIX_DEF } from "../sim/data";
 import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
-import { BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { ACHIEVEMENTS, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -87,7 +87,7 @@ function isUpgrade(h: Holder, it: Item, ctx: { cls: string; level: number }): bo
   return effectiveDps(b) > effectiveDps(a) * 1.02;
 }
 
-type Tab = "play" | "gear" | "skills" | "looks" | "shop" | "settings";
+type Tab = "play" | "gear" | "skills" | "looks" | "shop" | "journey" | "settings";
 export interface HubHandlers {
   enter: (o: { tier: number; seed: number | null; kind: RunKind; weekly?: boolean; boss?: "king" | "seraph" }) => void;
   invCmd: (c: InvCmd) => void;
@@ -137,13 +137,14 @@ export class UI {
     this.tier = Math.min(Math.max(1, this.tier), c.highestTier);
     this.root.className = "screen";
     const cd = CLASSES[c.cls];
-    const tabs = (["play", "gear", "skills", "looks", "shop", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("");
+    const tabs = (["play", "gear", "skills", "looks", "shop", "journey", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}"${t === "settings" ? ` aria-label="Settings"` : ""}>${t === "settings" ? "⚙" : t[0].toUpperCase() + t.slice(1)}</button>`).join("");
     let body = "";
     if (this.tab === "play") body = this.playTab(p, c, H);
     if (this.tab === "gear") body = this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
     if (this.tab === "skills") body = this.skillsTab(c);
     if (this.tab === "looks") body = this.looksTab(p);
     if (this.tab === "shop") body = this.shopTab(p);
+    if (this.tab === "journey") body = this.journeyTab(p);
     if (this.tab === "settings") body = this.settingsTab(p);
     this.root.innerHTML = `
       <div class="panel hub">
@@ -477,6 +478,18 @@ export class UI {
       ${group("dye", "Colour", (cur.armor && cur.armor !== "default") ? "shows with the base armour" : "")}${group("armor", "Armour", "")}${group("wings", "Wings", "")}${group("weapon", "Weapon", "")}${group("petSkin", "Pet skin", p.pet === "none" ? "pick a pet in Settings to see it" : "")}${this.fxGroup(p)}`;
   }
   /** The Shop: every premium cosmetic, theme, decoration and skill effect. Prices are 0 in the test build. */
+  /** Feats: permanent account-wide goals. Some unlock a Wardrobe item. */
+  private journeyTab(p: Profile) {
+    const L = lifeStats(p), done = new Set(p.feats ?? []);
+    const fmt = (n: number) => n.toLocaleString("en-US");
+    const card = (a: (typeof ACHIEVEMENTS)[number]) => {
+      const ok = done.has(a.id), have = Math.min(L[a.stat], a.goal);
+      const bar = ok ? "" : `<div class="feat-bar"><i style="width:${Math.round((100 * have) / a.goal)}%"></i></div><div class="dim small">${fmt(have)} / ${fmt(a.goal)}</div>`;
+      return `<div class="feat${ok ? " done" : ""}"><div class="feat-main"><b>${ok ? "✓ " : ""}${esc(a.name)}</b><div class="dim small">${esc(a.desc)}</div>${bar}</div>${a.reward ? `<span class="feat-reward">◆ ${esc(rewardName(a.reward))}</span>` : ""}</div>`;
+    };
+    return `<div class="setting"><b>Feats</b> <span class="dim small">${done.size}/${ACHIEVEMENTS.length} done · they count across all heroes and seasons. ◆ rewards unlock in the Wardrobe.</span>
+      <div class="feat-list">${[...ACHIEVEMENTS].sort((a, b) => Number(done.has(a.id)) - Number(done.has(b.id))).map(card).join("")}</div></div>`;
+  }
   private shopTab(p: Profile) {
     const cls = char(p).cls;
     const all = shopCatalogue();

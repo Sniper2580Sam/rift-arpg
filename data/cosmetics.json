@@ -148,7 +148,7 @@
    ],
    "unlock": "earn",
    "earn": {
-    "tier": 10
+    "ach": "tier10"
    }
   },
   {
@@ -173,7 +173,7 @@
    ],
    "unlock": "earn",
    "earn": {
-    "king": 1
+    "ach": "king"
    }
   },
   {
@@ -198,7 +198,7 @@
    ],
    "unlock": "earn",
    "earn": {
-    "wave": 20
+    "ach": "wave20"
    }
   },
   {
@@ -324,7 +324,7 @@
    "halo": "#bfe8ff",
    "unlock": "earn",
    "earn": {
-    "seraph": 1
+    "ach": "seraph"
    }
   },
   {
@@ -367,6 +367,23 @@
     "#bfe8ff"
    ],
    "unlock": "premium"
+  },
+  {
+   "shape": "flame",
+   "X": "#fff0a0",
+   "x": "#ffd23f",
+   "U": "#ffffff",
+   "glow": [
+    "#ffffff",
+    "#ffd23f"
+   ],
+   "id": "ascendant",
+   "name": "Ascendant wings",
+   "desc": "Earned at paragon 50. Gold-white flame wings.",
+   "unlock": "earn",
+   "earn": {
+    "ach": "paragon50"
+   }
   }
  ],
  "weapon": [
@@ -437,6 +454,40 @@
    "wood": "#a89a78",
    "gem": "#7dff9a",
    "unlock": "premium"
+  },
+  {
+   "id": "bloodletter",
+   "name": "Bloodletter",
+   "desc": "Earned by slaying 10,000 enemies. A blood-red blade, bow or staff that drips embers.",
+   "style": "flame",
+   "blade": "#ff4a4a",
+   "wood": "#3a0a14",
+   "gem": "#ff3b6b",
+   "glow": [
+    "#ff6a6a",
+    "#8c1424"
+   ],
+   "unlock": "earn",
+   "earn": {
+    "ach": "kills_10k"
+   }
+  },
+  {
+   "id": "wardbreaker",
+   "name": "Wardbreaker",
+   "desc": "Earned by a flawless tier 8+ clear. Pale silver crystal with a blue core.",
+   "style": "crystal",
+   "blade": "#e6eef8",
+   "wood": "#4a5a7a",
+   "gem": "#7ad8ff",
+   "glow": [
+    "#ffffff",
+    "#7ad8ff"
+   ],
+   "unlock": "earn",
+   "earn": {
+    "ach": "flawless8"
+   }
   }
  ],
  "petSkin": [
@@ -520,6 +571,24 @@
     "#ffffff"
    ],
    "unlock": "premium"
+  },
+  {
+   "id": "hunter",
+   "name": "Hunter's Mark",
+   "desc": "Earned by slaying 250 elites. Violet, with glowing gold eyes and drifting wisps.",
+   "a": "#9a7ad0",
+   "b": "#463559",
+   "eye": "#ffd23f",
+   "extra": "eyes",
+   "fx": "wisp",
+   "fxColor": [
+    "#c9a0ff",
+    "#ffd23f"
+   ],
+   "unlock": "earn",
+   "earn": {
+    "ach": "elites_250"
+   }
   }
  ],
  "dye": [
@@ -608,6 +677,32 @@
    "t1": "#ffd0e0",
    "t2": "#4a1a2a",
    "unlock": "free"
+  },
+  {
+   "id": "abyss",
+   "name": "Abyssal",
+   "desc": "Earned by clearing tier 20. Deep teal and black.",
+   "m": "#1a5a6a",
+   "d": "#0a2a34",
+   "t1": "#7ad8ff",
+   "t2": "#061418",
+   "unlock": "earn",
+   "earn": {
+    "ach": "tier20"
+   }
+  },
+  {
+   "id": "mythicgold",
+   "name": "Mythic gold",
+   "desc": "Earned by finding a mythic. Gold with a crimson trim.",
+   "m": "#e8b83a",
+   "d": "#8a5a14",
+   "t1": "#ff3b6b",
+   "t2": "#3a2008",
+   "unlock": "earn",
+   "earn": {
+    "ach": "mythic"
+   }
   }
  ]
 }

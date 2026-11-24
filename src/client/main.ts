@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
@@ -64,7 +64,7 @@ let acc = 0, hitstop = 0, shake = 0, flash = 0, flashColor = "#fff", hurtFlash =
 let camX = 0, camY = 0;
 let banner: { text: string; sub: string; color: string; t: number } | null = null;
 let found: Record<string, number> = {}, foundLegs: { name: string; rarity: Rarity; quality?: string }[] = [];
-let gotAncestral = false, gotPrimal = false, gotSigil = 0, gotFeather = 0, startLevel = 1;
+let gotAncestral = false, gotPrimal = false, gotSigil = 0, gotFeather = 0, runElites = 0, startLevel = 1;
 let completeInfo: { inTime: boolean; time: number } | null = null;
 let run: { kind: RunKind; tier: number; weekly: boolean; seed: number; boss?: ChaseBoss } | null = null;
 let leaveArmed = 0;
@@ -146,7 +146,7 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   camX = p.x - wb.width / 2; camY = p.y - wb.height / 2;
   particles.length = nums.length = rings.length = arcs.length = ghosts.length = 0; pets.clear();
   found = {}; foundLegs = []; completeInfo = null; acc = 0; hitstop = 0; paused = false; input.enabled = true; // a run started from the menu must not inherit its paused input
-  gotAncestral = gotPrimal = false; gotSigil = 0; gotFeather = 0; startLevel = c.level;
+  gotAncestral = gotPrimal = false; gotSigil = 0; gotFeather = 0; runElites = 0; startLevel = c.level;
   runIds = new Set([...Object.values(p.equipment).map((it) => it!.id), ...p.bag.map((it) => it.id)]); scrappedIds = [];
   mode = "rift"; screen = "rift";
   ui.hide();
@@ -322,11 +322,21 @@ function endRun() {
   if (newRunes.length) lines.push(`New runes: ${newRunes.join(", ")}`);
   if (gotSigil) lines.push(`Bone Sigil found (${c.sigils} owned). The Ossuary King awaits.`);
   if (gotFeather) lines.push(`Pale Feather found (${c.feathers ?? 0} owned). The Pale Seraph awaits.`);
+  // lifetime counters for feats (account-wide, kept across seasons)
+  const L = lifeStats(profile);
+  L.kills += s.rift.kills; L.elites += runElites;
+  for (const f of foundLegs) { if (f.rarity === "mythic") L.mythics++; if (f.quality === "ancestral") L.ancestrals++; }
+  if (completeInfo) {
+    if (run.kind === "rift") { L.rifts++; if (completeInfo.inTime) L.tier = Math.max(L.tier, run.tier); if (completeInfo.inTime && run.tier >= 8 && !(p.deaths ?? 0)) L.flawless++; if (s.players.length >= 6) L.party6++; }
+    if (run.kind === "chase") { if (run.boss === "seraph") L.seraphs++; else L.kings++; }
+    if (run.kind === "endless") L.wave = Math.max(L.wave, s.rift.wave ?? 0);
+  }
+  profile.life = L;
   if (completeInfo) {
     c.riftsCleared++;
     if (run.kind === "rift") {
       const up = Math.min(T.max, run.tier + tierJump(completeInfo.time));
-      if (completeInfo.inTime && up > c.highestTier) { const was = c.highestTier; if (was <= 10 && up > 10) lines.push("Riftbreaker armour unlocked in the Wardrobe"); c.highestTier = up; lines.push(up - Math.max(was, run.tier) > 1 ? `Fast clear! Tier ${up} unlocked (+${up - run.tier})` : `Tier ${up} unlocked!`); }
+      if (completeInfo.inTime && up > c.highestTier) { const was = c.highestTier; c.highestTier = up; lines.push(up - Math.max(was, run.tier) > 1 ? `Fast clear! Tier ${up} unlocked (+${up - run.tier})` : `Tier ${up} unlocked!`); }
       const key = String(run.tier);
       if (completeInfo.inTime && (!c.bestTimes[key] || completeInfo.time < c.bestTimes[key])) c.bestTimes[key] = completeInfo.time;
       if (run.tier >= T.ancestralFrom) c.pityAnc = gotAncestral ? 0 : c.pityAnc + 1;
@@ -337,18 +347,28 @@ function endRun() {
         if (completeInfo.inTime && (!profile.weekly.best || completeInfo.time < profile.weekly.best)) { profile.weekly.best = completeInfo.time; lines.push("New weekly best!"); }
       }
     }
-    if (run.kind === "chase" && run.boss === "seraph") { c.seraphs = (c.seraphs ?? 0) + 1; if (c.seraphs === 1) lines.push("Wings of Judgement unlocked in the Wardrobe"); }
-    else if (run.kind === "chase") { c.kings = (c.kings ?? 0) + 1; if (c.kings === 1) lines.push("Kingslayer armour unlocked in the Wardrobe"); }
-    saveProfile(profile);
+    if (run.kind === "chase" && run.boss === "seraph") c.seraphs = (c.seraphs ?? 0) + 1;
+    else if (run.kind === "chase") c.kings = (c.kings ?? 0) + 1;
     const wave = s.rift.wave ?? 0;
-    if (run.kind === "endless" && wave > (c.bestWave ?? 0)) { if ((c.bestWave ?? 0) < 20 && wave >= 20) lines.push("Vanguard armour unlocked in the Wardrobe"); c.bestWave = wave; lines.push(`New best: wave ${wave}`); saveProfile(profile); }
+    if (run.kind === "endless" && wave > (c.bestWave ?? 0)) { c.bestWave = wave; lines.push(`New best: wave ${wave}`); }
+    checkFeats(lines);
+    saveProfile(profile);
     const title = run.kind === "endless" ? `Endless: wave ${wave}` : run.kind === "chase" ? (run.boss === "seraph" ? "The Pale Seraph falls" : "The Ossuary King falls") : completeInfo.inTime ? "Rift cleared in time!" : "Guardian slain";
     const sub = run.kind === "endless" ? `Reached difficulty level ${s.rift.level ?? 0} from tier ${run.tier}. The chest grows every ${RIFT.endless.rewards.perWaves} waves.` : completeInfo.inTime ? "Bonus loot for time remaining." : "The timer ran out, so the rewards were smaller.";
     finishOnline();
     screen = "results";
     ui.showResults({ title, sub, time: completeInfo.time, kills: s.rift.kills, found, legendaries: foundLegs, lines }, goHub);
-  } else { saveProfile(profile); finishOnline(); goHub(); }
+  } else { checkFeats(); saveProfile(profile); finishOnline(); goHub(); }
   sim = null; run = null; mode = "hub";
+}
+
+/** Mark newly reached feats as done; their rewards unlock through the Earn rule. Lines go on the results screen. */
+function checkFeats(lines?: string[]): boolean {
+  const n = newFeats(profile);
+  if (!n.length) return false;
+  profile.feats = [...(profile.feats ?? []), ...n.map((a) => a.id)];
+  for (const a of n) lines?.push(`Feat: ${a.name}${a.reward ? ` · ${rewardName(a.reward)} unlocked in the Wardrobe` : ""}`);
+  return true;
 }
 
 /** Live build: hand in this run's results to the server, and tell the party the run is over. */
@@ -383,7 +403,7 @@ function hubOp(op: HubOp) {
   if (online && !online.direct) online.op(op);
   else if (online?.direct) online.pushSetup();
 }
-function goHub() { enterHideout(); }
+function goHub() { if (checkFeats()) saveProfile(profile); enterHideout(); }
 function showMenu() {
   if (!sim) { mode = "hub"; screen = "hub"; }
   ui.showHub(profile, {
@@ -461,6 +481,7 @@ function handleEvent(e: SimEvent) {
     }
     case "immune": if (nums.length < 70) nums.push({ x: e.x, y: e.y, text: "IMMUNE", color: "#9be0ff", size: 0.8, t: 0, vx: 0 }); break;
     case "kill":
+      if (e.elite) runElites++;
       burst(e.x, e.y, e.kind === "brute" || e.elite ? 26 : e.kind === "guardian" || e.kind === "king" ? 80 : 12, BLOOD[e.kind] ?? BLOOD.ghoul, e.kind === "guardian" || e.kind === "king" ? 160 : 90, e.kind === "ghoul" ? 1 : 2, 0.6, 150);
       if (e.kind === "guardian" || e.kind === "king") { hitstop = 0.4; addShake(12); flash = 0.5; flashColor = "#fff"; sfx.bigKill(); }
       else if (e.kind === "brute" || e.elite) { hitstop = Math.max(hitstop, 0.07); addShake(5); sfx.bigKill(); }

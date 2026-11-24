@@ -2,7 +2,7 @@
 import { createSim, step, stateHash, NO_INPUT, PlayerInput, PlayerSetup, SimState } from "../src/sim/sim";
 import { mintItem, computeStats, Holder } from "../src/sim/items";
 import { makeRng } from "../src/sim/rng";
-import { GUARDIANS, LEGENDARIES, MYTHICS, SETS, CLASSES, SKILL, SlotType, EquipSlot } from "../src/sim/data";
+import { cosAccess, newFeats, lifeStats, ACHIEVEMENTS, COSMETICS, GUARDIANS, LEGENDARIES, MYTHICS, SETS, CLASSES, SKILL, SlotType, EquipSlot } from "../src/sim/data";
 const proc = (globalThis as any).process;
 
 function setup(pid: number, cls = "ashknight", level = 1, equipment: Holder["equipment"] = {}, runes: Record<string, string> = {}): PlayerSetup {
@@ -144,6 +144,14 @@ for (const cls of ["ashknight", "gloomstalker"]) {
   for (const it of [...s.loot.map((l) => l.item), ...s.players[0].bag]) if (it.quality) anc++;
   console.log(`seraph vs ${cls}: killed=${s.rift.done} in ${s.rift.time.toFixed(0)}s deaths=${deaths} states=${[...states].join(",")} ancestral=${anc}`);
   if (!s.rift.done || !states.has("tomb") || !states.has("spiral") || !states.has("blink") || anc < 2) { console.error("SERAPH FAIL", cls); proc.exit(1); }
+}
+
+{ // feats: legacy hero progress counts, rewards unlock through the feat, and every reward exists
+  const ctx: any = { chars: { a: { highestTier: 11, kings: 1, level: 30, paragon: 3 } }, life: { kills: 1200 } };
+  const ids = newFeats(ctx).map((a) => a.id);
+  const ok = ids.includes("tier10") && ids.includes("king") && ids.includes("kills_1k") && !ids.includes("tier20") && cosAccess(ctx, "armor", "kingslayer").ok && !cosAccess(ctx, "wings", "judgement").ok && lifeStats(ctx).tier === 10;
+  const missing = ACHIEVEMENTS.filter((a) => a.reward && !(COSMETICS as any)[a.reward.split(":")[1]]?.some((c: any) => c.id === a.reward!.split(":")[2] && c.earn?.ach === a.id));
+  if (!ok || missing.length) { console.error("FAIL feats", ids, missing.map((a) => a.id)); proc.exit(1); } else console.log(`feats ok: ${ids.join(",")}`);
 }
 
 // 4) every legendary/mythic/set bonus runs

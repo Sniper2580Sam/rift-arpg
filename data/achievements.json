@@ -1,0 +1,145 @@
+[
+ {
+  "id": "first_rift",
+  "name": "First Steps",
+  "desc": "Clear a rift.",
+  "stat": "rifts",
+  "goal": 1
+ },
+ {
+  "id": "rifts_50",
+  "name": "Regular",
+  "desc": "Clear 50 rifts.",
+  "stat": "rifts",
+  "goal": 50
+ },
+ {
+  "id": "tier5",
+  "name": "Climber",
+  "desc": "Clear tier 5 in time.",
+  "stat": "tier",
+  "goal": 5
+ },
+ {
+  "id": "tier10",
+  "name": "Riftbreaker",
+  "desc": "Clear tier 10 in time.",
+  "stat": "tier",
+  "goal": 10,
+  "reward": "cos:armor:riftbreaker"
+ },
+ {
+  "id": "tier20",
+  "name": "Abyss Walker",
+  "desc": "Clear tier 20 in time.",
+  "stat": "tier",
+  "goal": 20,
+  "reward": "cos:dye:abyss"
+ },
+ {
+  "id": "kills_1k",
+  "name": "Bonebreaker",
+  "desc": "Slay 1,000 enemies.",
+  "stat": "kills",
+  "goal": 1000
+ },
+ {
+  "id": "kills_10k",
+  "name": "Butcher",
+  "desc": "Slay 10,000 enemies.",
+  "stat": "kills",
+  "goal": 10000,
+  "reward": "cos:weapon:bloodletter"
+ },
+ {
+  "id": "elites_250",
+  "name": "Elite Hunter",
+  "desc": "Slay 250 elites.",
+  "stat": "elites",
+  "goal": 250,
+  "reward": "cos:petSkin:hunter"
+ },
+ {
+  "id": "flawless8",
+  "name": "Untouchable",
+  "desc": "Clear a tier 8+ rift in time without dying.",
+  "stat": "flawless",
+  "goal": 1,
+  "reward": "cos:weapon:wardbreaker"
+ },
+ {
+  "id": "king",
+  "name": "Kingslayer",
+  "desc": "Slay the Ossuary King.",
+  "stat": "kings",
+  "goal": 1,
+  "reward": "cos:armor:kingslayer"
+ },
+ {
+  "id": "king_10",
+  "name": "Regicide",
+  "desc": "Slay the Ossuary King 10 times.",
+  "stat": "kings",
+  "goal": 10
+ },
+ {
+  "id": "seraph",
+  "name": "Judgement",
+  "desc": "Slay the Pale Seraph.",
+  "stat": "seraphs",
+  "goal": 1,
+  "reward": "cos:wings:judgement"
+ },
+ {
+  "id": "wave20",
+  "name": "Endless Vanguard",
+  "desc": "Reach wave 20 in Endless.",
+  "stat": "wave",
+  "goal": 20,
+  "reward": "cos:armor:vanguard"
+ },
+ {
+  "id": "wave40",
+  "name": "Unending",
+  "desc": "Reach wave 40 in Endless.",
+  "stat": "wave",
+  "goal": 40
+ },
+ {
+  "id": "mythic",
+  "name": "Fortune's Favour",
+  "desc": "Find a mythic item.",
+  "stat": "mythics",
+  "goal": 1,
+  "reward": "cos:dye:mythicgold"
+ },
+ {
+  "id": "ancestral_25",
+  "name": "Heirloom Hoarder",
+  "desc": "Find 25 ancestral items.",
+  "stat": "ancestrals",
+  "goal": 25
+ },
+ {
+  "id": "paragon50",
+  "name": "Paragon",
+  "desc": "Reach paragon level 50 on any hero.",
+  "stat": "paragon",
+  "goal": 50,
+  "reward": "cos:wings:ascendant"
+ },
+ {
+  "id": "maxed_all",
+  "name": "Many Faces",
+  "desc": "Get all four heroes to level 30.",
+  "stat": "maxed",
+  "goal": 4
+ },
+ {
+  "id": "full_house",
+  "name": "Full House",
+  "desc": "Clear a rift in a party of six.",
+  "stat": "party6",
+  "goal": 1
+ }
+]

@@ -56,6 +56,14 @@
    "fx": 0.1,
    "fy": 0.52,
    "desc": "Place decorations and change the theme"
+  },
+  {
+   "id": "journey",
+   "name": "Hall of Feats",
+   "tab": "journey",
+   "fx": 0.5,
+   "fy": 0.42,
+   "desc": "Feats and the season journey"
   }
  ],
  "portals": [
