@@ -136,7 +136,8 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
 function riftButtons() {
   const root = document.getElementById("ui")!;
   root.className = "hudbtns";
-  root.innerHTML = `<button id="b-inv">Bag</button><button id="b-leave">Leave</button>`;
+  root.innerHTML = `${sim?.boonOffers[ME] ? `<button id="b-boon" class="boon-ready">★ Boon${sim.boonPending?.[ME] ? ` ×${sim.boonPending[ME] + 1}` : ""}</button>` : ""}<button id="b-inv">Bag</button><button id="b-leave">Leave</button>`;
+  const bb = document.getElementById("b-boon"); if (bb) bb.onclick = () => openBoons();
   document.getElementById("b-inv")!.onclick = () => openRiftInventory();
   document.getElementById("b-leave")!.onclick = (e) => {
     const el = e.target as HTMLElement;
@@ -146,6 +147,11 @@ function riftButtons() {
   if (completeInfo) document.getElementById("b-leave")!.textContent = "Finish";
 }
 
+function openBoons() {
+  if (!sim?.boonOffers[ME]) return riftButtons();
+  pause();
+  ui.showBoons(sim.boonOffers[ME], (id) => { playerCmd({ type: "boon", id }); sfx.complete(); resume(); }, () => resume());
+}
 function resume() { paused = false; input.enabled = true; riftButtons(); }
 function pause() { if (canFreeze()) paused = true; input.enabled = false; }
 /** Inventory and boon picks: applied directly when nobody else shares the sim, otherwise sent as a tick input. */
@@ -352,9 +358,10 @@ function handleEvent(e: SimEvent) {
       syncFromSim(profile, sim!, ME);
       break;
     case "boonOffer":
+      // no pop-up mid-fight: a button appears, and the player opens it when it's safe
       if (!mine(e.pid) || !sim) break;
-      pause();
-      ui.showBoons(sim.boonOffers[ME], (id) => { playerCmd({ type: "boon", id }); sfx.complete(); resume(); });
+      showBanner("BOON READY", "Tap ★ Boon (top right) when it's safe", "#ffd23f", 2);
+      if (!ui.invOpen && !paused) riftButtons();
       break;
     case "sigil": if (mine(e.pid)) { gotSigil++; showBanner("BONE SIGIL", "Opens the Throne of the Ossuary King", "#ff3b6b", 2.5); } break;
     case "riftComplete":
@@ -682,7 +689,7 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
   c.scale(S, S);
   const W = cssW, H = cssH, ins = input.insets;
   const L = 10 + ins.left, T = 10 + ins.top;
-  const font = (px: number) => `${px}px "Pixelify Sans", ui-monospace, monospace`;
+  const font = (px: number) => `${px}px "GameFont", ui-monospace, monospace`;
   c.textAlign = "center"; c.textBaseline = "middle";
   for (const n of nums) {
     const k = n.t / 0.8;
@@ -1036,7 +1043,7 @@ function wireOnline(o: Online | Direct) {
       else { sim = s; coop.resyncing = false; coop.queue = []; }
       // events that happened inside the gap are gone; recover the ones that matter from state
       if (s.rift.done && !completeInfo) { completeInfo = { inTime: s.rift.doneAt <= s.rift.limit, time: s.rift.doneAt }; riftButtons(); }
-      if (s.boonOffers[ME] && !ui.invOpen) handleEvent({ type: "boonOffer", pid: ME });
+      if (s.boonOffers[ME] && !ui.invOpen) riftButtons();
       return;
     }
     if (!coop || coop.role !== "guest") return;

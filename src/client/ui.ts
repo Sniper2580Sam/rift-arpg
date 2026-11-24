@@ -493,11 +493,13 @@ export class UI {
     $("#close").onclick = () => { this.sel = null; onClose(); };
   }
 
-  showBoons(offer: string[], onPick: (id: string) => void) {
+  showBoons(offer: string[], onPick: (id: string) => void, onLater?: () => void) {
     this.root.className = "screen";
     this.root.innerHTML = `<div class="panel boons"><h2>Choose a boon</h2><div class="dim small">Lasts until the end of this rift.</div>
-      <div class="boon-list">${offer.map((id) => `<button class="boon" data-boon="${id}"><b>${esc(BOON[id].name)}</b><span>${esc(BOON[id].desc)}</span></button>`).join("")}</div></div>`;
+      <div class="boon-list">${offer.map((id) => `<button class="boon" data-boon="${id}"><b>${esc(BOON[id].name)}</b><span>${esc(BOON[id].desc)}</span></button>`).join("")}</div>
+      ${onLater ? `<button id="boon-later">Later</button>` : ""}</div>`;
     this.root.querySelectorAll<HTMLElement>("[data-boon]").forEach((el) => el.onclick = () => onPick(el.dataset.boon!));
+    const later = this.root.querySelector<HTMLElement>("#boon-later"); if (later && onLater) later.onclick = onLater;
   }
 
   showResults(r: { title: string; sub: string; time: number; kills: number; found: Record<string, number>; legendaries: { name: string; rarity: Rarity; quality?: string }[]; lines: string[] }, onBack: () => void) {

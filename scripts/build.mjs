@@ -7,7 +7,7 @@ const res = await build({
   define: { OFFLINE_TEST: live ? "false" : "true" },
 });
 const js = res.outputFiles[0].text.replace(/<\/script/g, "<\\/script");
-const font = readFileSync("assets/pixelify-latin.woff2").toString("base64");
+const font = readFileSync("assets/jersey10-latin.woff2").toString("base64");
 const html = readFileSync("index.html", "utf8").replace("/*FONT*/", font).replace("<script>/*GAME*/</script>", () => `<script>${js}</script>`);
 mkdirSync("dist", { recursive: true });
 const out = live ? "dist/index.live.html" : "dist/index.html";

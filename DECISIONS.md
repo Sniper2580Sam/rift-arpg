@@ -85,3 +85,8 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Cost in materials: 30 / 60 / 120 / 240 / 480 for +1 … +5. This gives scrap a second use.
 - 15% of legendary and set drops arrive at +1. This is decided from the item id, so it doesn't shift the random rolls.
 - ⚠ Balance: +5 on a full kit is a big power jump. The numbers are a first pass, and merging only happens in the hub.
+
+## Font, boon button, density (2026-11-24)
+- Font changed from Pixelify Sans (its 5 looked like an S) to Jersey 10, which is also pixel-style and OFL-licensed, at 130% size. Faux bold is off, because it smeared the pixels.
+- Boons no longer pop up mid-fight. A pulsing "★ Boon" button appears at the top right, and solo play pauses only while the picker is open. "Later" closes the picker. Boons earned while one is waiting stack up (×2, ×3).
+- Density up again: 80 packs (spacing 80), packs about 35% bigger, ambushes every 16–22 s starting with 6 enemies, and progress needed is 420. Tiers 1 and 2 use 55% and 80% density (and progress) so fresh characters aren't swamped.

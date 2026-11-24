@@ -103,7 +103,7 @@ export interface SimState {
   seed: number; tick: number; rng: Rng; map: TileMap; mint: "local" | "external";
   players: Player[]; enemies: Enemy[]; projectiles: Projectile[]; summons: Summon[]; hazards: Hazard[]; zones: Zone[]; loot: Loot[]; pending: Pending[];
   nextId: number; itemCounter: number; startX: number; startY: number;
-  rift: RiftState; boonOffers: Record<number, string[]>; pity: NonNullable<SimConfig["pity"]>;
+  rift: RiftState; boonOffers: Record<number, string[]>; /** offers earned while another was still unopened */ boonPending: Record<number, number>; pity: NonNullable<SimConfig["pity"]>;
   events: SimEvent[];
   _flows: Int16Array[]; _flowTick: number;
 }
@@ -138,10 +138,10 @@ export function createSim(cfg: SimConfig): SimState {
     players: [], enemies: [], projectiles: [], summons: [], hazards: [], zones: [], loot: [], pending: [],
     nextId: 1, itemCounter: 0, startX, startY,
     rift: {
-      kind, tier, mods, time: 0, limit: kind === "chase" ? RIFT.chase.timeLimit : RIFT.timeLimit, progress: 0, need: RIFT.progressNeeded,
+      kind, tier, mods, time: 0, limit: kind === "chase" ? RIFT.chase.timeLimit : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier)),
       guardianSpawned: false, guardianId: 0, done: false, doneAt: 0, kills: 0, timeUpSent: false, boonIdx: 0, nextWave: RIFT.waves.first,
     },
-    boonOffers: {}, pity: cfg.pity ?? {}, events: [], _flows: [], _flowTick: -999,
+    boonOffers: {}, boonPending: {}, pity: cfg.pity ?? {}, events: [], _flows: [], _flowTick: -999,
   };
   for (const ps of cfg.players) addPlayer(s, ps);
   const n = Math.max(1, s.players.length);
@@ -164,7 +164,7 @@ export function createSim(cfg: SimConfig): SimState {
     const elitePack = chance(rng, eliteChance);
     let first = true;
     for (const [ek, lo, hi] of pack.members as [EnemyKind, number, number][]) {
-      const cnt = Math.round(int(rng, lo, hi) * modVal(s, "packMult"));
+      const cnt = Math.max(1, Math.round(int(rng, lo, hi) * modVal(s, "packMult") * tierDensity(s.rift.tier)));
       for (let i = 0; i < cnt; i++) {
         const d = DIR_TABLE[int(rng, 0, 31)];
         const rr = range(rng, 0, 22);
@@ -288,6 +288,15 @@ function applyHostCmd(s: SimState, c: HostCmd) {
   }
 }
 
+function offerBoon(s: SimState, p: Player) {
+  const pool = BOONS.map((b) => b.id).filter((b) => !p.boons.includes(b));
+  const offer: string[] = [];
+  while (offer.length < 3 && pool.length) offer.push(pool.splice(Math.floor(next(s.rng) * pool.length), 1)[0]);
+  if (!offer.length) return;
+  s.boonOffers[p.pid] = offer;
+  s.events.push({ type: "boonOffer", pid: p.pid });
+}
+
 export function playerById(s: SimState, pid: number) { return s.players.find((p) => p.pid === pid); }
 
 export function applyPlayerCmd(s: SimState, p: Player, c: PlayerCmd): boolean {
@@ -297,6 +306,7 @@ export function applyPlayerCmd(s: SimState, p: Player, c: PlayerCmd): boolean {
     p.boons.push(c.id); delete s.boonOffers[p.pid];
     refreshAll(s);
     s.events.push({ type: "boonTaken", pid: p.pid, id: c.id });
+    if ((s.boonPending?.[p.pid] ?? 0) > 0) { s.boonPending[p.pid]--; offerBoon(s, p); }
     return true;
   }
   if (c.type === "setLoadout") {
@@ -1143,6 +1153,9 @@ function updateLoot(s: SimState) {
 
 // ------------------------------------------------------------------ rift
 /** Ambush: a pack spawns just off-screen around a random living player and hunts the party. */
+/** Fresh characters on tiers 1–2 meet thinner packs (and need less progress); full density from tier 3. */
+function tierDensity(tier: number) { const d = (RIFT as any).densityByTier as number[] | undefined; return d?.[tier - 1] ?? 1; }
+
 function ambush(s: SimState) {
   const r = s.rift, W = RIFT.waves;
   r.nextWave = r.time + range(s.rng, W.every[0], W.every[1]);
@@ -1157,7 +1170,7 @@ function ambush(s: SimState) {
   }
   if (!ok) return;
   const n = s.players.length;
-  const count = Math.round((W.base + W.perMinute * (r.time / 60)) * (1 + 0.5 * (n - 1)) * modVal(s, "packMult"));
+  const count = Math.round((W.base + W.perMinute * (r.time / 60)) * (1 + 0.5 * (n - 1)) * modVal(s, "packMult") * tierDensity(r.tier));
   const pack = weighted(s.rng, RIFT.packs);
   const kinds = (pack.members as [EnemyKind, number, number][]).map((m) => m[0]);
   for (let i = 0; i < count; i++) {
@@ -1181,12 +1194,11 @@ function updateRift(s: SimState) {
   const at = RIFT.boonsAt;
   if (r.kind === "rift" && r.boonIdx < at.length && (r.progress / r.need) * 100 >= at[r.boonIdx]) {
     r.boonIdx++;
+    if (!s.boonPending) s.boonPending = {};
+    // the player opens it when they're ready, so a new one waits behind an unopened one
     for (const p of s.players) {
-      const pool = BOONS.map((b) => b.id).filter((b) => !p.boons.includes(b));
-      const offer: string[] = [];
-      while (offer.length < 3 && pool.length) offer.push(pool.splice(Math.floor(next(s.rng) * pool.length), 1)[0]);
-      s.boonOffers[p.pid] = offer;
-      s.events.push({ type: "boonOffer", pid: p.pid });
+      if (s.boonOffers[p.pid]) { s.boonPending[p.pid] = (s.boonPending[p.pid] ?? 0) + 1; s.events.push({ type: "boonOffer", pid: p.pid }); }
+      else offerBoon(s, p);
     }
   }
   if (!r.guardianSpawned && r.progress >= r.need) {

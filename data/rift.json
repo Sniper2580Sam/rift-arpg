@@ -1,19 +1,19 @@
 {
   "name": "The Sunken Ossuary",
   "timeLimit": 420,
-  "progressNeeded": 320,
+  "progressNeeded": 420,
   "mapWidth": 84,
   "mapHeight": 84,
   "tileSize": 16,
-  "packCount": 58,
+  "packCount": 80,
   "packs": [
     {
       "weight": 55,
       "members": [
         [
           "ghoul",
-          5,
-          9
+          7,
+          12
         ]
       ]
     },
@@ -22,13 +22,13 @@
       "members": [
         [
           "archer",
-          2,
-          4
+          3,
+          5
         ],
         [
           "ghoul",
-          2,
-          4
+          3,
+          5
         ]
       ]
     },
@@ -38,12 +38,12 @@
         [
           "brute",
           1,
-          1
+          2
         ],
         [
           "ghoul",
-          3,
-          5
+          4,
+          6
         ]
       ]
     }
@@ -98,18 +98,22 @@
     "timeLimit": 360,
     "items": 4
   },
-  "packSpacing": 92,
+  "packSpacing": 80,
   "waves": {
-    "first": 35,
+    "first": 25,
     "every": [
-      22,
-      30
+      16,
+      22
     ],
     "distance": [
       170,
       230
     ],
-    "base": 5,
-    "perMinute": 1.2
-  }
+    "base": 6,
+    "perMinute": 1.5
+  },
+  "densityByTier": [
+    0.55,
+    0.8
+  ]
 }
