@@ -1039,13 +1039,15 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
   }
   if (miniCanvas) {
     const ms = Math.min(90, W * 0.22), mx = W - ms - 10 - ins.right, my = narrow ? topY + 54 : T + 40;
-    c.globalAlpha = 0.85; panel(c, mx - 3, my - 3, ms + 6, ms + 6);
-    c.imageSmoothingEnabled = false; c.drawImage(miniCanvas, mx, my, ms, ms);
-    const k = ms / (s.map.w * s.map.ts);
-    for (const e of s.enemies) if (!e.dead && e.kind !== "guardian" && e.kind !== "king") { c.fillStyle = e.elite ? "#c9a0ff" : "#d93a3a"; c.fillRect(mx + e.x * k - 1, my + e.y * k - 1, e.elite ? 3 : 2, e.elite ? 3 : 2); }
-    if (gd) { c.fillStyle = "#ffd23f"; c.fillRect(mx + gd.x * k - 3, my + gd.y * k - 3, 6, 6); }
-    for (const l of s.loot) if (l.owner === ME && RARITY_ORDER_IDX(l.item.rarity) >= 2) { c.fillStyle = RARITY_COLOR[l.item.rarity]; c.fillRect(mx + l.x * k - 2, my + l.y * k - 2, 4, 4); }
-    for (const q of s.players) { c.fillStyle = q.pid === ME ? "#fff" : "#7dff9a"; c.fillRect(mx + q.x * k - 2, my + q.y * k - 2, 4, 4); }
+    // keep the map's shape: a wide map gets a wide, short minimap (markers and map share one scale)
+    const k = ms / (Math.max(s.map.w, s.map.h) * s.map.ts), mw = s.map.w * s.map.ts * k, mh = s.map.h * s.map.ts * k;
+    c.globalAlpha = 0.85; panel(c, mx + ms - mw - 3, my - 3, mw + 6, mh + 6);
+    const ox = mx + ms - mw;
+    c.imageSmoothingEnabled = false; c.drawImage(miniCanvas, ox, my, mw, mh);
+    for (const e of s.enemies) if (!e.dead && e.kind !== "guardian" && e.kind !== "king") { c.fillStyle = e.elite ? "#c9a0ff" : "#d93a3a"; c.fillRect(ox + e.x * k - 1, my + e.y * k - 1, e.elite ? 3 : 2, e.elite ? 3 : 2); }
+    if (gd) { c.fillStyle = "#ffd23f"; c.fillRect(ox + gd.x * k - 3, my + gd.y * k - 3, 6, 6); }
+    for (const l of s.loot) if (l.owner === ME && RARITY_ORDER_IDX(l.item.rarity) >= 2) { c.fillStyle = RARITY_COLOR[l.item.rarity]; c.fillRect(ox + l.x * k - 2, my + l.y * k - 2, 4, 4); }
+    for (const q of s.players) { c.fillStyle = q.pid === ME ? "#fff" : "#7dff9a"; c.fillRect(ox + q.x * k - 2, my + q.y * k - 2, 4, 4); }
     c.globalAlpha = 1;
   }
   }
