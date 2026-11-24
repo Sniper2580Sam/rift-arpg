@@ -35,6 +35,8 @@ export interface MintOpts {
   equipment?: Holder["equipment"]; // smart loot
   /** smart loot: the class the drop is for (legendaries, sets, affixes and base names lean towards it) */
   cls?: string;
+  /** crafting: this exact set (with slot) */
+  set?: string;
 }
 
 function rollRarity(r: Rng, o: MintOpts): Rarity {
@@ -72,7 +74,7 @@ export function mintItem(r: Rng, id: string, o: MintOpts = {}): Item {
     const counts: Record<string, number> = {};
     for (const it of Object.values(eq)) if (it?.set) counts[it.set] = (counts[it.set] ?? 0) + 1;
     const opts: { set: string; slot: SlotType }[] = [];
-    for (const s of SETS) for (const sl of Object.keys(s.pieces) as SlotType[]) if (!o.slot || o.slot === sl) opts.push({ set: s.id, slot: sl });
+    for (const s of SETS) for (const sl of Object.keys(s.pieces) as SlotType[]) if ((!o.slot || o.slot === sl) && (!o.set || o.set === s.id)) opts.push({ set: s.id, slot: sl });
     // smart loot: strongly favour missing pieces of the set you're building
     const choice = weightedPick(r, opts, (c) => (1 + (counts[c.set] ?? 0) * 3 * (pieceOwned(eq, c.set, c.slot) ? 0.2 : 1)) * (o.cls ? classAffinity(o.cls, SET[c.set].tag) : 1));
     set = choice.set; slot = choice.slot; setName = SET[set].pieces[slot]!;
@@ -130,6 +132,16 @@ export function shardValue(it: Item): number {
 }
 const scaleVal = (v: number, m: number) => (Number.isInteger(v) ? Math.round(v * m) : Math.round(v * m * 10) / 10);
 /** The item as it counts in a slot upgraded to `plus` (with an optional masterwork crit affix): values scaled. */
+/** Hallowed: a legendary or set item made ancestral (its numbers grow by the ancestral multiplier). */
+export function hallowItem(it: Item): Item {
+  const m = ITEMS.ancestralMult;
+  return {
+    ...it, quality: "ancestral",
+    dmgMin: it.dmgMin !== undefined ? scaleVal(it.dmgMin, m) : undefined, dmgMax: it.dmgMax !== undefined ? scaleVal(it.dmgMax, m) : undefined,
+    armor: it.armor ? scaleVal(it.armor, m) : it.armor,
+    affixes: it.affixes.map((a) => ({ ...a, value: scaleVal(a.value, m) })),
+  };
+}
 export function scaledItem(it: Item, plus = 0, crit?: string): Item {
   const m = slotMult(plus);
   if (m === 1 && !(crit && it.affixes.some((a) => a.id === crit))) return it;

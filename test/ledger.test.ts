@@ -173,6 +173,22 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   check("bounty pays dust once and counts", p.relicDust === 5 && p.life!.bounties === 1);
 }
 
+{ // boss trophies: the King pays shards, the Seraph a Hallow; crafting gives the chosen set piece; hallowing makes it ancestral
+  const p = newProfile(), c = p.chars.ashknight; c.level = 30;
+  applySave(p, "ashknight", base(p) as any, member(), { kind: "chase", tier: 8, completed: true, inTime: true, time: 200 }, 1);
+  applySave(p, "ashknight", base(p) as any, member(), { kind: "chase", boss: "seraph", tier: 8, completed: true, inTime: true, time: 200 }, 1);
+  check("King shards and a Seraph Hallow", p.kingShards === 5 && p.hallows === 1);
+  p.kingShards = 10;
+  const p2 = JSON.parse(JSON.stringify(p));
+  check("craft the chosen set piece", applyHubOp(p, { t: "craftSet", set: "embersworn", slot: "helm" }) === true && c.bag.at(-1)?.set === "embersworn" && c.bag.at(-1)?.slot === "helm" && p.kingShards === 0);
+  applyHubOp(p2, { t: "craftSet", set: "embersworn", slot: "helm" });
+  check("crafting is the same on client and server", JSON.stringify(p2.chars.ashknight.bag.at(-1)) === JSON.stringify(c.bag.at(-1)));
+  check("craft needs shards", applyHubOp(p, { t: "craftSet", set: "embersworn", slot: "chest" }) === false);
+  const before = c.bag.at(-1)!;
+  check("hallow makes it ancestral", applyHubOp(p, { t: "hallow", bag: c.bag.length - 1 }) === true && c.bag.at(-1)!.quality === "ancestral" && c.bag.at(-1)!.affixes[0].value >= before.affixes[0].value && p.hallows === 0);
+  check("can't hallow twice", applyHubOp(p, { t: "hallow", bag: c.bag.length - 1 }) === false);
+}
+
 if (fails) { console.log(`${fails} ledger checks failed`); process.exit(1); }
 console.log("ledger: all checks passed");
 

@@ -198,6 +198,13 @@
     "dust": 3,
     "dustPerTiers": 5
   },
+  "trophies": {
+    "kingShards": 3,
+    "kingShardsInTime": 2,
+    "craftCost": 10,
+    "seraphHallows": 1,
+    "hallowCost": 1
+  },
   "reliquary": {
     "extractCost": 2,
     "unlock": { "weapon": 0, "armor": 5, "jewelry": 15 }

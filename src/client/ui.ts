@@ -4,7 +4,7 @@ import { AFFIX as AFFIX_DEF } from "../sim/data";
 import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
-import { RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -143,7 +143,7 @@ export class UI {
     const tabs = (["play", "gear", "skills", "looks", "shop", "journey", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}"${t === "settings" ? ` aria-label="Settings"` : ""}>${t === "settings" ? "⚙" : t[0].toUpperCase() + t.slice(1)}</button>`).join("");
     let body = "";
     if (this.tab === "play") body = this.playTab(p, c, H);
-    if (this.tab === "gear") body = this.gemsHtml(c) + this.relicsHtml(p, c) + this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
+    if (this.tab === "gear") body = this.gemsHtml(c) + this.relicsHtml(p, c) + this.trophiesHtml(p, c) + this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
     if (this.tab === "skills") body = this.skillsTab(c);
     if (this.tab === "looks") body = this.looksTab(p);
     if (this.tab === "shop") body = this.shopTab(p, H);
@@ -164,6 +164,12 @@ export class UI {
     const cl = this.root.querySelector<HTMLElement>("#hub-close"); if (cl) cl.onclick = () => H.close!();
     if (this.tab === "play") this.bindPlay(p, c, H, re);
     if (this.tab === "gear") this.bindGear(p, { equipment: c.equipment, bag: c.bag, materials: p.materials }, H, re, true);
+    const cs = this.root.querySelector<HTMLSelectElement>("[data-craft-set]"); if (cs) cs.onchange = () => { this.craftSet = cs.value; re(); };
+    this.root.querySelectorAll<HTMLElement>("[data-craft]").forEach((el) => el.onclick = () => { const [set, slot] = el.dataset.craft!.split(":"); H.op?.({ t: "craftSet", set, slot }); this.toast("Crafted. It's in your bag.", "#7dff9a"); re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-hallow]").forEach((el) => el.onclick = () => {
+      if (el.dataset.sure !== "1") { el.dataset.sure = "1"; el.textContent = "Tap again to hallow"; return; }
+      const [k, v] = el.dataset.hallow!.split(":"); H.op?.(k === "bag" ? { t: "hallow", bag: +v } : { t: "hallow", slot: v }); this.toast("Now ancestral", "#ffd23f"); re();
+    });
     this.root.querySelectorAll<HTMLElement>("[data-relic]").forEach((el) => el.onclick = () => { const [sl, id] = el.dataset.relic!.split(":"); H.op?.({ t: "relic", slot: sl, id: id || null }); re(); });
     this.root.querySelectorAll<HTMLElement>("[data-extract]").forEach((el) => el.onclick = () => {
       if (el.dataset.sure !== "1") { el.dataset.sure = "1"; el.textContent = "Tap again: destroy and extract"; return; }
@@ -451,6 +457,21 @@ export class UI {
   }
 
   /** Paragon: shown once you hit max level. Points go into four capped stats; respec is free. */
+  /** Boss trophies: King's Shards craft a chosen set piece; Seraph Hallows make a legendary or set item ancestral. */
+  craftSet = "";
+  private trophiesHtml(p: Profile, c: CharSave) {
+    const sh = p.kingShards ?? 0, ha = p.hallows ?? 0, T = RIFT.trophies;
+    if (!sh && !ha) return `<div class="setting dim small">Boss trophies: the Ossuary King drops King's Shards (craft any set piece) and the Pale Seraph drops Hallows (make an item ancestral).</div>`;
+    const sets = [...SETS].sort((a, b) => classAffinity(c.cls, b.tag) - classAffinity(c.cls, a.tag));
+    const cur = SET[this.craftSet] ? this.craftSet : sets[0].id, S = SET[cur];
+    const craft = `<div class="relic-row"><b>Craft a set piece</b> <span class="dim small">${T.craftCost} shards each, at your level</span>
+      <div><select data-craft-set>${sets.map((s) => `<option value="${s.id}" ${s.id === cur ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></div>
+      <div class="opts">${(Object.entries(S.pieces) as [string, string][]).map(([sl, name]) => `<button data-craft="${cur}:${sl}" ${sh >= T.craftCost && c.bag.length < BAG_SIZE ? "" : "disabled"}>${esc(name)}</button>`).join("")}</div></div>`;
+    const elig = [...Object.entries(c.equipment).map(([sl, it]) => ({ it: it!, key: `slot:${sl}` })), ...c.bag.map((it, i) => ({ it, key: `bag:${i}` }))].filter(({ it }) => it && !it.quality && (it.rarity === "legendary" || it.rarity === "set"));
+    const hallow = ha ? `<div class="relic-row"><b>Hallow an item</b> <span class="dim small">${T.hallowCost} Hallow: makes it ancestral (+${Math.round((ITEMS.ancestralMult - 1) * 100)}% to its numbers)</span>
+      <div class="opts">${elig.length ? elig.map(({ it, key }) => `<button data-hallow="${key}" style="color:${RARITY_COLOR[it.rarity]}">${esc(it.name)}${key.startsWith("slot") ? " (worn)" : ""}</button>`).join("") : `<span class="dim small">No legendary or set item that isn't ancestral yet.</span>`}</div></div>` : "";
+    return `<div class="setting"><b>Boss trophies</b> <span class="dim small">${sh} King's Shards · ${ha} Seraph Hallow${ha === 1 ? "" : "s"}</span>${sh ? craft : ""}${hallow}</div>`;
+  }
   /** Reliquary: extract a legendary's power (the item is destroyed) and wear up to 3 powers on top of your gear. */
   private relicsHtml(p: Profile, c: CharSave) {
     const own = p.relics ?? [], dust = p.relicDust ?? 0, bounties = lifeStats(p).bounties, cost = RIFT.reliquary.extractCost;

@@ -21,6 +21,8 @@ export interface CharSave {
   paragon?: number; pxp?: number; pAlloc?: Partial<Record<string, number>>; pityAnc: number; pityPri: number; sigils: number; feathers?: number;
   /** rift gems owned (id -> level) and socketed (up to 3) */
   gems?: Record<string, number>; gemSlots?: string[];
+  /** set pieces crafted (seeds the next craft) */
+  crafted?: number;
   /** reliquary: an extracted legendary power per slot */
   relicSlots?: Partial<Record<"weapon" | "armor" | "jewelry", string>>;
   riftsCleared: number; bestTimes: Record<string, number>;
@@ -48,6 +50,8 @@ export interface Profile {
   aether?: number;
   /** reliquary (account-wide): extracted legendary powers and Relic Dust */
   relics?: string[]; relicDust?: number;
+  /** boss trophies (account-wide, reset with the season) */
+  kingShards?: number; hallows?: number;
   /** this season's journey counters (reset with the season) */
   journey?: { season: number; stats: Partial<Life> };
   weekly: { week: string; best: number };

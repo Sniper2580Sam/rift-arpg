@@ -157,6 +157,12 @@ export function bumpLife(L: Life, t: RunTally): Life {
   }
   return L;
 }
+/** Boss trophies from a run: King's Shards (craft a chosen set piece) and Seraph Hallows (make an item ancestral). */
+export function trophiesForRun(t: RunTally): { shards: number; hallows: number } {
+  const T = RIFT.trophies;
+  if (!t.completed || t.kind !== "chase") return { shards: 0, hallows: 0 };
+  return t.boss === "seraph" ? { shards: 0, hallows: T.seraphHallows } : { shards: T.kingShards + (t.inTime ? T.kingShardsInTime : 0), hallows: 0 };
+}
 /** Relic Dust from a run: finished bounties only. */
 export const dustForRun = (t: RunTally) => (t.completed && t.kind === "bounty" ? RIFT.bounty.dust + Math.floor(t.tier / RIFT.bounty.dustPerTiers) : 0);
 

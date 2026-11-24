@@ -1,7 +1,8 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
-import { LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
-import { Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
+import { makeRng } from "../sim/rng";
+import { SET, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
+import { hallowItem, mintItem, Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
 export type HubOp =
@@ -24,6 +25,8 @@ export type HubOp =
   | { t: "gem"; slot: number; id: string | null }
   | { t: "buyAether"; pack: string }
   | { t: "extract"; bag: number }
+  | { t: "craftSet"; set: string; slot: string }
+  | { t: "hallow"; bag?: number; slot?: string }
   | { t: "relic"; slot: string; id: string | null }
   | { t: "hideout"; theme?: string; place?: { id: string; x: number; y: number }; remove?: number }
   | { t: "newSeason" }
@@ -147,6 +150,25 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       if ((p.aether ?? 0) < item.price) return false;
       p.aether = (p.aether ?? 0) - item.price;
       p.owned.push(item.key);
+      return true;
+    }
+    case "craftSet": {
+      // King's Shards: craft the set piece you choose, at your level. Seeded from the hero's craft count, so the result is the same on the server.
+      const S = SET[op.set], sl = op.slot as SlotType;
+      if (!S || !S.pieces[sl] || (p.kingShards ?? 0) < RIFT.trophies.craftCost || c.bag.length >= BAG_SIZE) return false;
+      p.kingShards = (p.kingShards ?? 0) - RIFT.trophies.craftCost;
+      const n = (c.crafted ?? 0) + 1; c.crafted = n;
+      let h = 2166136261; for (const ch of `${c.cls}:${op.set}:${sl}:${n}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+      c.bag.push(mintItem(makeRng(h >>> 0), `craft-${c.cls}-${n}-${(h >>> 0).toString(36)}`, { rarity: "set", set: op.set, slot: sl, ilvl: c.level, cls: c.cls }));
+      return true;
+    }
+    case "hallow": {
+      // Seraph Hallow: make a legendary or set item ancestral
+      const it = op.bag !== undefined ? c.bag[op.bag] : op.slot ? c.equipment[op.slot as EquipSlot] : undefined;
+      if (!it || it.quality || !(it.rarity === "legendary" || it.rarity === "set") || (p.hallows ?? 0) < RIFT.trophies.hallowCost) return false;
+      p.hallows = (p.hallows ?? 0) - RIFT.trophies.hallowCost;
+      const nu = hallowItem(it);
+      if (op.bag !== undefined) c.bag[op.bag] = nu; else c.equipment[op.slot as EquipSlot] = nu;
       return true;
     }
     case "extract": {
