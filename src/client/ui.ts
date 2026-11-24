@@ -1,5 +1,5 @@
 // DOM screens: hub (play / gear / skills / settings), inventory with compare + reroll, boon picker, results.
-import { BOON, CLASSES, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { BOON, CLASSES, COSMETICS, CosKind, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -77,7 +77,7 @@ function isUpgrade(h: Holder, it: Item, ctx: { cls: string; level: number }): bo
   return effectiveDps(b) > effectiveDps(a) * 1.02;
 }
 
-type Tab = "play" | "gear" | "skills" | "settings";
+type Tab = "play" | "gear" | "skills" | "looks" | "settings";
 export interface HubHandlers {
   enter: (o: { tier: number; seed: number | null; kind: "rift" | "chase"; weekly?: boolean }) => void;
   invCmd: (c: InvCmd) => void;
@@ -118,11 +118,12 @@ export class UI {
     this.tier = Math.min(Math.max(1, this.tier), c.highestTier);
     this.root.className = "screen";
     const cd = CLASSES[c.cls];
-    const tabs = (["play", "gear", "skills", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("");
+    const tabs = (["play", "gear", "skills", "looks", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("");
     let body = "";
     if (this.tab === "play") body = this.playTab(p, c, H);
     if (this.tab === "gear") body = this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials }, true);
     if (this.tab === "skills") body = this.skillsTab(c);
+    if (this.tab === "looks") body = this.looksTab(p);
     if (this.tab === "settings") body = this.settingsTab(p);
     this.root.innerHTML = `
       <div class="panel hub">
@@ -142,6 +143,7 @@ export class UI {
       this.root.querySelectorAll<HTMLElement>("[data-slot]").forEach((el) => el.onclick = () => { this.skSlot = +el.dataset.slot!; re(); });
       this.root.querySelectorAll<HTMLElement>("[data-equip]").forEach((el) => el.onclick = () => { H.setSkill(this.skSlot, el.dataset.equip!); re(); });
     }
+    if (this.tab === "looks") this.bindLooks(p, H, re);
     if (this.tab === "settings") this.bindSettings(p, H, re);
   }
 
@@ -316,6 +318,44 @@ export class UI {
     }).join("");
     const groups = ([["generator", "Generators: build " + R.name], ["core", "Core: spend " + R.name], ["support", "Support"], ["ultimate", "Ultimate (one at a time)"]] as const).map(([t, title]) => `<h3 class="sk-type">${title}</h3>${group(t, title)}`).join("");
     return `<div class="dim small">Pick any 4 skills, with at most one ultimate. Tap a slot, then a skill to put there. ${esc(R.name)}: ${R.regen ? `refills ${R.regen} per second` : `built by hits, fades after ${R.decayAfter}s out of combat`}, max ${R.max}. Runes unlock by using a skill.</div><div class="sk-bar">${slots}</div>${groups}`;
+  }
+
+  // ---------------------------------------------------------------- looks (cosmetics)
+  private looksTab(p: Profile) {
+    const cur = p.cos ?? {};
+    const swatch = (c: Record<string, any>) => {
+      const cols = [c.m ?? c.X ?? c.blade ?? c.a, c.d ?? c.x ?? c.wood ?? c.b, c.t1 ?? c.U ?? c.gem ?? c.eye].filter(Boolean);
+      return cols.length ? `<i class="sw">${cols.map((x) => `<i style="background:${x}"></i>`).join("")}</i>` : "";
+    };
+    const group = (kind: CosKind, title: string, note: string) => `<div class="setting"><b>${title}</b>${note ? ` <span class="dim small">${note}</span>` : ""}
+      <div class="opts">${COSMETICS[kind].map((c, i) => { const on = (cur[kind] ?? COSMETICS[kind][0].id) === c.id; return `<button class="${on ? "on" : ""}" data-cos="${kind}:${c.id}">${swatch(c as any)}${esc(c.name)}</button>`; }).join("")}</div></div>`;
+    return `<div class="look-prev"><canvas id="lookPrev" width="96" height="64"></canvas><div class="dim small">Cosmetics only change how you look. Other players see them in co-op. All of them are free in this test build.</div></div>
+      ${group("armor", "Armour", "")}${group("wings", "Wings", "")}${group("weapon", "Weapon", "")}${group("petSkin", "Pet skin", p.pet === "none" ? "pick a pet in Settings to see it" : "")}`;
+  }
+  private bindLooks(p: Profile, H: HubHandlers, re: () => void) {
+    this.root.querySelectorAll<HTMLElement>("[data-cos]").forEach((el) => el.onclick = () => { const [k, v] = el.dataset.cos!.split(":"); H.setting("cos." + k, v); re(); });
+    const cv = this.root.querySelector<HTMLCanvasElement>("#lookPrev");
+    if (!cv) return;
+    const g = cv.getContext("2d")!; g.imageSmoothingEnabled = false;
+    const cls = char(p).cls, cos = p.cos ?? {};
+    const hero = this.bank.heroSkin(cls, cos.armor, cos.weapon), wings = this.bank.wings(cos.wings), pet = p.pet !== "none" ? this.bank.pet(p.pet, cos.petSkin) : null;
+    const ghost = (COSMETICS.petSkin.find((c) => c.id === cos.petSkin) as any)?.ghost;
+    const S = 3, t0 = performance.now();
+    const blit = (sp: { img: HTMLCanvasElement; w: number; h: number }, x: number, y: number, flip = false) => {
+      const w = sp.w * S, h = sp.h * S, dx = Math.round(x - w / 2), dy = Math.round(y - h);
+      if (flip) { g.save(); g.translate(dx + w, dy); g.scale(-1, 1); g.drawImage(sp.img, 0, 0, w, h); g.restore(); } else g.drawImage(sp.img, dx, dy, w, h);
+    };
+    const frame = () => {
+      if (!cv.isConnected) return;
+      const t = (performance.now() - t0) / 1000;
+      g.clearRect(0, 0, cv.width, cv.height);
+      const x = 40, y = 58;
+      if (wings) blit(wings[Math.floor(t * 3) % 2], x, y - 5 * S + Math.round(Math.sin(t * 2)) * S);
+      blit(hero[1 + (Math.floor(t * 4) % 2)], x, y);
+      if (pet) { g.globalAlpha = ghost ? 0.6 : 1; blit(pet[Math.floor(t * 6) % 2], 80, y - (p.pet === "bat" ? 10 + Math.sin(t * 5) * 4 : 0), true); g.globalAlpha = 1; }
+      requestAnimationFrame(frame);
+    };
+    frame();
   }
 
   // ---------------------------------------------------------------- settings

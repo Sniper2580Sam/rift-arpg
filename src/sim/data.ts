@@ -11,6 +11,7 @@ import elitesJson from "../../data/elites.json";
 import modifiersJson from "../../data/modifiers.json";
 import boonsJson from "../../data/boons.json";
 import petsJson from "../../data/pets.json";
+import cosmeticsJson from "../../data/cosmetics.json";
 
 export type SlotType = "weapon" | "offhand" | "helm" | "shoulders" | "chest" | "bracers" | "gloves" | "belt" | "pants" | "boots" | "amulet" | "ring";
 export type EquipSlot = Exclude<SlotType, "ring"> | "ring1" | "ring2";
@@ -54,6 +55,12 @@ export const MODIFIER = Object.fromEntries(MODIFIERS.map((m) => [m.id, m])) as R
 export const BOONS = boonsJson as unknown as BoonDef[];
 export const BOON = Object.fromEntries(BOONS.map((b) => [b.id, b])) as Record<string, BoonDef>;
 export const PETS = petsJson as unknown as { id: string; name: string; desc?: string }[];
+/** Visual-only cosmetics. Each entry carries its own colours; the client draws them. */
+export type CosKind = "armor" | "wings" | "weapon" | "petSkin";
+export interface Cosmetic { id: string; name: string; [k: string]: string | number }
+export const COSMETICS = cosmeticsJson as unknown as Record<CosKind, Cosmetic[]>;
+export const COS_KINDS: CosKind[] = ["armor", "wings", "weapon", "petSkin"];
+export type CosChoice = Partial<Record<CosKind, string>>;
 
 export const RARITY_ORDER: Rarity[] = ["common", "magic", "rare", "legendary", "set", "mythic"];
 export const slotTypeOf = (e: EquipSlot): SlotType => (e === "ring1" || e === "ring2" ? "ring" : e);

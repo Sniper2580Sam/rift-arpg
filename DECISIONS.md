@@ -40,3 +40,8 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Draft skill list: https://claude.ai/artifact/YUPZdMQxC5sKxrMwdLuYxh
 - **Stormcaller (slice 1):** 13 skills across the 4 types, Mana (150, +8/s). Default bar: Spark, Chain Lightning, Blink, Arcane Orb. Damage skills are tagged area or single target. The new "Area of effect" affix grows the radius of area skills only (capped at +100%). Runes for the new skills come in a later slice. A fresh mage bot clears Tier 1 in about the same time as the other classes (seed-dependent).
 - **Bigger hero on phones:** touch screens zoom in about a third more (pixel scale divisor 165 instead of 210). Desktop is unchanged.
+
+## Cosmetics (Samuel, 2026-11-24)
+- New **Looks** tab: 7 armour skins, 5 wings, 5 weapon skins and 5 pet skins, all drawn in code (palette swaps plus a wing sprite and small glow effects). Other players see them in co-op. They never touch the sim's numbers.
+- One look per account, shared by all classes (like pets). Each armour skin recolours every class in its own way.
+- **All cosmetics are free in this test build.** How they're earned or sold (the brief's cosmetics-only monetisation) is a later slice: a store, season rewards, or achievements. The server already refuses unknown cosmetic ids, so adding ownership later is one check.

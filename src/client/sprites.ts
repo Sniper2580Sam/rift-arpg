@@ -1,5 +1,5 @@
 // All art is drawn in code: palette-indexed string arrays rendered once to offscreen canvases and cached.
-import type { Rarity, SlotType as Slot } from "../sim/data";
+import { COSMETICS, Rarity, SlotType as Slot } from "../sim/data";
 
 export type Sprite = { img: HTMLCanvasElement; flash: HTMLCanvasElement; w: number; h: number };
 
@@ -389,17 +389,53 @@ const PETS: Record<string, string[][]> = {
   slime: [["..LLL..", ".LLLLL.", "LLkLkLL", "LLLLLLL", "lllllll"], ["...L...", ".LLLLL.", "LLkLkLL", "LLLLLLL", ".lllll."]],
   fox: [["k.....k.", "Fk...kF.", "FFFFFFk.", "FkFFkF..", ".FFFFFFF", "..F..F.f"], ["k.....k.", "Fk...kF.", "FFFFFFk.", "FkFFkF..", ".FFFFFFF", ".F....Ff"]],
 };
+// wings: the left wing, body side on the right; the pair is this plus its mirror. Two flap frames.
+const WING: Record<string, string[][]> = {
+  feather: [
+    ["k........", "Uk.......", "UXk......", "UXXk.....", ".UXXkk...", ".UXXXXkk.", "..UxXXXXk", "..UxxxXk.", "...UxXk..", "....kk..."],
+    [".........", ".........", ".........", "kk.......", "UXkk.....", "UXXXkk...", ".UXXXXkkk", ".UxxXXXXk", "..UxxxXk.", "...Uxxk..", "....kk..."],
+  ],
+  membrane: [
+    ["k........", "kUk......", "kXXk.....", "kXxXk....", "kXxXXkk..", "kXxXxXXkk", "kXkXxXXXk", "k.kkXkXk.", "....k.k.."],
+    [".........", ".........", "kk.......", "kUXk.....", "kXxXXk...", "kXxXxXXkk", "kXxXxXXXk", ".kkXkXkk.", "...k.k..."],
+  ],
+};
+const WING_GAP = 4;
+function wingPair(left: string[], gap: number): string[] {
+  const h = left.length, w = Math.max(...left.map((r) => r.length));
+  return left.map((r) => { const l = r.padEnd(w, "."); return l + ".".repeat(gap) + [...l].reverse().join(""); }).concat([]).slice(0, h);
+}
+const HERO_KEYS: Record<string, (c: Record<string, string>) => Record<string, string>> = {
+  ashknight: (c) => ({ A: c.m, a: c.d, R: c.t2, r: c.t1 }),
+  gloomstalker: (c) => ({ H: c.d, h: c.m, b: c.t2 }),
+  stormcaller: (c) => ({ T: c.d, t: c.m }),
+};
+const PET_KEYS: Record<string, (c: Record<string, string>) => Record<string, string>> = {
+  bat: (c) => ({ M: c.a, m: c.b, e: c.eye }),
+  slime: (c) => ({ L: c.a, l: c.b }),
+  fox: (c) => ({ F: c.a, f: c.b }),
+};
+const cosOf = (kind: "armor" | "wings" | "weapon" | "petSkin", id: string | undefined) => COSMETICS[kind].find((x) => x.id === id) as Record<string, any> | undefined;
+
 const PYLON = ["..kk..", ".kwwk.", ".kwyk.", "kwwwwk", "kwyywk", "kwwwwk", "kWWWWk", "kkkkkk"];
 
 export interface SpriteBank {
   hero: Sprite[]; ranger: Sprite[]; mage: Sprite[]; raven: Sprite[]; pets: Record<string, Sprite[]>; pylon: Sprite[];
   ghoul: Sprite[]; archer: Sprite[]; brute: Sprite[]; guardian: Sprite[]; imp: Sprite[];
   icon: (slot: Slot, rarity: Rarity) => Sprite;
+  /** hero frames in an armour + weapon skin */
+  heroSkin: (cls: string, armor?: string, weapon?: string) => Sprite[];
+  /** wing pair frames (up, down), or null for none */
+  wings: (id?: string) => Sprite[] | null;
+  pet: (pet: string, skin?: string) => Sprite[] | null;
 }
 
 export function buildSprites(): SpriteBank {
   const hero = HERO_LEGS.map((legs) => make([...HERO_TOP, ...legs]));
   const iconCache = new Map<string, Sprite>();
+  const skinCache = new Map<string, Sprite[] | null>();
+  const cached = (key: string, f: () => Sprite[] | null) => { if (!skinCache.has(key)) skinCache.set(key, f()); return skinCache.get(key)!; };
+  const heroRows = (cls: string) => (cls === "gloomstalker" ? RANGER_LEGS.map((l) => [...RANGER_TOP, ...l]) : cls === "stormcaller" ? MAGE_LEGS.map((l) => [...MAGE_TOP, ...l]) : HERO_LEGS.map((l) => [...HERO_TOP, ...l]));
   return {
     hero,
     ranger: RANGER_LEGS.map((legs) => make([...RANGER_TOP, ...legs])),
@@ -412,6 +448,28 @@ export function buildSprites(): SpriteBank {
     brute: BRUTE.map((r) => make(r)),
     guardian: [make(GUARDIAN)],
     imp: IMP.map((r) => make(r)),
+    heroSkin(cls, armor, weapon) {
+      return cached(`h:${cls}:${armor}:${weapon}`, () => {
+        const a = cosOf("armor", armor), w = cosOf("weapon", weapon);
+        const pal = { ...BASE, ...(a?.m ? (HERO_KEYS[cls] ?? HERO_KEYS.ashknight)(a) : {}), ...(w?.wood ? { n: w.wood, Z: w.gem } : {}) };
+        return heroRows(cls).map((r) => make(r, pal));
+      })!;
+    },
+    wings(id) {
+      return cached(`w:${id}`, () => {
+        const c = cosOf("wings", id);
+        if (!c?.shape) return null;
+        return WING[c.shape].map((left) => make(wingPair(left, WING_GAP), { ...BASE, X: c.X, x: c.x, U: c.U }));
+      });
+    },
+    pet(pet, skin) {
+      return cached(`p:${pet}:${skin}`, () => {
+        if (!PETS[pet]) return null;
+        const c = cosOf("petSkin", skin);
+        const pal = { ...BASE, ...(c?.a ? (PET_KEYS[pet]?.(c) ?? {}) : {}) };
+        return PETS[pet].map((r) => make(r, pal));
+      });
+    },
     icon(slot, rarity) {
       const key = slot + rarity;
       let s = iconCache.get(key);

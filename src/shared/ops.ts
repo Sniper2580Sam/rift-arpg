@@ -1,6 +1,6 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
-import { CLASSES, EquipSlot, LOADOUT_SIZE, SKILL, validLoadout } from "../sim/data";
+import { CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, LOADOUT_SIZE, SKILL, validLoadout } from "../sim/data";
 import { Affix, InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { Profile, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
@@ -59,6 +59,12 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
     case "setting":
       if (op.k === "filter") { if (!FILTERS.has(op.v)) return false; p.filter = op.v; return true; }
       if (op.k === "pet") { if (!p.unlockedPets.includes(op.v)) return false; p.pet = op.v; return true; }
+      if (op.k.startsWith("cos.")) {
+        // cosmetics: every one is free in this build (no store yet), so any catalogue id is valid
+        const kind = op.k.slice(4) as CosKind;
+        if (!COS_KINDS.includes(kind) || !COSMETICS[kind].some((x) => x.id === op.v)) return false;
+        p.cos = { ...(p.cos ?? {}), [kind]: op.v }; return true;
+      }
       if (SETTINGS.has(op.k)) { (p.settings as any)[op.k] = !!op.v; return true; }
       return false;
     case "newSeason": return startNewSeason(p);

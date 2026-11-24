@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { CLASSES, ENEMIES, MODIFIER, RIFT, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { CLASSES, COSMETICS, ENEMIES, MODIFIER, RIFT, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers } from "../sim/sim";
 import { sfx, setMuted, unlockAudio } from "./audio";
@@ -519,7 +519,7 @@ function render(alpha: number, dt: number) {
     const qx = lerp(q.px, q.x, alpha), qy = lerp(q.py, q.y, alpha);
     list.push({ y: qy, f: () => drawHero(g, q, qx, qy, t) });
     const pt = pets.get(q.pid);
-    if (pt && bank.pets[q.pet]) list.push({ y: pt.y, f: () => { shadow(g, pt.x, pt.y, 3); drawSprite(g, bank.pets[q.pet][Math.floor(t * 6) % 2], pt.x, pt.y - (q.pet === "bat" ? 8 + Math.sin(t * 5) * 2 : 0), pt.flip, false); } });
+    if (pt && bank.pets[q.pet]) list.push({ y: pt.y, f: () => drawPet(g, q, pt, t) });
   }
   list.sort((a, b) => a.y - b.y);
   for (const d of list) d.f();
@@ -641,20 +641,33 @@ function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, 
 }
 
 function drawHero(g: CanvasRenderingContext2D, p: Player, x: number, y: number, t: number) {
-  const frames = heroFrames(p.cls);
+  const cos = p.cos ?? {};
+  const frames = bank.heroSkin(p.cls, cos.armor, cos.weapon);
+  const wc = COSMETICS.weapon.find((c) => c.id === cos.weapon) as Record<string, any> | undefined;
   const fr = p.moving ? 1 + (Math.floor(p.walk / 7) % 2) : 0;
   shadow(g, x, y, 5);
   if (p.buff.t > 0) { g.globalAlpha = 0.3 + 0.1 * Math.sin(t * 8); g.strokeStyle = p.buff.armorPct ? "#ffd23f" : "#7dff9a"; g.beginPath(); g.ellipse(x, y, 9, 4, 0, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1; }
   if (p.invuln > 0 && p.dashT <= 0 && Math.floor(t * 15) % 2 === 0) g.globalAlpha = 0.5;
   const flip = p.fx < 0;
+  const wings = bank.wings(cos.wings);
+  const drawWings = () => {
+    if (!wings) return;
+    const wf = wings[Math.floor(t * (p.moving ? 9 : 3) + p.pid) % 2];
+    drawSprite(g, wf, x, y - 5 + (p.moving ? 0 : Math.round(Math.sin(t * 2))), flip, false);
+    const glow = (COSMETICS.wings.find((c) => c.id === cos.wings) as any)?.glow;
+    if (glow && Math.floor(t * 10 + p.pid) % 3 === 0) { g.fillStyle = glow; g.fillRect(Math.round(x - 11 + ((t * 37) % 22)), Math.round(y - 14 + ((t * 53) % 8)), 1, 1); }
+  };
+  const back = p.fy > -0.6; // wings go behind the hero unless walking away from the camera
+  if (back) drawWings();
   if (p.cls === "ashknight") {
     const swingK = Math.max(0, p.swingT / (p.sk.cleave?.p.interval || 0.38));
     const ang = Math.atan2(p.fy, p.fx) + (swingK > 0.5 ? (swingK - 0.5) * 3 : -0.6);
     const hx = x + (flip ? -3 : 3), hy = y - 6;
     const sword = () => {
-      g.strokeStyle = "#cfd6e6"; g.lineWidth = 2;
+      g.strokeStyle = wc?.blade ?? "#cfd6e6"; g.lineWidth = 2;
       g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx + Math.cos(ang) * 11, hy + Math.sin(ang) * 11); g.stroke();
-      g.fillStyle = "#ff8a1f"; g.fillRect(Math.round(hx + Math.cos(ang) * 11) - 1, Math.round(hy + Math.sin(ang) * 11) - 1, 2, 2);
+      g.fillStyle = wc?.gem ?? "#ff8a1f"; g.fillRect(Math.round(hx + Math.cos(ang) * 11) - 1, Math.round(hy + Math.sin(ang) * 11) - 1, 2, 2);
+      if (wc?.glow && Math.floor(t * 8) % 2) { g.globalAlpha = 0.5; g.fillStyle = wc.glow; g.fillRect(Math.round(hx + Math.cos(ang) * 7), Math.round(hy + Math.sin(ang) * 7) - 1, 1, 1); g.globalAlpha = 1; }
       g.lineWidth = 1;
     };
     if (p.fy < 0) sword();
@@ -662,12 +675,30 @@ function drawHero(g: CanvasRenderingContext2D, p: Player, x: number, y: number, 
     if (p.fy >= 0) sword();
   } else {
     drawSprite(g, frames[fr], x, y, flip, false);
-    const ang = Math.atan2(p.fy, p.fx);
-    g.strokeStyle = "#8a5a2a"; g.lineWidth = 1;
-    g.beginPath(); g.arc(x + p.fx * 4, y - 7 + p.fy * 2, 6, ang - 1.1, ang + 1.1); g.stroke();
+    if (p.cls === "gloomstalker") {
+      const ang = Math.atan2(p.fy, p.fx);
+      g.strokeStyle = wc?.wood ?? "#8a5a2a"; g.lineWidth = 1;
+      g.beginPath(); g.arc(x + p.fx * 4, y - 7 + p.fy * 2, 6, ang - 1.1, ang + 1.1); g.stroke();
+    }
+    if (wc?.glow && Math.floor(t * 8) % 2) { // staff gem / bow glint
+      g.globalAlpha = 0.6; g.fillStyle = wc.glow;
+      g.fillRect(Math.round(x + (flip ? -5 : 4)), Math.round(y - (p.cls === "stormcaller" ? 15 : 9)), 1, 1); g.globalAlpha = 1;
+    }
   }
+  if (!back) drawWings();
   if (p.pid === ME && hurtFlash > 0.2) { g.globalAlpha = 0.6; drawSprite(g, frames[fr], x, y, flip, true); }
   g.globalAlpha = 1;
+}
+
+function drawPet(g: CanvasRenderingContext2D, q: Player, pt: { x: number; y: number; flip: boolean }, t: number) {
+  const fr = bank.pet(q.pet, q.cos?.petSkin); if (!fr) return;
+  const sk = COSMETICS.petSkin.find((c) => c.id === q.cos?.petSkin) as Record<string, any> | undefined;
+  const yy = pt.y - (q.pet === "bat" ? 8 + Math.sin(t * 5) * 2 : 0);
+  shadow(g, pt.x, pt.y, 3);
+  if (sk?.ghost) g.globalAlpha = 0.55 + 0.15 * Math.sin(t * 3);
+  drawSprite(g, fr[Math.floor(t * 6) % 2], pt.x, yy, pt.flip, false);
+  g.globalAlpha = 1;
+  if (sk?.glow && Math.floor(t * 9) % 3 === 0) { g.fillStyle = sk.glow; g.fillRect(Math.round(pt.x - 3 + ((t * 41) % 7)), Math.round(yy - 6 - ((t * 23) % 4)), 1, 1); }
 }
 
 // ------------------------------------------------------------------ HUD

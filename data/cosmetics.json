@@ -1,0 +1,35 @@
+{
+  "armor": [
+    { "id": "default", "name": "Standard issue" },
+    { "id": "obsidian", "name": "Obsidian", "m": "#4a4a5e", "d": "#25253a", "t1": "#c06aff", "t2": "#6a1f9a" },
+    { "id": "gilded", "name": "Gilded", "m": "#ffd23f", "d": "#b38b16", "t1": "#fff3b0", "t2": "#8c2a35" },
+    { "id": "frostbound", "name": "Frostbound", "m": "#bfe8ff", "d": "#5a8ab0", "t1": "#9be0ff", "t2": "#2c4a8a" },
+    { "id": "bloodmoon", "name": "Bloodmoon", "m": "#c4334a", "d": "#6a1424", "t1": "#ff8a5a", "t2": "#2a0a10" },
+    { "id": "verdant", "name": "Verdant", "m": "#7ad06a", "d": "#3a7a3a", "t1": "#ffd23f", "t2": "#2a4a2a" },
+    { "id": "bonelord", "name": "Bonelord", "m": "#e8dfc8", "d": "#a89a78", "t1": "#ff3b3b", "t2": "#5a4a3a" }
+  ],
+  "wings": [
+    { "id": "none", "name": "No wings" },
+    { "id": "bat", "name": "Gloom wings", "shape": "membrane", "X": "#5a3f73", "x": "#2b1f3a", "U": "#8a68a8" },
+    { "id": "angel", "name": "Seraph wings", "shape": "feather", "X": "#f2ead3", "x": "#c9bf9f", "U": "#ffffff" },
+    { "id": "ember", "name": "Ember wings", "shape": "feather", "X": "#ff8a1f", "x": "#b03a0a", "U": "#ffd23f", "glow": "#ff8a1f" },
+    { "id": "void", "name": "Void wings", "shape": "membrane", "X": "#2a1a4a", "x": "#0e0a14", "U": "#b06aff", "glow": "#b06aff" },
+    { "id": "frost", "name": "Rime wings", "shape": "feather", "X": "#bfe8ff", "x": "#5a8ab0", "U": "#ffffff", "glow": "#9be0ff" }
+  ],
+  "weapon": [
+    { "id": "default", "name": "Standard issue" },
+    { "id": "ember", "name": "Emberforged", "blade": "#ffb36a", "wood": "#8c2a1a", "gem": "#ff8a1f", "glow": "#ff8a1f" },
+    { "id": "frost", "name": "Glacial", "blade": "#d8f4ff", "wood": "#5a8ab0", "gem": "#9be0ff", "glow": "#9be0ff" },
+    { "id": "void", "name": "Voidtouched", "blade": "#b06aff", "wood": "#2b1f3a", "gem": "#e0b0ff", "glow": "#b06aff" },
+    { "id": "gold", "name": "Royal gold", "blade": "#ffe27a", "wood": "#b38b16", "gem": "#ff3b6b" },
+    { "id": "bone", "name": "Ossuary bone", "blade": "#f2ead3", "wood": "#a89a78", "gem": "#ff3b3b" }
+  ],
+  "petSkin": [
+    { "id": "default", "name": "Natural" },
+    { "id": "golden", "name": "Golden", "a": "#ffd23f", "b": "#b38b16", "eye": "#ffffff" },
+    { "id": "shadow", "name": "Shadow", "a": "#2b1f3a", "b": "#140c1c", "eye": "#b06aff" },
+    { "id": "frost", "name": "Frost", "a": "#bfe8ff", "b": "#5a8ab0", "eye": "#2c4a8a" },
+    { "id": "infernal", "name": "Infernal", "a": "#ff5a1f", "b": "#8c2a1a", "eye": "#ffd23f", "glow": "#ff8a1f" },
+    { "id": "spectral", "name": "Spectral", "a": "#9be0ff", "b": "#3e8f86", "eye": "#ffffff", "ghost": 1 }
+  ]
+}

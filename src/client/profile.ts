@@ -1,5 +1,5 @@
 // Local profile for OFFLINE_TEST builds (live builds keep this on the backend). Versioned save schema with migrations.
-import { AFFIX, CLASSES, EquipSlot, RIFT, Rarity, xpForLevel } from "../sim/data";
+import { AFFIX, CLASSES, CosChoice, EquipSlot, RIFT, Rarity, xpForLevel } from "../sim/data";
 import { Holder, Item, mintItem } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import type { PlayerSetup, SimState } from "../sim/sim";
@@ -17,7 +17,7 @@ export interface CharSave {
 }
 export interface Profile {
   version: number; active: string; chars: Record<string, CharSave>;
-  materials: number; pet: string; filter: Rarity;
+  materials: number; pet: string; filter: Rarity; cos: CosChoice;
   season: { n: number; started: string }; unlockedPets: string[];
   weekly: { week: string; best: number };
   settings: { mute: boolean; shake: boolean; autoTier: boolean };
@@ -34,7 +34,7 @@ export function newChar(cls: string): CharSave {
 export function newProfile(): Profile {
   return {
     version: SAVE_VERSION, active: "ashknight", chars: { ashknight: newChar("ashknight"), gloomstalker: newChar("gloomstalker"), stormcaller: newChar("stormcaller") },
-    materials: 0, pet: "none", filter: "common", season: { n: 1, started: new Date().toISOString().slice(0, 10) }, unlockedPets: ["none", "bat", "slime", "fox"],
+    materials: 0, pet: "none", filter: "common", cos: {}, season: { n: 1, started: new Date().toISOString().slice(0, 10) }, unlockedPets: ["none", "bat", "slime", "fox"],
     weekly: { week: "", best: 0 }, settings: { mute: false, shake: true, autoTier: false },
   };
 }
@@ -101,7 +101,7 @@ export function holderOf(p: Profile): Holder {
 
 export function setupFor(p: Profile, pid = 0, name = "You"): PlayerSetup {
   const c = char(p);
-  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, sigils: c.sigils, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout };
+  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, sigils: c.sigils, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos };
 }
 
 /** Pull the player's persistent state back out of a running sim (items picked up, XP, levels). Boons are not kept. */
@@ -137,7 +137,7 @@ export function xpProgress(c: CharSave) { return c.level >= RIFT.levels.max ? 1 
 export function startNewSeason(p: Profile): Profile {
   const n = newProfile();
   n.season = { n: p.season.n + 1, started: new Date().toISOString().slice(0, 10) };
-  n.unlockedPets = p.unlockedPets; n.pet = p.pet; n.settings = p.settings; n.filter = p.filter;
+  n.unlockedPets = p.unlockedPets; n.pet = p.pet; n.cos = p.cos; n.settings = p.settings; n.filter = p.filter;
   try { localStorage.setItem(`${SAVE_KEY}-season-${p.season.n}`, JSON.stringify(p)); } catch { /* ignore */ }
   return n;
 }

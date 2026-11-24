@@ -1,6 +1,6 @@
 // Pure deterministic simulation for 1–4 players. No DOM, no Math.random, no wall-clock time.
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
-import { BOONS, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel } from "./data";
+import { BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel } from "./data";
 import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue } from "./items";
 import { TileMap, flowField, genArena, genCave, moveWithWalls } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
@@ -23,12 +23,14 @@ export interface PlayerSetup {
   equipment: Holder["equipment"]; bag: Item[]; materials: number; sigils: number;
   runes: Record<string, string>; pet: string; filter: Rarity;
   loadout?: string[];
+  /** cosmetics: visual only, never read by the sim */
+  cos?: CosChoice;
 }
 
 export interface Buff { armorPct: number; dmgPct: number; cdrPct: number; t: number }
 export interface Player extends Holder {
   pid: number; name: string; cls: string; level: number; xp: number; sigils: number;
-  runes: Record<string, string>; pet: string; filter: Rarity;
+  runes: Record<string, string>; pet: string; filter: Rarity; cos: CosChoice;
   x: number; y: number; px: number; py: number; r: number; hp: number; fx: number; fy: number; moving: boolean; walk: number;
   skills: string[]; cds: Num; charges: Num; chargeT: Num; swingT: number; swingCount: number;
   dashT: number; dashDx: number; dashDy: number; dashHit: number[]; dashSkill: string; trailT: number;
@@ -188,7 +190,7 @@ export function isWall(m: TileMap, x: number, y: number) {
 export function addPlayer(s: SimState, ps: PlayerSetup): Player {
   const cls = ps.cls;
   const p: Player = {
-    pid: ps.pid, name: ps.name, cls, level: ps.level, xp: ps.xp, sigils: ps.sigils, runes: { ...ps.runes }, pet: ps.pet, filter: ps.filter,
+    pid: ps.pid, name: ps.name, cls, level: ps.level, xp: ps.xp, sigils: ps.sigils, runes: { ...ps.runes }, pet: ps.pet, filter: ps.filter, cos: { ...ps.cos },
     equipment: clone(ps.equipment), bag: clone(ps.bag), materials: ps.materials,
     x: s.startX + (s.players.length % 2) * 12 - 6, y: s.startY + Math.floor(s.players.length / 2) * 12, px: 0, py: 0, r: 5, hp: 1, fx: 1, fy: 0, moving: false, walk: 0,
     skills: [], cds: {}, charges: {}, chargeT: {}, swingT: 0, swingCount: 0,
@@ -296,7 +298,7 @@ export function applyPlayerCmd(s: SimState, p: Player, c: PlayerCmd): boolean {
     return true;
   }
   if (c.type === "setLoadout") {
-    p.equipment = clone(c.setup.equipment); p.runes = { ...c.setup.runes }; p.filter = c.setup.filter; p.pet = c.setup.pet;
+    p.equipment = clone(c.setup.equipment); p.runes = { ...c.setup.runes }; p.filter = c.setup.filter; p.pet = c.setup.pet; p.cos = { ...c.setup.cos };
     p.skills = validLoadout(p.cls, c.setup.loadout); for (const id of p.skills) if (p.charges[id] === undefined) p.charges[id] = 1;
     refreshAll(s); s.events.push({ type: "equipChanged", pid: p.pid });
     return true;

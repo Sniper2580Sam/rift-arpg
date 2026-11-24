@@ -1,5 +1,6 @@
 // Server item authority: forged items, edited items, inflated materials and forced rarities are refused.
 import { newProfile } from "../src/client/profile";
+import { applyHubOp } from "../src/shared/ops";
 import { RunInfo, RunMember, applySave, mintFor, sanitizeOpts } from "../src/server/ledger";
 import { mintItem, scrapValue } from "../src/sim/items";
 import { makeRng } from "../src/sim/rng";
@@ -57,6 +58,12 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   check("tier unlock refused without a clear", p.chars.ashknight.highestTier === 1);
   applySave(p, "ashknight", { ...rep, highestTier: 2 }, m, { ...run, tier: 1, completed: true, inTime: true });
   check("tier unlock after a timed clear", p.chars.ashknight.highestTier === 2);
+}
+{ // cosmetics: catalogue ids only
+  const p = newProfile();
+  check("cosmetic set", applyHubOp(p, { t: "setting", k: "cos.wings", v: "ember" }) === true && p.cos.wings === "ember");
+  check("unknown cosmetic refused", applyHubOp(p, { t: "setting", k: "cos.wings", v: "golden_dragon" }) === false && p.cos.wings === "ember");
+  check("unknown cosmetic kind refused", applyHubOp(p, { t: "setting", k: "cos.hat", v: "default" }) === false);
 }
 if (fails) { console.log(`${fails} ledger checks failed`); process.exit(1); }
 console.log("ledger: all checks passed");
