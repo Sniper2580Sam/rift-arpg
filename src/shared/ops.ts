@@ -1,6 +1,6 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
-import { ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
+import { GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
 import { Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
@@ -21,6 +21,7 @@ export type HubOp =
   | { t: "slotCrit"; slot: EquipSlot }
   | { t: "buy"; key: string }
   | { t: "paragon"; stat?: string; d?: number; reset?: boolean }
+  | { t: "gem"; slot: number; id: string | null }
   | { t: "hideout"; theme?: string; place?: { id: string; x: number; y: number }; remove?: number }
   | { t: "newSeason" }
   | { t: "reset" };
@@ -122,6 +123,17 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       if (op.d === 1 && (cur >= ps.cap || paragonSpent(a) >= (c.paragon ?? 0))) return false;
       if (op.d === -1 && cur <= 0) return false;
       a[op.stat!] = cur + op.d; c.pAlloc = a; return true;
+    }
+    case "gem": {
+      // socket a gem you own into one of the 3 slots (or empty the slot); a gem can only sit in one slot
+      if (!Number.isInteger(op.slot) || op.slot < 0 || op.slot >= GEMS.slots) return false;
+      const sl = [...(c.gemSlots ?? [])].filter((g) => c.gems?.[g]);
+      if (op.id !== null && !c.gems?.[op.id]) return false;
+      if (op.id === null) { if (op.slot >= sl.length) return false; sl.splice(op.slot, 1); c.gemSlots = sl; return true; }
+      const out: (string | null)[] = [...sl];
+      const was = out.indexOf(op.id); if (was >= 0) out[was] = null;
+      if (op.slot < out.length) out[op.slot] = op.id; else out.push(op.id);
+      c.gemSlots = out.filter((g): g is string => !!g).slice(0, GEMS.slots); return true;
     }
     case "buy": {
       // price 0 in the test build: buying just records ownership

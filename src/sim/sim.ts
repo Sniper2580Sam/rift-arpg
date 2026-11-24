@@ -1,6 +1,6 @@
 // Pure deterministic simulation for 1–6 players. No DOM, no Math.random, no wall-clock time.
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
-import { BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , GUARDIANS, ParagonStat, paragonXp, GuardianDef, guardianDef, MAP, MAPS, MapDef, ITEMS, HideoutLayout, hideoutTheme } from "./data";
+import { GEM, GEMS, gemCap, BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , GUARDIANS, ParagonStat, paragonXp, GuardianDef, guardianDef, MAP, MAPS, MapDef, ITEMS, HideoutLayout, hideoutTheme } from "./data";
 import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, equipTarget, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue, shardValue } from "./items";
 import { TileMap, flowField, genArena, genCave, genHideout, genLinear, genOpen, genRing, genRooms, moveWithWalls, unstick } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
@@ -28,6 +28,8 @@ export interface PlayerSetup {
   loadout?: string[];
   /** paragon levels, XP toward the next one, and points spent */
   paragon?: number; pxp?: number; pAlloc?: Partial<Record<ParagonStat, number>>;
+  /** rift gems owned (id -> level) and the ones socketed (up to 3) */
+  gems?: Record<string, number>; gemSlots?: string[];
   /** cosmetics: visual only, never read by the sim */
   cos?: CosChoice;
 }
@@ -40,6 +42,7 @@ export interface Player extends Holder {
   skills: string[]; cds: Num; charges: Num; chargeT: Num; swingT: number; swingCount: number;
   dashT: number; dashDx: number; dashDy: number; dashHit: number[]; dashSkill: string; trailT: number;
   paragon: number; pxp: number; pAlloc: Partial<Record<ParagonStat, number>>;
+  gems: Record<string, number>; gemSlots: string[];
   /** life-on-hit healed in the current second (capped, so many-hit skills can't out-heal everything) */
   leech: number;
   invuln: number; deaths?: number; chillT?: number; thornT?: number; dead: boolean; deadT: number; buff: Buff; boons: string[]; cheatT: number;
@@ -97,7 +100,7 @@ export type SimEvent =
   | { type: "playerDeath"; pid: number } | { type: "respawn"; pid: number } | { type: "cheatDeath"; pid: number }
   | { type: "slam"; x: number; y: number; r: number; big: boolean }
   | { type: "explosion"; x: number; y: number; r: number; cold?: boolean; pid?: number; skill?: string }
-  | { type: "paragonUp"; pid: number; level: number }
+  | { type: "paragonUp"; pid: number; level: number } | { type: "gem"; pid: number; id: string } | { type: "gemUp"; pid: number; id: string; level: number }
   | { type: "guardianSpawn"; x: number; y: number; kind: EnemyKind; variant?: string }
   | { type: "enrage" } | { type: "guardianStun" } | { type: "timeUp" } | { type: "phase"; n: number; text: string }
   | { type: "riftComplete"; inTime: boolean; time: number }
@@ -263,6 +266,7 @@ export function addPlayer(s: SimState, ps: PlayerSetup): Player {
   const cls = ps.cls;
   const p: Player = {
     paragon: ps.paragon ?? 0, pxp: ps.pxp ?? 0, pAlloc: { ...(ps.pAlloc ?? {}) },
+    gems: { ...(ps.gems ?? {}) }, gemSlots: (ps.gemSlots ?? []).filter((g) => ps.gems?.[g] && GEM[g]).slice(0, GEMS.slots),
     pid: ps.pid, name: ps.name, cls, level: ps.level, xp: ps.xp, sigils: ps.sigils, feathers: ps.feathers ?? 0, runes: { ...ps.runes }, pet: ps.pet, filter: ps.filter, cos: { ...ps.cos },
     equipment: clone(ps.equipment), bag: clone(ps.bag), materials: ps.materials, shards: ps.shards ?? 0, slotPlus: { ...(ps.slotPlus ?? {}) }, slotCrit: { ...(ps.slotCrit ?? {}) },
     x: s.startX + (s.players.length % 2) * 12 - 6, y: s.startY + Math.floor(s.players.length / 2) * 12, px: 0, py: 0, r: 5, hp: 1, fx: 1, fy: 0, moving: false, walk: 0,
@@ -289,7 +293,7 @@ export function refreshAll(s: SimState) {
 }
 function refreshPlayer(s: SimState, p: Player, minEff: number) {
   const ratio = p.stats ? p.hp / p.stats.maxHp : 1;
-  p.stats = computeStats(p.equipment, { cls: p.cls, level: p.level, effLevel: Math.max(p.level, minEff), paragon: p.pAlloc, boons: p.boons, riftMods: s.rift.mods, slotPlus: p.slotPlus, slotCrit: p.slotCrit });
+  p.stats = computeStats(p.equipment, { cls: p.cls, level: p.level, effLevel: Math.max(p.level, minEff), paragon: p.pAlloc, gems: Object.fromEntries(p.gemSlots.map((g) => [g, p.gems[g] ?? 1])), boons: p.boons, riftMods: s.rift.mods, slotPlus: p.slotPlus, slotCrit: p.slotCrit });
   p.sk = {};
   for (const id of p.skills) p.sk[id] = resolveSkill(id, p.runes[id], p.stats);
   if (!p.dead) p.hp = Math.max(1, Math.min(p.stats.maxHp, p.stats.maxHp * ratio));
@@ -831,6 +835,8 @@ function hitEnemy(s: SimState, e: Enemy, mult: number, p: Player | undefined, sk
     if (P.vulnOnHit) { e.vulnT = 3; e.vulnPct = Math.max(e.vulnPct, P.vulnOnHit); }
     if (P.tauntOnHit) { e.tauntT = P.tauntOnHit; e.tauntBy = p.pid; e.aggro = true; }
     if (P.chain && !o.chained && sk) chainFrom(s, e, mult, p, sk, P);
+    // Stormlink gem: a chance to arc lightning
+    if (st.flags.gemChain && !o.chained && sk && chance(s.rng, st.flags.gemChain)) chainFrom(s, e, st.flags.gemChainMult / 0.85, p, sk, { chain: 3, chainRange: 90, chainMult: 0.85 });
     if (st.lifeOnHit > 0) { const cap = p.stats.maxHp * RIFT.lifeOnHitCap, amt = Math.min(st.lifeOnHit, cap - p.leech); if (amt > 0) { p.leech += amt; heal(p, amt); } }
   }
   applyDamage(s, e, amount, crit, p.pid, P, false);
@@ -860,6 +866,7 @@ function killEnemy(s: SimState, e: Enemy, pid: number, P: Num) {
   s.events.push({ type: "kill", x: e.x, y: e.y, kind: e.kind, elite: e.elite });
   const killer = playerById(s, pid);
   if (killer && killer.stats.flags.refundOnKill && P.cost) gainRes(killer, P.cost * killer.stats.flags.refundOnKill);
+  if (killer && killer.stats.flags.healOnKill && !killer.dead) heal(killer, killer.stats.maxHp * killer.stats.flags.healOnKill);
   const def = ENEMIES[e.kind];
   if (e.kind === "pylon") return;
   grantXp(s, (def?.xp ?? 0) * (e.elite ? ELITES.xpMult : 1));
@@ -944,6 +951,7 @@ function damagePlayer(s: SimState, p: Player, raw: number) {
   const armor = st.armor * (1 + (p.buff.t > 0 ? p.buff.armorPct : 0) / 100);
   let dmg = raw * (1 - armor / (armor + 150 * levelPower(Math.max(1, s.rift.tier * 1.5)))) * st.takenMult;
   if (p.buff.t > 0 && st.flags.buffDR) dmg *= 1 - st.flags.buffDR;
+  if (st.flags.lowLifeDR && p.hp < st.maxHp / 2) dmg *= 1 - Math.min(0.6, st.flags.lowLifeDR);
   if ((p.colossusT ?? 0) > 0 && p.colossusSkill) dmg *= 1 - Math.min(90, p.sk[p.colossusSkill]?.p.takenPct ?? 0) / 100;
   dmg = Math.max(1, Math.round(dmg));
   p.hp -= dmg;
@@ -1773,9 +1781,30 @@ function completeRift(s: SimState, g: Enemy) {
     }
     if (r.tier >= RIFT.tiers.sigilFrom && chance(s.rng, RIFT.tiers.sigilChance)) { p.sigils++; s.events.push({ type: "sigil", pid: p.pid }); }
     if (r.tier >= RIFT.seraph.featherFrom && chance(s.rng, RIFT.seraph.featherChance)) { p.feathers++; s.events.push({ type: "feather", pid: p.pid }); }
+    if (r.kind === "rift") gemRewards(s, p, inTime);
   }
   for (const e of s.enemies) if (!e.dead) { e.dead = true; s.events.push({ type: "kill", x: e.x, y: e.y, kind: e.kind, elite: e.elite }); }
   s.events.push({ type: "riftComplete", inTime, time: r.time });
+}
+
+/** Rift gems: guardians from tier 5 may give a gem you don't have (the first one is certain); timed clears level the socketed ones. */
+function gemRewards(s: SimState, p: Player, inTime: boolean) {
+  const t = s.rift.tier;
+  if (t < GEMS.fromTier) return;
+  const missing = GEMS.gems.filter((g) => !p.gems[g.id]);
+  if (missing.length && (!Object.keys(p.gems).length || chance(s.rng, GEMS.dropChance))) {
+    const g = missing[Math.floor(next(s.rng) * missing.length)];
+    p.gems[g.id] = 1;
+    if (p.gemSlots.length < GEMS.slots) p.gemSlots.push(g.id);
+    s.events.push({ type: "gem", pid: p.pid, id: g.id });
+  }
+  if (!inTime) return;
+  const ups = 1 + Math.floor((t - GEMS.fromTier) / 5), cap = gemCap(t);
+  for (const id of p.gemSlots) {
+    const was = p.gems[id] ?? 1, now = Math.max(was, Math.min(cap, was + ups));
+    if (now > was) { p.gems[id] = now; s.events.push({ type: "gemUp", pid: p.pid, id, level: now }); }
+  }
+  refreshAll(s);
 }
 
 /** Stable hash of the gameplay state (determinism test; later netcode desync checks). */

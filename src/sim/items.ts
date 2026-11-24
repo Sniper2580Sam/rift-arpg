@@ -1,5 +1,5 @@
 import {
-  AFFIX, AFFIXES, BOON, CLASSES, EquipSlot, ITEMS, LEGENDARIES, LEGENDARY, MODIFIER, ModDef, MYTHICS, Num, RARITY_ORDER, RIFT,
+  gemVals, AFFIX, AFFIXES, BOON, CLASSES, EquipSlot, ITEMS, LEGENDARIES, LEGENDARY, MODIFIER, ModDef, MYTHICS, Num, RARITY_ORDER, RIFT,
   Rarity, SET, SETS, SKILL, SlotType, classAffinity, levelPower, slotTypeOf,
 } from "./data";
 import { Rng, int, next, pick } from "./rng";
@@ -208,7 +208,7 @@ export interface Stats {
   speed: number; dmgMult: number; takenMult: number;
 }
 
-export interface StatCtx { cls: string; level: number; paragon?: Partial<Record<string, number>>; effLevel?: number; boons?: string[]; riftMods?: string[]; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"] }
+export interface StatCtx { cls: string; level: number; paragon?: Partial<Record<string, number>>; /** equipped rift gems and their levels */ gems?: Record<string, number>; effLevel?: number; boons?: string[]; riftMods?: string[]; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"] }
 
 export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
   const cd = CLASSES[c.cls];
@@ -279,6 +279,16 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
   if (pv("vitality")) s.maxHp = Math.round(s.maxHp * (1 + pv("vitality") / 100));
   if (pv("toughness")) s.takenMult *= 1 - pv("toughness") / 100;
   if (pv("haste")) { s.cdr += pv("haste"); s.moveSpeed += pv("haste"); }
+  // rift gems
+  for (const [id, lvl] of Object.entries(c.gems ?? {})) {
+    const [a, b] = gemVals(id, lvl);
+    if (id === "bane") s.eliteDmg += a;
+    if (id === "fury") s.dmgPct += a;
+    if (id === "storm") { s.flags.gemChain = a / 100; s.flags.gemChainMult = b / 100; }
+    if (id === "bulwark") s.flags.lowLifeDR = a / 100;
+    if (id === "gale") { s.moveSpeed += a; s.cdr += b; }
+    if (id === "blood") s.flags.healOnKill = a / 100;
+  }
   s.critChance = Math.min(75, s.critChance);
   return s;
 }

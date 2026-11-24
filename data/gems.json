@@ -1,0 +1,15 @@
+{
+ "slots": 3,
+ "maxLevel": 50,
+ "fromTier": 5,
+ "dropChance": 0.3,
+ "levelCapPerTier": 3,
+ "gems": [
+  { "id": "bane", "name": "Bane of the Mighty", "color": "#ff5a3a", "text": "+{a}% damage to elites and bosses", "a": [10, 0.5] },
+  { "id": "fury", "name": "Ember Heart", "color": "#ff8a1f", "text": "+{a}% damage", "a": [5, 0.25] },
+  { "id": "storm", "name": "Stormlink", "color": "#7ad8ff", "text": "Hits have a {a}% chance to arc lightning to 3 enemies for {b}% damage", "a": [8, 0.2], "b": [60, 3] },
+  { "id": "bulwark", "name": "Bulwark Stone", "color": "#c9bf9f", "text": "Take {a}% less damage while below half life", "a": [15, 0.5] },
+  { "id": "gale", "name": "Gale Shard", "color": "#7dff9a", "text": "+{a}% movement speed and +{b}% cooldown reduction", "a": [4, 0.15], "b": [2, 0.1] },
+  { "id": "blood", "name": "Bloodstone", "color": "#c4334a", "text": "Heal {a}% of max life on each kill", "a": [1, 0.04] }
+ ]
+}

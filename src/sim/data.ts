@@ -18,6 +18,7 @@ import petsJson from "../../data/pets.json";
 import cosmeticsJson from "../../data/cosmetics.json";
 import achievementsJson from "../../data/achievements.json";
 import seasonJson from "../../data/season.json";
+import gemsJson from "../../data/gems.json";
 
 export type SlotType = "weapon" | "offhand" | "helm" | "shoulders" | "chest" | "bracers" | "gloves" | "belt" | "pants" | "boots" | "amulet" | "ring";
 export type EquipSlot = Exclude<SlotType, "ring"> | "ring1" | "ring2";
@@ -107,6 +108,20 @@ export function lifeStats(p: UnlockCtx): Life {
     maxed: Math.max(L.maxed ?? 0, cs.filter((c) => (c.level ?? 0) >= RIFT.levels.max).length),
   };
 }
+// ------------------------------------------------------------------ rift gems
+export interface GemDef { id: string; name: string; color: string; text: string; a: [number, number]; b?: [number, number] }
+export const GEMS = gemsJson as { slots: number; maxLevel: number; fromTier: number; dropChance: number; levelCapPerTier: number; gems: GemDef[] };
+export const GEM: Record<string, GemDef> = Object.fromEntries(GEMS.gems.map((g) => [g.id, g]));
+/** A gem's two values at a level (level 1 = base). */
+export function gemVals(id: string, level: number): [number, number] {
+  const g = GEM[id]; if (!g) return [0, 0];
+  const v = (x?: [number, number]) => (x ? +(x[0] + x[1] * (level - 1)).toFixed(2) : 0);
+  return [v(g.a), v(g.b)];
+}
+export const gemText = (id: string, level: number) => { const [a, b] = gemVals(id, level); return GEM[id]?.text.replace("{a}", String(a)).replace("{b}", String(b)) ?? ""; };
+/** The highest level a gem can reach from a timed clear of this tier. */
+export const gemCap = (tier: number) => Math.min(GEMS.maxLevel, tier * GEMS.levelCapPerTier);
+
 // ------------------------------------------------------------------ season journey
 export interface JourneyTask { stat: LifeStat; goal: number; desc: string }
 export interface JourneyChapter { name: string; tasks: JourneyTask[]; reward?: string }

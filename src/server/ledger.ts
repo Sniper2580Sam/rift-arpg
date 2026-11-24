@@ -1,6 +1,6 @@
 // Server-side item authority: minting drops for a run, and validating what a player brings back.
 // Pure functions (no I/O) so they can be unit tested.
-import { CLASSES, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
+import { CLASSES, GEM, GEMS, gemCap, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
 import { Item, MintOpts, mintItem, scrapValue, shardValue } from "../sim/items";
 import { Rng, next } from "../sim/rng";
 import type { CharSave, Profile } from "../client/profile";
@@ -60,7 +60,7 @@ const same = (a: Item, b: Item) => JSON.stringify({ ...a, locked: undefined }) =
 
 export interface SaveReport {
   equipment: CharSave["equipment"]; bag: Item[]; scrapped: string[]; materials: number; shards?: number;
-  level: number; xp: number; sigils: number; feathers?: number; uses: Record<string, number>; paragon?: number; pxp?: number;
+  level: number; xp: number; sigils: number; feathers?: number; gems?: Record<string, number>; gemSlots?: string[]; uses: Record<string, number>; paragon?: number; pxp?: number;
   highestTier: number; pityAnc: number; pityPri: number; bestTimes: Record<string, number>; riftsCleared: number;
   weeklyBest?: number;
   /** the player's own count of this run (kills and elites are trusted within limits; finds come from the server's mint) */
@@ -110,6 +110,17 @@ export function applySave(p: Profile, cls: string, rep: SaveReport, m: RunMember
   const lvl = Math.max(c.level, Math.min(L, rep.level | 0, c.level + 6));
   if (lvl !== c.level || rep.xp !== c.xp) { c.level = lvl; c.xp = Math.max(0, rep.xp | 0); }
   c.sigils = Math.max(0, Math.min(rep.sigils | 0, c.sigils + 2));
+  // rift gems: levels only grow by what one clear can give, and at most one new gem per run
+  if (rep.gems && run?.completed && run.kind === "rift") {
+    const g = { ...(c.gems ?? {}) }; let added = 0;
+    for (const [id, lv] of Object.entries(rep.gems)) {
+      if (!GEM[id]) continue;
+      if (!g[id]) { if (added++ || run.tier < GEMS.fromTier) continue; g[id] = 1; }
+      g[id] = Math.max(g[id], Math.min(lv | 0, g[id] + 4, gemCap(run.tier)));
+    }
+    c.gems = g;
+  }
+  if (rep.gemSlots) c.gemSlots = rep.gemSlots.filter((id, i, a) => c.gems?.[id] && a.indexOf(id) === i).slice(0, GEMS.slots);
   if (rep.feathers !== undefined) c.feathers = Math.max(0, Math.min(rep.feathers | 0, (c.feathers ?? 0) + 2));
   if (c.level >= L && rep.paragon !== undefined) { c.paragon = Math.max(c.paragon ?? 0, Math.min(rep.paragon | 0, (c.paragon ?? 0) + 5)); c.pxp = Math.max(0, rep.pxp ?? 0); }
   for (const [k, v] of Object.entries(rep.uses ?? {})) c.uses[k] = Math.max(c.uses[k] ?? 0, Math.min(v | 0, (c.uses[k] ?? 0) + 5000));

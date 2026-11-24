@@ -132,6 +132,20 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   check("old clients (no tally) never count as flawless", (() => { const p3 = newProfile(); applySave(p3, "ashknight", base(p3) as any, member(), r, 1); return p3.life!.flawless === 0 && p3.life!.rifts === 1; })());
 }
 
+{ // gems: socket op, and the server clamps gem levels to one clear's worth
+  const p = newProfile(), c = p.chars.ashknight;
+  c.gems = { fury: 3, bane: 1, storm: 1, gale: 1 }; c.gemSlots = [];
+  check("socket a gem", applyHubOp(p, { t: "gem", slot: 0, id: "fury" }) === true && c.gemSlots!.join() === "fury");
+  applyHubOp(p, { t: "gem", slot: 1, id: "bane" }); applyHubOp(p, { t: "gem", slot: 2, id: "storm" });
+  check("can't socket a gem you don't own", applyHubOp(p, { t: "gem", slot: 0, id: "blood" }) === false);
+  check("swap into a full slot", applyHubOp(p, { t: "gem", slot: 1, id: "gale" }) === true && c.gemSlots!.join() === "fury,gale,storm");
+  check("remove", applyHubOp(p, { t: "gem", slot: 0, id: null }) === true && c.gemSlots!.join() === "gale,storm");
+  const r: RunInfo = { kind: "rift", tier: 6, completed: true, inTime: true, time: 200 };
+  const rep: any = base(p); rep.gems = { fury: 50, bane: 1, storm: 1, gale: 1, blood: 1, bulwark: 1 }; rep.gemSlots = ["gale", "storm"];
+  applySave(p, "ashknight", rep, member(), r, 1);
+  check("gem levels clamped, one new gem per run", c.gems!.fury === 7 && Object.keys(c.gems!).length === 5);
+}
+
 if (fails) { console.log(`${fails} ledger checks failed`); process.exit(1); }
 console.log("ledger: all checks passed");
 

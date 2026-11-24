@@ -3,7 +3,7 @@ import { AFFIX as AFFIX_DEF } from "../sim/data";
 import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
-import { ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -140,7 +140,7 @@ export class UI {
     const tabs = (["play", "gear", "skills", "looks", "shop", "journey", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}"${t === "settings" ? ` aria-label="Settings"` : ""}>${t === "settings" ? "⚙" : t[0].toUpperCase() + t.slice(1)}</button>`).join("");
     let body = "";
     if (this.tab === "play") body = this.playTab(p, c, H);
-    if (this.tab === "gear") body = this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
+    if (this.tab === "gear") body = this.gemsHtml(c) + this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
     if (this.tab === "skills") body = this.skillsTab(c);
     if (this.tab === "looks") body = this.looksTab(p);
     if (this.tab === "shop") body = this.shopTab(p);
@@ -160,6 +160,7 @@ export class UI {
     const cl = this.root.querySelector<HTMLElement>("#hub-close"); if (cl) cl.onclick = () => H.close!();
     if (this.tab === "play") this.bindPlay(p, c, H, re);
     if (this.tab === "gear") this.bindGear(p, { equipment: c.equipment, bag: c.bag, materials: p.materials }, H, re, true);
+    this.root.querySelectorAll<HTMLElement>("[data-gem]").forEach((el) => el.onclick = () => { const [slot, id] = el.dataset.gem!.split(":"); H.op?.({ t: "gem", slot: +slot, id: id || null }); re(); });
     if (this.tab === "skills") {
       this.root.querySelectorAll<HTMLElement>("[data-rune]").forEach((el) => el.onclick = () => { const [sk, r] = el.dataset.rune!.split(":"); H.setRune(sk, r); re(); });
       this.root.querySelectorAll<HTMLElement>("[data-slot]").forEach((el) => el.onclick = () => { this.skSlot = +el.dataset.slot!; re(); });
@@ -441,6 +442,17 @@ export class UI {
   }
 
   /** Paragon: shown once you hit max level. Points go into four capped stats; respec is free. */
+  /** Rift gems: socket up to 3. They level up when you clear a rift in time (tier 5+). */
+  private gemsHtml(c: CharSave) {
+    const own = Object.keys(c.gems ?? {}).filter((id) => GEM[id]), sl = (c.gemSlots ?? []).filter((id) => c.gems?.[id]);
+    if (!own.length) return `<div class="setting dim small">Rift Gems: guardians from tier ${GEMS.fromTier} drop them. Socket up to ${GEMS.slots}; they level up each time you clear a rift in time.</div>`;
+    const row = (id: string) => {
+      const lv = c.gems![id], i = sl.indexOf(id), g = GEM[id];
+      const btn = i >= 0 ? `<button data-gem="${i}:">Remove</button>` : `<button data-gem="${sl.length}:${id}" ${sl.length >= GEMS.slots ? "disabled" : ""}>Socket</button>`;
+      return `<div class="pg-row"><span><b style="color:${g.color}">◆ ${esc(g.name)}</b> <span class="dim small">Lv ${lv}/${GEMS.maxLevel} · ${esc(gemText(id, lv))}</span></span><span class="opts">${btn}</span></div>`;
+    };
+    return `<div class="setting"><b>Rift Gems</b> <span class="dim small">${sl.length}/${GEMS.slots} socketed. Timed clears level socketed gems (more at higher tiers, up to level ${GEMS.levelCapPerTier}× the tier).</span>${[...sl, ...own.filter((id) => !sl.includes(id))].map(row).join("")}</div>`;
+  }
   private paragonHtml(c: CharSave) {
     const L = RIFT.levels.max;
     if (c.level < L) return `<div class="setting dim small">Paragon unlocks at level ${L}: XP past the cap earns points for damage, life, toughness and haste.</div>`;

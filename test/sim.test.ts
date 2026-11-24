@@ -164,6 +164,17 @@ for (const cls of ["ashknight", "gloomstalker"]) {
   if (ch.join() !== "0,1" || before || !cosAccess(ctx, "dye", "bonefire").ok || cosAccess(ctx, "armor", "bonefire").ok || !rewardsOk) { console.error("FAIL journey", ch, before, rewardsOk); proc.exit(1); } else console.log("journey ok: chapters 1-2 done, Bonefire dye unlocked");
 }
 
+{ // rift gems: the first guardian kill from tier 5 gives a gem, timed clears level socketed gems, and gems change stats
+  const ps = setup(0, "ashknight", 30, kit(30, "legendary"));
+  const s = createSim({ seed: 11, tier: 10, players: [ps], mods: [] });
+  s.rift.progress = s.rift.need;
+  for (let t = 0; t < 30 * 300 && !s.rift.done; t++) { step(s, { 0: bot(s, 0, t) }); if (s.boonOffers[0]) step(s, { 0: { ...NO_INPUT, cmds: [{ type: "boon", id: s.boonOffers[0][0] }] } }); }
+  const p = s.players[0], g = Object.keys(p.gems);
+  const base = computeStats({}, { cls: "ashknight", level: 30 }), withG = computeStats({}, { cls: "ashknight", level: 30, gems: { fury: 11, bane: 1 } });
+  const ok = s.rift.done && g.length === 1 && p.gemSlots[0] === g[0] && p.gems[g[0]] === 3 && withG.dmgPct === base.dmgPct + 7.5 && withG.eliteDmg === base.eliteDmg + 10;
+  if (!ok) { console.error("FAIL gems", p.gems, p.gemSlots, withG.dmgPct - base.dmgPct); proc.exit(1); } else console.log(`gems ok: got ${g[0]}, levelled to ${p.gems[g[0]]} by a timed T10 clear`);
+}
+
 // 4) every legendary/mythic/set bonus runs
 for (const l of [...LEGENDARIES, ...MYTHICS]) {
   const it = mintItem(makeRng(5), l.id, { rarity: l.mythic ? "mythic" : "legendary", slot: l.slot });

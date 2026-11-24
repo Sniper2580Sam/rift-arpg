@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
@@ -65,6 +65,7 @@ let camX = 0, camY = 0;
 let banner: { text: string; sub: string; color: string; t: number } | null = null;
 let found: Record<string, number> = {}, foundLegs: { name: string; rarity: Rarity; quality?: string }[] = [];
 let runTally: RunTally | null = null;
+let gemLines: string[] = [];
 let gotAncestral = false, gotPrimal = false, gotSigil = 0, gotFeather = 0, runElites = 0, startLevel = 1;
 let completeInfo: { inTime: boolean; time: number } | null = null;
 let run: { kind: RunKind; tier: number; weekly: boolean; seed: number; boss?: ChaseBoss } | null = null;
@@ -147,7 +148,7 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   camX = p.x - wb.width / 2; camY = p.y - wb.height / 2;
   particles.length = nums.length = rings.length = arcs.length = ghosts.length = 0; pets.clear();
   found = {}; foundLegs = []; completeInfo = null; acc = 0; hitstop = 0; paused = false; input.enabled = true; // a run started from the menu must not inherit its paused input
-  gotAncestral = gotPrimal = false; gotSigil = 0; gotFeather = 0; runElites = 0; startLevel = c.level;
+  gotAncestral = gotPrimal = false; gotSigil = 0; gotFeather = 0; runElites = 0; gemLines = []; startLevel = c.level;
   runIds = new Set([...Object.values(p.equipment).map((it) => it!.id), ...p.bag.map((it) => it.id)]); scrappedIds = [];
   mode = "rift"; screen = "rift";
   ui.hide();
@@ -322,6 +323,7 @@ function endRun() {
   const newRunes = CLASSES[c.cls].skills.flatMap((id) => SKILL[id].runes.filter((r) => r.uses > (c.uses[id] ?? 0) - (p.uses[id] ?? 0) && r.uses <= (c.uses[id] ?? 0)).map((r) => `${SKILL[id].name}: ${r.name}`));
   if (newRunes.length) lines.push(`New runes: ${newRunes.join(", ")}`);
   if (gotSigil) lines.push(`Bone Sigil found (${c.sigils} owned). The Ossuary King awaits.`);
+  if (gemLines.length) lines.push(`Gems levelled: ${gemLines.join(", ")}`);
   if (gotFeather) lines.push(`Pale Feather found (${c.feathers ?? 0} owned). The Pale Seraph awaits.`);
   // counters for feats (lifetime, kept across seasons) and the season journey (this season only)
   const tally: RunTally = {
@@ -389,7 +391,7 @@ function finishOnline() {
     online.send({ t: "complete", inTime: completeInfo?.inTime, time: completeInfo?.time });
     for (const pid of coop.live) online.sendR(pid, { t: "end" });
   }
-  online.send({ t: "save", report: { equipment: c.equipment, bag: c.bag, scrapped, materials: profile.materials, shards: profile.shards ?? 0, level: c.level, xp: c.xp, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, sigils: c.sigils, feathers: c.feathers ?? 0, uses: c.uses, highestTier: c.highestTier, pityAnc: c.pityAnc, pityPri: c.pityPri, bestTimes: c.bestTimes, riftsCleared: c.riftsCleared, tally: runTally ? { kills: runTally.kills, elites: runTally.elites, deaths: runTally.deaths, wave: runTally.wave } : undefined }, week: isoWeek(), weeklyBest: run.weekly });
+  online.send({ t: "save", report: { equipment: c.equipment, bag: c.bag, scrapped, materials: profile.materials, shards: profile.shards ?? 0, level: c.level, xp: c.xp, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, sigils: c.sigils, feathers: c.feathers ?? 0, gems: c.gems ?? {}, gemSlots: c.gemSlots ?? [], uses: c.uses, highestTier: c.highestTier, pityAnc: c.pityAnc, pityPri: c.pityPri, bestTimes: c.bestTimes, riftsCleared: c.riftsCleared, tally: runTally ? { kills: runTally.kills, elites: runTally.elites, deaths: runTally.deaths, wave: runTally.wave } : undefined }, week: isoWeek(), weeklyBest: run.weekly });
   if (coop?.role === "host") online.send({ t: "runEnd" });
   else if (coop?.role === "guest" && !hostEnded && online.lobby) online.leave(); // a guest who leaves on their own leaves the party
   hostEnded = false;
@@ -568,6 +570,8 @@ function handleEvent(e: SimEvent) {
       if (!ui.invOpen && !paused) riftButtons();
       break;
     case "sigil": if (mine(e.pid)) { gotSigil++; showBanner("BONE SIGIL", "Opens the Throne of the Ossuary King", "#ff3b6b", 2.5); } break;
+    case "gem": if (mine(e.pid)) showBanner("RIFT GEM!", `${GEM[e.id]?.name ?? e.id} · socket it in Gear`, GEM[e.id]?.color ?? "#ffd23f", 3); break;
+    case "gemUp": if (mine(e.pid)) gemLines.push(`${GEM[e.id]?.name ?? e.id} → level ${e.level}`); break;
     case "feather": if (mine(e.pid)) { gotFeather++; showBanner("PALE FEATHER", "Opens the Sanctum of the Pale Seraph", "#bfe8ff", 2.5); } break;
     case "riftComplete":
       completeInfo = { inTime: e.inTime, time: e.time };
