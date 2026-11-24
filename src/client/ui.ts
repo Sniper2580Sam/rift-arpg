@@ -57,7 +57,7 @@ export function itemHtml(raw: Item, h?: Holder, ctx?: { cls: string; level: numb
   if (it.legendary) out += `<div class="it-power ${LEGENDARY[it.legendary].mythic ? "mythic" : ""}">${esc(powerText(it))}</div>`;
   if (it.set) {
     const sd = SET[it.set];
-    const have = h ? Object.values(h.equipment).filter((e) => e?.set === it.set).length : 0;
+    const have = h ? new Set(Object.values(h.equipment).filter((e) => e?.set === it.set).map((e) => e!.slot)).size : 0;
     out += `<div class="it-set"><b>${esc(sd.name)}</b> (${have}/6 equipped)`;
     for (const [n, b] of Object.entries(sd.bonuses)) out += `<div class="${have >= +n ? "on" : ""}">(${n}) ${esc(b.text)}</div>`;
     out += `</div>`;

@@ -113,3 +113,13 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
 }
 if (fails) { console.log(`${fails} ledger checks failed`); process.exit(1); }
 console.log("ledger: all checks passed");
+
+{ // two copies of the same set ring count as one piece
+  const r = makeRng(7);
+  let ring: any = null;
+  for (let i = 0; i < 4000 && !ring; i++) { const it: any = mintItem(r, "x" + i, { slot: "ring", rarity: "set" } as any); if (it.set && it.slot === "ring") ring = it; }
+  if (ring) {
+    const st = computeStats({ ring1: ring, ring2: { ...ring, id: "copy" } } as any, { cls: "stormcaller", level: 30 });
+    check("duplicate set ring counts once", st.setCounts[ring.set] === 1);
+  } else check("found a set ring to test", false);
+}

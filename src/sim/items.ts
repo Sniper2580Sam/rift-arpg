@@ -218,6 +218,7 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
     maxHp: cd.baseHp + cd.hpPerLevel * (c.level - 1), armor: 0, regen: 0, moveSpeed: 0, cdr: 0, lifeOnHit: 0, eliteDmg: 0, resRegen: 0, costRed: 0, resMax: 0, areaPct: 0,
     tagDmg: {}, mods: [], flags: {}, setCounts: {}, speed: cd.speed, dmgMult: 1, takenMult: 1,
   };
+  const setSeen = new Set<string>();
   for (const [slot, raw] of Object.entries(eq)) {
     if (!raw) continue;
     const it = scaledItem(raw, c.slotPlus?.[slot as EquipSlot] ?? 0, c.slotCrit?.[slot as EquipSlot]);
@@ -244,7 +245,8 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
       }
     }
     if (it.legendary) s.mods.push(scaledMod(LEGENDARY[it.legendary], it.quality ? 1.5 : 1));
-    if (it.set) s.setCounts[it.set] = (s.setCounts[it.set] ?? 0) + 1;
+    // a set counts each piece once: two copies of the same set ring are one piece
+    if (it.set && !setSeen.has(it.set + ":" + it.slot)) { setSeen.add(it.set + ":" + it.slot); s.setCounts[it.set] = (s.setCounts[it.set] ?? 0) + 1; }
   }
   for (const [id, n] of Object.entries(s.setCounts)) {
     for (const [need, b] of Object.entries(SET[id].bonuses)) if (n >= +need) s.mods.push(b);
