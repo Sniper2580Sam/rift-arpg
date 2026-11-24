@@ -202,7 +202,7 @@ export class UI {
     const who = co.direct
       ? `<div class="row small"><span class="dim">Your name</span><input id="co-name" value="${esc(co.name)}" maxlength="16" autocomplete="nickname" aria-label="Your name"></div>`
       : `<div class="dim small">Signed in as <b>${esc(co.name)}</b> · <button class="link" id="co-out">sign out</button></div>`;
-    if (!l) return `<div class="coop"><b>Play together</b>${co.direct ? ` <span class="dim small">up to 4 · host on any phone or computer</span>` : ""}
+    if (!l) return `<div class="coop"><b>Play together</b>${co.direct ? ` <span class="dim small">up to 6 · host on any phone or computer</span>` : ""}
       ${co.connecting ? `<div class="dim small">Connecting…</div>` : `<div class="row"><button id="co-host">Host a room</button><input id="co-code" placeholder="room code" maxlength="4" autocomplete="off" autocapitalize="characters" aria-label="Room code"><button id="co-paste" title="Paste code">Paste</button><button id="co-join">Join</button></div>`}${who}
       ${co.direct ? `<div class="dim small">The host's device runs the game, so keep it on this screen while you play. Each player keeps their own loot and save.</div>` : ""}</div>`;
     const hostName = l.members.find((m) => m.pid === 0)?.name ?? "the host";

@@ -105,7 +105,7 @@ function leaveRoom(c: Conn) {
   tx(r.host, { t: "peerLeft", pid: c.pid });
   broadcastMembers(r);
 }
-const MAX_PARTY = 4;
+const MAX_PARTY = 6;
 
 // ------------------------------------------------------------------ websocket
 const wss = new WebSocketServer({ server: http, path: "/ws", maxPayload: 512 * 1024 });
@@ -150,7 +150,7 @@ wss.on("connection", (ws) => {
       case "join": {
         const room = rooms.get(String(m.code ?? "").toUpperCase());
         if (!room) return tx(c, { t: "joinFail", reason: "No room with that code." });
-        if (room.members.size >= MAX_PARTY) return tx(c, { t: "joinFail", reason: "That room is full (4 players)." });
+        if (room.members.size >= MAX_PARTY) return tx(c, { t: "joinFail", reason: "That room is full (6 players)." });
         if ([...room.members.values()].some((x) => x.name === c.name)) return tx(c, { t: "joinFail", reason: "You're already in that room." });
         leaveRoom(c);
         let pid = 1; while (room.members.has(pid)) pid++;

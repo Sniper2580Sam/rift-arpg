@@ -32,7 +32,7 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - **Hit-stop and pausing** only happen when nobody else shares the sim. In co-op, the bag and boon picker open without pausing.
 - **Seasons:** a local "start new season" button in the test build. Gear and levels reset, pets and settings carry over, and the old profile is archived. The server has no 3-month schedule yet.
 - **Live build solo:** a room of one, so the server still mints every item.
-- **Server:** plain Node with `ws`. Accounts use scrypt-hashed passwords, and data is stored as JSON files in `server-data/`. Room codes are 4 letters, up to 4 players, and people can join mid-run.
+- **Server:** plain Node with `ws`. Accounts use scrypt-hashed passwords, and data is stored as JSON files in `server-data/`. Room codes are 4 letters, up to 6 players (Samuel raised it from the brief's 4 on 2026-11-24), and people can join mid-run.
 - **Build flag (open item in the brief):** `OFFLINE_TEST` is a compile-time define. `npm run build` gives the offline test file. `npm run build:live` sets it to false, which removes local saves and blocks the game until you sign in to the server.
 
 ## Skill system rework (Samuel, 2026-11-24)

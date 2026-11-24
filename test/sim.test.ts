@@ -64,6 +64,15 @@ function replay(seed: number) {
 const h1 = replay(1234), h2 = replay(1234), h3 = replay(999);
 if (h1 !== h2) { console.error("DETERMINISM FAIL", h1, h2); proc.exit(1); }
 console.log(`determinism ok (${h1}), different seed differs: ${h1 !== h3}`);
+{ // a full room of 6 stays deterministic
+  const six = () => { const cls = ["ashknight", "gloomstalker", "stormcaller", "bonewright", "ashknight", "stormcaller"];
+    const s = createSim({ seed: 77, players: cls.map((c, i) => setup(i, c, 10)) });
+    for (let t = 0; t < 30 * 40; t++) { const inp: any = {}; for (const p of s.players) inp[p.pid] = bot(s, p.pid, t); step(s, inp); }
+    return [stateHash(s), s.players.length] as const; };
+  const a = six(), b = six();
+  if (a[0] !== b[0] || a[1] !== 6) { console.error("6-PLAYER FAIL", a, b); proc.exit(1); }
+  console.log("6-player room ok");
+}
 
 // 2) mint spread at tier 1 and tier 10
 for (const tier of [1, 10]) {

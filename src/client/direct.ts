@@ -8,7 +8,7 @@ import type { Lobby, Member, PeerInfo } from "./net";
 const PREFIX = "rift-arpg-x7q2-"; // keeps our room ids apart from other apps on the shared server
 const NAME_KEY = "rift-arpg-name";
 const CHUNK = 12000;
-const MAX = 4;
+const MAX = 6;
 const LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 
 export function savedName(): string {
@@ -162,7 +162,7 @@ export class Direct {
         return;
       }
     } else if (pid === 0) {
-      if (d?.t === "full") { this.leave(); this.onServer({ t: "joinFail", reason: "That room is full (4 players)." }); return; }
+      if (d?.t === "full") { this.leave(); this.onServer({ t: "joinFail", reason: "That room is full (6 players)." }); return; }
       if (d?.t === "welcome") { this.myPid = d.pid; return; }
       if (d?.t === "members") {
         if (!this.lobby) { this.open.add(0); this.connecting = false; }
