@@ -34,6 +34,12 @@ Saves are stored in Safari for that page. Clearing Safari website data wipes the
 5. Build toward a 6-piece set and see whether the bonus feels build-defining.
 6. Try the weekly rift and the rift code box: the same code should give the same layout.
 
+## 3b. Co-op with friends (no setup)
+- [ ] On the site, Play tab: type your name, tap **Host a room**, send friends the 4-letter code. They type it and tap **Join**. Up to 4 players.
+- [ ] Join while the host is mid-run. Leave mid-run.
+- [ ] Try a friend on mobile data while you're on Wi-Fi.
+- [ ] Keep the host's screen on: if the host switches apps, the game pauses for everyone.
+
 ## 4. Desktop
 - WASD moves. LMB is the primary attack, RMB or E the secondary, Space/Q/R utilities, F the ultimate. I opens the bag, M mutes.
 - Resize the window mid-run.

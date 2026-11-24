@@ -11,10 +11,12 @@ import { HubOp, applyHubOp } from "../shared/ops";
 import { RARITY_COLOR, Sprite, buildSprites, renderMap } from "./sprites";
 import { UI, fmtTime, modsLine } from "./ui";
 import { Online, onlineAvailable, signIn, signOut } from "./net";
+import { Direct } from "./direct";
 
 declare const OFFLINE_TEST: boolean;
 let ME = 0;
-let online: Online | null = null;
+/** Live build: the game server connection. Test builds: direct co-op by room code (no server). */
+let online: Online | Direct | null = null;
 
 // ------------------------------------------------------------------ setup
 const canvas = document.getElementById("game") as HTMLCanvasElement;
@@ -93,7 +95,8 @@ type RunOpts = { tier: number; seed: number | null; kind: "rift" | "chase"; week
 type RunInfo = { kind: "rift" | "chase"; tier: number; weekly: boolean; seed: number };
 function startRun(o: RunOpts) {
   unlockAudio();
-  if (online) return startLiveRun(o);
+  if (online && !online.direct) return startLiveRun(o);
+  if (online?.direct && online.lobby) { if (online.lobby.host) startDirectRun(o); return; }
   const c = char(profile);
   let seed = o.seed ?? ((Math.random() * 0xffffffff) >>> 0);
   if (o.weekly) seed = weeklySeed(isoWeek());
@@ -195,6 +198,13 @@ function endRun() {
 /** Live build: hand in this run's results to the server, and tell the party the run is over. */
 function finishOnline() {
   if (!online || !run) return;
+  if (online.direct) {
+    // direct co-op: everyone already saved their own progress locally in endRun
+    if (coop?.role === "host") { for (const pid of coop.live) online.sendR(pid, { t: "end" }); online.setRunning(false); }
+    else if (coop?.role === "guest" && !hostEnded && online.lobby) online.leave();
+    hostEnded = false; coop = null;
+    return;
+  }
   const c = char(profile);
   const have = new Set([...Object.values(c.equipment).map((it) => it!.id), ...c.bag.map((it) => it.id)]);
   const scrapped = [...new Set([...scrappedIds, ...[...runIds].filter((id) => !have.has(id))])];
@@ -214,7 +224,8 @@ function hubOp(op: HubOp) {
   if (r && typeof r === "object") profile = r;
   if (op.t === "setting" && op.k === "mute") setMuted(profile.settings.mute);
   saveProfile(profile);
-  online?.op(op);
+  if (online && !online.direct) online.op(op);
+  else if (online?.direct) online.pushSetup();
 }
 function goHub() {
   mode = "hub"; screen = "hub";
@@ -229,8 +240,10 @@ function goHub() {
     setting: (k, v) => hubOp({ t: "setting", k, v }),
     newSeason: () => { hubOp({ t: "newSeason" }); goHub(); },
     reset: () => { hubOp({ t: "reset" }); goHub(); },
-    rerollOptions: online ? (target, idx) => online!.rerollOptions(target, idx) : undefined,
-    coop: online ? { name: online.name, lobby: online.lobby, host: () => online!.host(), join: (code) => online!.join(code), leave: () => online!.leave(), signOut: () => { signOut(); location.reload(); } } : undefined,
+    rerollOptions: online && !online.direct ? (target, idx) => (online as Online).rerollOptions(target, idx) : undefined,
+    coop: !online ? undefined : online.direct
+      ? { name: online.name, lobby: online.lobby, direct: true, connecting: online.connecting, host: () => (online as Direct).host(), join: (code) => (online as Direct).join(code), leave: () => online!.leave(), setName: (n: string) => { (online as Direct).setName(n); goHub(); } }
+      : { name: online.name, lobby: online.lobby, host: () => online!.host(), join: (code) => online!.join(code), leave: () => online!.leave(), signOut: () => { signOut(); location.reload(); } },
   });
 }
 
@@ -955,11 +968,30 @@ function onRunOk(m: any) {
   beginRun(cfg, info);
 }
 
-function wireOnline(o: Online) {
-  o.onProfile = (p) => { profile = p; setMuted(profile.settings.mute); if (screen === "hub" && mode === "hub") goHub(); };
+/** Direct co-op: the host starts the run for the whole room. Items are made inside the shared game. */
+function startDirectRun(o: RunOpts) {
+  const d = online as Direct;
+  const c = char(profile), T = RIFT.tiers;
+  if (o.kind === "chase") { if (c.sigils <= 0) return; c.sigils--; saveProfile(profile); }
+  let seed = o.seed ?? ((Math.random() * 0xffffffff) >>> 0);
+  const peers = d.openPeers().filter((pid) => d.peerInfo.has(pid));
+  if (o.weekly && !peers.length) seed = weeklySeed(isoWeek());
+  const players = [setupFor(profile, ME, d.name), ...peers.map((pid) => ({ ...d.peerInfo.get(pid)!.setup, pid, name: d.peerInfo.get(pid)!.name }))];
+  const pity: SimConfig["pity"] = { [ME]: { ancestral: c.pityAnc >= T.ancestralPity, primal: c.pityPri >= T.primalPity } };
+  for (const pid of peers) pity[pid] = d.peerInfo.get(pid)!.pity;
+  const cfg: SimConfig = { seed, kind: o.kind, tier: o.tier, players, mods: o.kind === "chase" ? [] : rollModifiers(seed, o.tier), pity };
+  coop = newCoop("host", cfg);
+  const info: RunInfo = { kind: o.kind, tier: o.tier, weekly: !!o.weekly && peers.length === 0, seed };
+  for (const pid of peers) { d.sendR(pid, { t: "start", cfg, info }); coop.live.add(pid); coop.remote.set(pid, { inp: NO_INPUT, cmds: [] }); }
+  d.setRunning(true);
+  beginRun(cfg, info);
+}
+
+function wireOnline(o: Online | Direct) {
+  if (!o.direct) o.onProfile = (p) => { profile = p; setMuted(profile.settings.mute); if (screen === "hub" && mode === "hub") goHub(); };
   o.onLobby = () => {
     ME = o.lobby ? o.lobby.pid : 0;
-    if (pendingStart && !pendingStart.sent && o.lobby?.host) { pendingStart.sent = true; o.send({ t: "runStart", kind: pendingStart.kind, tier: pendingStart.tier }); }
+    if (!o.direct && pendingStart && !pendingStart.sent && o.lobby?.host) { pendingStart.sent = true; o.send({ t: "runStart", kind: pendingStart.kind, tier: pendingStart.tier }); }
     if (screen === "hub" && mode === "hub") goHub();
   };
   o.onServer = (m) => {
@@ -1009,7 +1041,7 @@ function wireOnline(o: Online) {
     if (m.t === "f" || m.t === "hash") { if (!coop.resyncing) coop.queue.push(m); return; }
     if (m.t === "end") { hostEnded = true; if (sim) endRun(); }
   };
-  o.onClosed = () => {
+  if (!o.direct) o.onClosed = () => {
     mode = "blocked";
     const root = document.getElementById("ui")!;
     root.className = "screen";
@@ -1046,6 +1078,12 @@ async function bootLive() {
 resize();
 if (!OFFLINE_TEST) bootLive();
 else {
+  if (onlineAvailable() && typeof RTCPeerConnection !== "undefined") {
+    // direct co-op by room code; the host runs the game, every phone keeps its own save
+    const d: Direct = new Direct(() => { const c = char(profile), T = RIFT.tiers; return { setup: setupFor(profile, 0, d.name), pity: { ancestral: c.pityAnc >= T.ancestralPity, primal: c.pityPri >= T.primalPity }, cls: c.cls, level: c.level }; });
+    wireOnline(d);
+    online = d;
+  }
   goHub();
   setOnSaved((p) => cloudQueue(p));
   let pendingRemote: Profile | null = null;

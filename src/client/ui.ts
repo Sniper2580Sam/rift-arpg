@@ -96,7 +96,11 @@ export interface HubHandlers {
 export interface CoopHub {
   name: string;
   lobby: { code: string; pid: number; host: boolean; members: { pid: number; name: string; cls: string; level: number }[]; running: boolean } | null;
-  host: () => void; join: (code: string) => void; leave: () => void; signOut: () => void;
+  host: () => void; join: (code: string) => void; leave: () => void;
+  /** live build (accounts on the server) */
+  signOut?: () => void;
+  /** direct co-op in the test builds: no accounts, pick a name */
+  direct?: boolean; connecting?: boolean; setName?: (n: string) => void;
 }
 
 export class UI {
@@ -177,9 +181,12 @@ export class UI {
   }
   private coopBox(co: CoopHub) {
     const l = co.lobby;
-    const who = `<div class="dim small">Signed in as <b>${esc(co.name)}</b> · <button class="link" id="co-out">sign out</button></div>`;
-    if (!l) return `<div class="coop"><b>Play together</b>
-      <div class="row"><button id="co-host">Host a room</button><input id="co-code" placeholder="room code" maxlength="4" autocomplete="off" aria-label="Room code"><button id="co-join">Join</button></div>${who}</div>`;
+    const who = co.direct
+      ? `<div class="row small"><span class="dim">Your name</span><input id="co-name" value="${esc(co.name)}" maxlength="16" autocomplete="nickname" aria-label="Your name"></div>`
+      : `<div class="dim small">Signed in as <b>${esc(co.name)}</b> · <button class="link" id="co-out">sign out</button></div>`;
+    if (!l) return `<div class="coop"><b>Play together</b>${co.direct ? ` <span class="dim small">up to 4 · host on any phone or computer</span>` : ""}
+      ${co.connecting ? `<div class="dim small">Connecting…</div>` : `<div class="row"><button id="co-host">Host a room</button><input id="co-code" placeholder="room code" maxlength="4" autocomplete="off" autocapitalize="characters" aria-label="Room code"><button id="co-join">Join</button></div>`}${who}
+      ${co.direct ? `<div class="dim small">The host's device runs the game, so keep it on this screen while you play. Each player keeps their own loot and save.</div>` : ""}</div>`;
     const hostName = l.members.find((m) => m.pid === 0)?.name ?? "the host";
     const list = l.members.map((m) => `<li>${esc(m.name)}${m.pid === 0 ? " (host)" : ""} · ${esc(CLASSES[m.cls]?.name ?? m.cls)} Lv ${m.level}</li>`).join("");
     return `<div class="coop"><b>Room ${esc(l.code)}</b> <span class="dim small">${l.members.length}/4 · share the code</span><ul>${list}</ul>
@@ -193,7 +200,9 @@ export class UI {
       b("#co-host", () => co.host());
       b("#co-join", () => { const v = (this.root.querySelector("#co-code") as HTMLInputElement).value.trim().toUpperCase(); if (v) co.join(v); });
       b("#co-leave", () => co.leave());
-      b("#co-out", () => co.signOut());
+      b("#co-out", () => co.signOut?.());
+      const nm = this.root.querySelector<HTMLInputElement>("#co-name");
+      if (nm && co.setName) nm.onchange = () => co.setName!(nm.value);
       if (co.lobby && !co.lobby.host) for (const id of ["#enter", "#weekly", "#chase"]) { const el = this.root.querySelector<HTMLButtonElement>(id); if (el) el.disabled = true; }
     }
     this.root.querySelectorAll<HTMLElement>("[data-cls]").forEach((el) => el.onclick = () => { H.setClass(el.dataset.cls!); this.tier = char(p).highestTier; re(); });

@@ -43,6 +43,7 @@ interface Peer { pc: RTCPeerConnection; r?: RTCDataChannel; u?: RTCDataChannel; 
 const CHUNK = 15000;
 
 export class Online {
+  readonly direct = false;
   ws!: WebSocket;
   name = "";
   lobby: Lobby | null = null;

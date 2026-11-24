@@ -63,3 +63,9 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Server deploys to Render's free tier from `render.yaml` (region Singapore, closest to Perth). Saves move to Upstash Redis when its two env vars are set; local play still uses JSON files.
 - STUN and TURN come from the server's settings (`/api/ice`). This resolves brief conflict 4 once a TURN service is added. Steps for Samuel: DEPLOY.md.
 - Free-tier trade-off: the server sleeps after about 15 idle minutes, and the first join after that takes about a minute.
+
+## Direct co-op in the test builds (Samuel chose "direct join now, server later", 2026-11-24)
+- The normal site has Host / Join by 4-letter room code on the Play tab, with a name and no accounts. It uses the free public PeerJS matchmaking server and PeerJS's free relay for hard networks. Room ids are prefixed so other apps can't collide with them.
+- The host's device runs the game, and the others send their moves to it (the same lockstep as before). Items are made inside the shared game, and each player saves their own progress on their own device. **No anti-cheat in this mode** (Samuel: fine at this stage).
+- ⚠ This departs from the brief ("backend mints and saves every item") for test builds only. The hosted server path (render.yaml, DEPLOY.md) stays for the real game.
+- If the host switches apps or locks their phone, Safari pauses the game for everyone.
