@@ -1,0 +1,12 @@
+[
+  { "id": "cinderbrand",  "name": "Cinderbrand",          "slot": "weapon", "tag": "melee",  "power": "cleave_wave",   "text": "Melee attacks also send a wave of fire forward for 70% weapon damage.", "params": { "damage": 0.7, "speed": 210, "range": 120 } },
+  { "id": "trident",      "name": "Trident of Embers",    "slot": "weapon", "tag": "pierce", "power": "pierce_split",  "text": "Pierce skills throw 3 projectiles in a fan.", "params": { "count": 3 } },
+  { "id": "tide_gaunt",   "name": "Gauntlets of the Tide","slot": "gloves", "tag": "pierce", "power": "pierce_return", "text": "Pierce projectiles fly back to you at the end of their path, hitting again.", "params": {} },
+  { "id": "reaper_grip",  "name": "Grip of the Reaper",   "slot": "gloves", "tag": "melee",  "power": "melee_ring",    "text": "Every 3rd melee attack hits all around you for double damage.", "params": { "every": 3, "mult": 2.0 } },
+  { "id": "pyre_mail",    "name": "Pyre Mail",            "slot": "chest",  "tag": "fire",   "power": "fire_ignite",   "text": "Fire skills ignite enemies, burning for 90% of the hit over 3 seconds.", "params": { "mult": 0.9, "duration": 3 } },
+  { "id": "heart_of_ash", "name": "Heart of Ash",         "slot": "chest",  "tag": "fire",   "power": "fire_explode",  "text": "Enemies killed by fire skills explode for 35% of their max life.", "params": { "pct": 0.35, "radius": 40 } },
+  { "id": "comet_treads", "name": "Comet Treads",         "slot": "boots",  "tag": "dash",   "power": "dash_trail",    "text": "Dash skills leave a burning trail for 3 seconds.", "params": { "dps": 1.2, "duration": 3 } },
+  { "id": "echo_stride",  "name": "Stride of Echoes",     "slot": "boots",  "tag": "dash",   "power": "dash_charges",  "text": "Dash skills have 3 charges.", "params": { "charges": 3 } },
+  { "id": "brood_crown",  "name": "Brood Crown",          "slot": "helm",   "tag": "summon", "power": "summon_extra",  "text": "Summon skills call 2 extra minions.", "params": { "extra": 2 } },
+  { "id": "hollow_diadem","name": "Hollow Diadem",        "slot": "helm",   "tag": "summon", "power": "summon_burst",  "text": "Your minions explode for 250% weapon damage when they expire.", "params": { "damage": 2.5, "radius": 38 } }
+]

@@ -1,0 +1,13 @@
+{
+  "name": "The Sunken Ossuary",
+  "timeLimit": 300,
+  "progressNeeded": 100,
+  "mapWidth": 84, "mapHeight": 84, "tileSize": 16,
+  "packCount": 42,
+  "packs": [
+    { "weight": 55, "members": [["ghoul", 4, 7]] },
+    { "weight": 25, "members": [["archer", 2, 3], ["ghoul", 1, 3]] },
+    { "weight": 20, "members": [["brute", 1, 1], ["ghoul", 2, 4]] }
+  ],
+  "guardianRewards": { "baseItems": 3, "inTimeItems": 2, "itemsPerMinuteLeft": 1, "inTimeLegendary": true }
+}

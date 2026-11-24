@@ -1,0 +1,20 @@
+{
+  "name": "rift-arpg",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.sim.json && tsc -p tsconfig.json",
+    "test": "esbuild test/sim.test.ts --bundle --platform=node --outfile=dist/sim.test.js --log-level=warning && node dist/sim.test.js",
+    "serve": "node scripts/build.mjs && npx --yes http-server dist -p 8080 -c-1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "esbuild": "^0.24.2",
+    "typescript": "^5.9.3"
+  },
+  "private": true,
+  "type": "module"
+}

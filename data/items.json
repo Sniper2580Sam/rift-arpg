@@ -1,0 +1,20 @@
+{
+  "slots": ["weapon", "helm", "chest", "gloves", "boots"],
+  "bases": {
+    "weapon": { "names": ["Iron Blade", "Grave Axe", "Ashen Sword"], "dmgMin": [7, 10], "dmgSpread": [3, 6] },
+    "helm":   { "names": ["Sallet", "Bone Helm", "Hood"],             "armor": [8, 14] },
+    "chest":  { "names": ["Hauberk", "Ribcage Mail", "Jerkin"],       "armor": [14, 24] },
+    "gloves": { "names": ["Gauntlets", "Grips", "Wraps"],             "armor": [5, 10] },
+    "boots":  { "names": ["Greaves", "Sabatons", "Treads"],           "armor": [5, 10] }
+  },
+  "rarities": {
+    "common":    { "weight": 52, "affixes": 1 },
+    "magic":     { "weight": 30, "affixes": 2 },
+    "rare":      { "weight": 15, "affixes": 4 },
+    "legendary": { "weight": 3,  "affixes": 3 }
+  },
+  "magicPrefixes": ["Sharp", "Grim", "Sturdy", "Burning", "Hollow", "Keen"],
+  "rareWords1": ["Dread", "Ember", "Gloom", "Bone", "Ash", "Rot", "Dusk", "Grave"],
+  "rareWords2": ["Bite", "Ward", "Shroud", "Call", "Fang", "Veil", "Mark", "Howl"],
+  "scrapValue": { "common": 1, "magic": 2, "rare": 5, "legendary": 20 }
+}

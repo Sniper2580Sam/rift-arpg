@@ -1,0 +1,6 @@
+{
+  "ghoul":   { "name": "Ghoulling",    "hp": 28,   "damage": 7,  "speed": 60, "radius": 5,  "attackRange": 10, "attackCooldown": 1.0, "windup": 0.25, "progress": 1.0, "dropChance": 0.07 },
+  "archer":  { "name": "Bone Archer",  "hp": 22,   "damage": 9,  "speed": 44, "radius": 5,  "attackRange": 150, "attackCooldown": 2.2, "windup": 0.5, "projectileSpeed": 125, "progress": 1.5, "dropChance": 0.10 },
+  "brute":   { "name": "Gravebrute",   "hp": 150,  "damage": 24, "speed": 30, "radius": 9,  "attackRange": 30, "attackCooldown": 2.4, "windup": 0.9, "slamRadius": 38, "progress": 5.0, "dropChance": 0.40 },
+  "guardian":{ "name": "The Hollow Warden", "hp": 1900, "damage": 16, "speed": 34, "radius": 15, "attackRange": 26, "attackCooldown": 1.6, "windup": 0.7, "slamRadius": 44, "progress": 0, "dropChance": 0, "enrageAfter": 90, "novaCount": 20, "novaSpeed": 95, "chargeSpeed": 250 }
+}
