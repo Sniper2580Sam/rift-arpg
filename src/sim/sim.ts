@@ -23,6 +23,8 @@ export interface PlayerSetup {
   equipment: Holder["equipment"]; bag: Item[]; materials: number; sigils: number;
   /** Pale Feathers: open the Sanctum of the Pale Seraph */
   feathers?: number;
+  /** Gilded Keys (from Gilded Imps) open the Gilded Vault */
+  vaultKeys?: number;
   shards?: number; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"];
   runes: Record<string, string>; pet: string; filter: Rarity;
   loadout?: string[];
@@ -40,7 +42,7 @@ export interface PlayerSetup {
 
 export interface Buff { armorPct: number; dmgPct: number; cdrPct: number; t: number }
 export interface Player extends Holder {
-  pid: number; name: string; cls: string; level: number; xp: number; sigils: number; feathers: number;
+  pid: number; name: string; cls: string; level: number; xp: number; sigils: number; feathers: number; vaultKeys: number;
   runes: Record<string, string>; pet: string; filter: Rarity; cos: CosChoice;
   x: number; y: number; px: number; py: number; r: number; hp: number; fx: number; fy: number; moving: boolean; walk: number;
   skills: string[]; cds: Num; charges: Num; chargeT: Num; swingT: number; swingCount: number;
@@ -57,7 +59,7 @@ export interface Player extends Holder {
   colossusT?: number; colossusSkill?: string;
 }
 
-export type EnemyKind = "ghoul" | "archer" | "brute" | "guardian" | "king" | "pylon" | "hound" | "hexer" | "gorehorn" | "shieldbearer";
+export type EnemyKind = "ghoul" | "archer" | "brute" | "guardian" | "king" | "pylon" | "hound" | "hexer" | "gorehorn" | "shieldbearer" | "imp";
 export interface Enemy {
   id: number; kind: EnemyKind;
   x: number; y: number; px: number; py: number; r: number;
@@ -110,11 +112,11 @@ export type SimEvent =
   | { type: "riftComplete"; inTime: boolean; time: number }
   | { type: "levelUp"; pid: number; level: number }
   | { type: "boonOffer"; pid: number } | { type: "boonTaken"; pid: number; id: string }
-  | { type: "sigil"; pid: number } | { type: "feather"; pid: number } | { type: "teleport"; x: number; y: number } | { type: "chain"; x1: number; y1: number; x2: number; y2: number; pid?: number; skill?: string }
+  | { type: "sigil"; pid: number } | { type: "feather"; pid: number } | { type: "vaultKey"; pid: number } | { type: "impAlert"; x: number; y: number } | { type: "impEscape"; x: number; y: number } | { type: "impKill"; x: number; y: number } | { type: "teleport"; x: number; y: number } | { type: "chain"; x1: number; y1: number; x2: number; y2: number; pid?: number; skill?: string }
   | { type: "waveStart"; wave: number; count: number; boss: boolean } | { type: "waveClear"; wave: number; secs: number; jump: number; cleared: boolean } | { type: "endlessOver"; wave: number; time: number }
   | { type: "equipChanged"; pid: number } | { type: "ambush"; x: number; y: number; n: number } | { type: "bountyTask"; text: string; left: number };
 
-export type RunKind = "rift" | "chase" | "endless" | "hideout" | "bounty" | "trial";
+export type RunKind = "rift" | "chase" | "endless" | "hideout" | "bounty" | "trial" | "vault";
 /** Bounty runs: four tasks on one map. */
 export interface BountyTask { kind: "elite" | "totems" | "shrine" | "cull"; text: string; x: number; y: number; ids: number[]; have: number; need: number; done: boolean }
 /** chase runs: which boss waits at the end */
@@ -188,7 +190,7 @@ export function createSim(cfg: SimConfig): SimState {
   const tier = Math.max(1, cfg.tier ?? 1);
   const rng = makeRng(cfg.seed);
   const hth = kind === "hideout" ? hideoutTheme(cfg.hideout?.theme) : undefined;
-  const md = kind === "chase" || kind === "hideout" ? undefined : kind === "endless" || kind === "trial" ? MAP.endless : MAP[cfg.map ?? ""] ?? pickMap(cfg.seed);
+  const md = kind === "chase" || kind === "hideout" ? undefined : kind === "endless" || kind === "trial" ? MAP.endless : kind === "vault" ? MAP.vault : MAP[cfg.map ?? ""] ?? pickMap(cfg.seed);
   const map = hth ? genHideout(rng, hth.w, hth.h, RIFT.tileSize, hth.shape)
     : !md ? genArena(rng, 44, 44, RIFT.tileSize)
     : md.layout === "arena" ? genArena(rng, md.w, md.h, RIFT.tileSize)
@@ -212,7 +214,7 @@ export function createSim(cfg: SimConfig): SimState {
     players: [], enemies: [], projectiles: [], summons: [], hazards: [], zones: [], loot: [], pending: [],
     nextId: 1, itemCounter: 0, startX, startY,
     rift: {
-      kind, tier, mods, map: md?.id, density, time: 0, limit: kind === "bounty" ? RIFT.bounty.timeLimit : kind === "trial" ? RIFT.trial.timeLimit : kind === "chase" ? (cfg.boss === "seraph" ? RIFT.seraph.timeLimit : RIFT.chase.timeLimit) : kind === "endless" || kind === "hideout" ? 1e9 : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier) * Math.max(1, density / 5)),
+      kind, tier, mods, map: md?.id, density, time: 0, limit: kind === "bounty" ? RIFT.bounty.timeLimit : kind === "trial" ? RIFT.trial.timeLimit : kind === "vault" ? RIFT.vault.timeLimit : kind === "chase" ? (cfg.boss === "seraph" ? RIFT.seraph.timeLimit : RIFT.chase.timeLimit) : kind === "endless" || kind === "hideout" ? 1e9 : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier) * Math.max(1, density / 5)),
       guardianSpawned: false, guardianId: 0, done: false, doneAt: 0, kills: 0, timeUpSent: false, boonIdx: 0, nextWave: RIFT.waves.first,
     },
     boonOffers: {}, boonPending: {}, pity: cfg.pity ?? {}, events: [], _flows: [], _flowTick: -999,
@@ -265,6 +267,13 @@ export function createSim(cfg: SimConfig): SimState {
     }
   }
   if (kind === "bounty") setupBounty(s, floors);
+  if (kind === "vault") s.rift.need = 1e9; // no guardian: loot until the timer runs out
+  // a Gilded Imp sometimes hides in a rift: it runs when it sees you, and escapes if you're too slow
+  const I = RIFT.imp;
+  if (kind === "rift" && !md?.egg && tier >= I.fromTier && chance(rng, I.chance)) {
+    const far = floors.filter((i) => len((i % map.w) * ts - startX, Math.floor(i / map.w) * ts - startY) > I.minDistance);
+    if (far.length) { const i = far[Math.floor(next(rng) * far.length)]; const e = spawnEnemy(s, "imp", (i % map.w) * ts + ts / 2, Math.floor(i / map.w) * ts + ts / 2, n); e.noProgress = true; e.scale = 1.3; }
+  }
   return s;
 }
 
@@ -283,7 +292,7 @@ export function addPlayer(s: SimState, ps: PlayerSetup): Player {
   const p: Player = {
     paragon: ps.paragon ?? 0, pxp: ps.pxp ?? 0, pAlloc: { ...(ps.pAlloc ?? {}) },
     relics: (ps.relics ?? []).slice(0, 3), talents: { ...(ps.talents ?? {}) }, gems: { ...(ps.gems ?? {}) }, gemSlots: (ps.gemSlots ?? []).filter((g) => ps.gems?.[g] && GEM[g]).slice(0, GEMS.slots),
-    pid: ps.pid, name: ps.name, cls, level: ps.level, xp: ps.xp, sigils: ps.sigils, feathers: ps.feathers ?? 0, runes: { ...ps.runes }, pet: ps.pet, filter: ps.filter, cos: { ...ps.cos },
+    pid: ps.pid, name: ps.name, cls, level: ps.level, xp: ps.xp, sigils: ps.sigils, feathers: ps.feathers ?? 0, vaultKeys: ps.vaultKeys ?? 0, runes: { ...ps.runes }, pet: ps.pet, filter: ps.filter, cos: { ...ps.cos },
     equipment: clone(ps.equipment), bag: clone(ps.bag), materials: ps.materials, shards: ps.shards ?? 0, slotPlus: { ...(ps.slotPlus ?? {}) }, slotCrit: { ...(ps.slotCrit ?? {}) },
     x: s.startX + (s.players.length % 2) * 12 - 6, y: s.startY + Math.floor(s.players.length / 2) * 12, px: 0, py: 0, r: 5, hp: 1, fx: 1, fy: 0, moving: false, walk: 0,
     skills: [], cds: {}, charges: {}, chargeT: {}, swingT: 0, swingCount: 0,
@@ -887,6 +896,7 @@ function killEnemy(s: SimState, e: Enemy, pid: number, P: Num) {
   if (e.kind === "pylon") return;
   grantXp(s, (def?.xp ?? 0) * (e.elite ? ELITES.xpMult : 1));
   if (e.kind === "guardian" || e.kind === "king") { completeRift(s, e); return; }
+  if (e.kind === "imp") { impKilled(s, e); return; }
   s.rift.kills++;
   if (!e.noProgress) s.rift.progress = Math.min(s.rift.need, s.rift.progress + def.progress * (e.elite ? 4 : 1));
   if (!e.noProgress) {
@@ -1041,6 +1051,7 @@ function updateEnemies(s: SimState) {
       case "gorehorn": aiGorehorn(s, e, def, tgt, dist, dx, dy, spd); break;
       case "shieldbearer": aiShield(s, e, def, tgt, dist, dx, dy, spd); break;
       case "king": if (e.variant === "seraph") aiSeraph(s, e, def, tgt, dist, dx, dy, spd); else aiKing(s, e, def, tgt, dist, dx, dy, spd); break;
+      case "imp": aiImp(s, e, spd, dx, dy); break;
       case "pylon": break;
     }
   }
@@ -1709,6 +1720,7 @@ function updateRift(s: SimState) {
   if (r.kind === "hideout") return;
   if (r.kind === "endless") { updateEndless(s); return; }
   if (r.kind === "trial") { updateTrial(s); return; }
+  if (r.kind === "vault") { if (r.time >= r.limit) endTrial(s, true); return; }
   if (r.kind === "bounty") { updateBounty(s); return; }
   if (r.kind === "rift" && !r.guardianSpawned && r.nextWave !== undefined && r.time >= r.nextWave) ambush(s);
   // boons: pick 1 of 3 at progress thresholds (lost at the end of the run)
@@ -1742,6 +1754,25 @@ function updateRift(s: SimState) {
     r.guardianId = g.id;
     for (const e of s.enemies) if (e !== g && !e.dead && len(e.x - gx, e.y - gy) < 120) { e.dead = true; s.events.push({ type: "kill", x: e.x, y: e.y, kind: e.kind, elite: e.elite }); }
     s.events.push({ type: "guardianSpawn", x: gx, y: gy, kind: "guardian", variant: gd.id });
+  }
+}
+
+// ------------------------------------------------------------------ the Gilded Imp
+function aiImp(s: SimState, e: Enemy, spd: number, dx: number, dy: number) {
+  if (e.state !== "flee") { e.state = "flee"; e.t = RIFT.imp.escapeAfter; s.events.push({ type: "impAlert", x: e.x, y: e.y }); }
+  if (e.t <= 0) { e.dead = true; s.events.push({ type: "impEscape", x: e.x, y: e.y }); return; }
+  // run away from the nearest hero, weaving; slip sideways when cornered
+  const a = Math.atan2(-dy, -dx) + Math.sin(e.age * 2.2) * 0.9, ox = e.x, oy = e.y;
+  moveWithWalls(s.map, e, Math.cos(a) * spd * DT, Math.sin(a) * spd * DT);
+  if (len(e.x - ox, e.y - oy) < spd * DT * 0.3) { const b = a + (Math.PI / 2) * (e.id % 2 ? 1 : -1); moveWithWalls(s.map, e, Math.cos(b) * spd * DT, Math.sin(b) * spd * DT); }
+  e.tx = Math.cos(a); e.ty = Math.sin(a);
+}
+/** Caught: everyone gets a shower of loot (one legendary) and a Gilded Key for the Vault. */
+function impKilled(s: SimState, e: Enemy) {
+  s.events.push({ type: "impKill", x: e.x, y: e.y });
+  for (const p of s.players) {
+    for (let i = 0; i < RIFT.imp.drops; i++) { const d = DIR_TABLE[(i * 8 + 3) % 32]; dropFor(s, p, e.x + d[0] * 18, e.y + d[1] * 18, i === 0 ? { rarity: chance(s.rng, 0.3) ? "set" : "legendary" } : { legendaryWeightMult: 4 }); }
+    p.vaultKeys++; s.events.push({ type: "vaultKey", pid: p.pid });
   }
 }
 

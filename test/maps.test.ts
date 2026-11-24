@@ -56,6 +56,34 @@ for (const [lvl, want] of [[1, true], [30, false]] as [number, boolean][]) {
   const won = s.rift.done && s.rift.time < s.rift.limit && s.rift.wave === 5;
   check(`trial ${lvl}: ${want ? "passes" : "times out"}`, s.rift.done && won === want && drops === 0, `(wave ${s.rift.wave}, ${s.rift.time.toFixed(0)} s, ${drops} drops)`);
 }
+// Gilded Imp: some rifts have one; it runs from you and escapes after its timer, or drops loot and a key when caught
+{
+  let found = 0, seed = 0, sImp: SimState | null = null;
+  for (let i = 1; i <= 40; i++) { const t = createSim({ seed: i * 31, tier: 4, players: [setup] }); if (t.enemies.some((e) => e.kind === "imp")) { found++; if (!sImp) { sImp = t; seed = i * 31; } } }
+  check("imps turn up in some rifts", found >= 4 && found <= 24, `(${found}/40)`);
+  const s = sImp!, imp = s.enemies.find((e) => e.kind === "imp")!, p = s.players[0];
+  p.x = imp.x - 60; p.y = imp.y; const d0 = 60;
+  let escaped = false;
+  for (let t = 0; t < 30 * 20 && !escaped; t++) { step(s, { 0: NO_INPUT }); for (const e of s.events) if (e.type === "impEscape") escaped = true; }
+  check("imp flees and escapes", escaped && imp.dead && p.vaultKeys === 0, `(ran ${Math.hypot(imp.x - p.x, imp.y - p.y).toFixed(0)} from ${d0})`);
+  const s2 = createSim({ seed, tier: 4, players: [setup] }), imp2 = s2.enemies.find((e) => e.kind === "imp")!;
+  imp2.hp = 1; s2.players[0].x = imp2.x - 20; s2.players[0].y = imp2.y;
+  let drops = 0;
+  for (let t = 0; t < 30 * 4 && !imp2.dead; t++) { step(s2, { 0: { mx: 0, my: 0, ax: imp2.x, ay: imp2.y, act: 1 } }); for (const e of s2.events) if (e.type === "drop") drops++; }
+  check("caught imp pays loot and a key", imp2.dead && s2.players[0].vaultKeys === 1 && drops >= 4, `(${drops} drops)`);
+}
+// Gilded Vault: rich loot, no guardian, seals itself at the time limit
+{
+  const s = createSim({ seed: 3, kind: "vault", tier: 4, players: [{ ...setup, level: 30 }] });
+  let drops = 0, done = false;
+  let lx = 0, ly = 0;
+  for (let t = 0; t < 30 * 100 && !s.rift.done; t++) {
+    step(s, { 0: bot(s, t) }); for (const e of s.events) { if (e.type === "drop") drops++; if (e.type === "riftComplete") done = e.inTime; }
+    const p = s.players[0];
+    if (t % 60 === 0) { if (Math.hypot(p.x - lx, p.y - ly) < 4) { const e = s.enemies.find((e) => !e.dead); if (e) { p.x = e.x; p.y = e.y; } } lx = p.x; ly = p.y; }
+  }
+  check("vault seals at 90 s with loot", done && Math.abs(s.rift.time - 90) < 1 && drops >= 5 && s.rift.map === "vault", `(${drops} drops, ${s.rift.kills} kills)`);
+}
 // how often each map comes up from rift codes
 const counts: Record<string, number> = {};
 for (let i = 0; i < 20000; i++) { const m = pickMap(i * 7919 + 13); counts[m.id] = (counts[m.id] ?? 0) + 1; }

@@ -192,3 +192,10 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 - **Talent points**: one per new Trial level passed in time (`trialBest`), max 30. The server raises `trialBest` itself from what it saw, one level at a time.
 - **Talent trees** (data/talents.json): each class has 3 branches with 4 nodes of 3 ranks each (36 ranks, 30 points, so you choose). Rows open at 0/3/6/9 points spent in the branch. You can't remove a point that a higher row relies on. Respec is free. Talents use the normal stat keys plus hpPct/armorPct/takenPct/regenPct and tag:<tag>. They are shown under Skills.
 - Balance is a first guess: a geared bot clears Trial 1 in about 1 minute. The level curve past 15 needs playtesting.
+
+## 2026-11-24: Gilded Imp and the Gilded Vault (endgame activity 7)
+- **Gilded Imp**: 30% of rifts from tier 2 hide one, placed at least 500 px from the start. When a hero comes near, it runs away, weaving, for 12 s, then escapes. If you catch it, every player gets 4 items (the first is legendary or set) and a **Gilded Key**. It gives no rift progress.
+- **Gilded Vault** (hideout portal or Play tab, costs 1 key): 90 s on the vault map (6× drops) at your highest tier, with no guardian. It pays **2 Gilded Chisels** when it seals.
+- **Gilded Chisel** (Gear tab): once per item, either add one new affix or re-roll the two weakest affixes (never the enchanted one). It is seeded from the item id, so the client and server agree.
+- The Vault is a key you spend from the hideout, not a portal that opens mid-rift. Switching maps mid-run would need a new co-op hand-off.
+- Live server: keys are clamped to +1 per save, like feathers. The server can't prove an imp kill, which is the same trust level as feathers.

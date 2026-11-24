@@ -2,7 +2,7 @@ import { talentStats,
   gemVals, AFFIX, AFFIXES, BOON, CLASSES, EquipSlot, ITEMS, LEGENDARIES, LEGENDARY, MODIFIER, ModDef, MYTHICS, Num, RARITY_ORDER, RIFT,
   Rarity, SET, SETS, SKILL, SlotType, classAffinity, levelPower, slotTypeOf,
 } from "./data";
-import { Rng, int, next, pick } from "./rng";
+import { Rng, int, next, pick, makeRng } from "./rng";
 
 export interface Affix { id: string; value: number; min: number; max: number }
 export interface Item {
@@ -13,6 +13,8 @@ export interface Item {
   /** Echo Cores spent on this item (Endless reward): each adds a little damage and life */
   echo?: number;
   rerollIdx?: number; rerolls?: number;
+  /** a Gilded Chisel was used on it (once per item) */
+  chiseled?: boolean;
   /** favourited by the player: scrapping skips it */
   locked?: boolean;
 }
@@ -213,6 +215,26 @@ export function rerollOptions(r: Rng, it: Item, idx: number, n = 3): Affix[] {
     out.push(rollAffix(r, a.id, it.ilvl, qm, it.quality === "primal"));
   }
   return out;
+}
+
+/** Gilded Chisel (Gilded Vault reward), once per item: add one new affix, or re-roll its two weakest affixes
+ * (never the enchanted one). Seeded from the item id, so the client and server get the same result. */
+export function chiselItem(it: Item, mode: "add" | "reroll"): boolean {
+  if (it.chiseled) return false;
+  let h = 2166136261; for (const ch of `${it.id}:${mode}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  const r = makeRng(h >>> 0), qm = it.quality ? ITEMS.ancestralMult : 1, max = it.quality === "primal";
+  const taken = new Set(it.affixes.map((a) => a.id));
+  const pool = AFFIXES.filter((a) => a.slots.includes(it.slot) && !taken.has(a.id));
+  if (mode === "add") {
+    if (!pool.length) return false;
+    it.affixes.push(rollAffix(r, pool[Math.floor(next(r) * pool.length)].id, it.ilvl, qm, max));
+  } else {
+    const idx = it.affixes.map((a, i) => i).filter((i) => i !== it.rerollIdx).sort((a, b) => affixQuality(it.affixes[a]) - affixQuality(it.affixes[b])).slice(0, 2);
+    if (idx.length < 2 || pool.length < 2) return false;
+    for (const i of idx) it.affixes[i] = rollAffix(r, pool.splice(Math.floor(next(r) * pool.length), 1)[0].id, it.ilvl, qm, max);
+  }
+  it.chiseled = true;
+  return true;
 }
 
 // ------------------------------------------------------------------ stats

@@ -220,6 +220,20 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   check("refund all", applyHubOp(p, { t: "talent", reset: true }) === true && !Object.keys(c.talents ?? {}).length);
 }
 
+{ // Gilded Vault: pays chisels; a chisel adds an affix or re-rolls two, the same on client and server, once per item
+  const p = newProfile(), c = p.chars.ashknight;
+  applySave(p, "ashknight", base(p) as any, member(), { kind: "vault", tier: 4, completed: true, inTime: true, time: 90 }, 1);
+  check("vault pays 2 chisels", p.chisels === 2);
+  const w = c.equipment.weapon!, n0 = w.affixes.length, p2 = JSON.parse(JSON.stringify(p));
+  check("chisel adds an affix", applyHubOp(p, { t: "chisel", slot: "weapon", mode: "add" }) === true && w.affixes.length === n0 + 1 && p.chisels === 1);
+  applyHubOp(p2, { t: "chisel", slot: "weapon", mode: "add" });
+  check("chisel is deterministic", JSON.stringify(p2.chars.ashknight.equipment.weapon) === JSON.stringify(w));
+  check("once per item", applyHubOp(p, { t: "chisel", slot: "weapon", mode: "reroll" }) === false && p.chisels === 1);
+  const rep: any = base(p); rep.vaultKeys = 5;
+  applySave(p, "ashknight", rep, member(), { kind: "rift", tier: 4, completed: true, inTime: true, time: 400 }, 1);
+  check("keys clamp to +1 per save", c.vaultKeys === 1);
+}
+
 if (fails) { console.log(`${fails} ledger checks failed`); process.exit(1); }
 console.log("ledger: all checks passed");
 

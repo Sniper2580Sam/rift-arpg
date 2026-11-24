@@ -18,7 +18,7 @@ export interface CharSave {
   loadout?: string[];
   highestTier: number; bestWave?: number; kings?: number; seraphs?: number;
   /** paragon levels after max level, XP toward the next, and points spent per stat */
-  paragon?: number; pxp?: number; pAlloc?: Partial<Record<string, number>>; pityAnc: number; pityPri: number; sigils: number; feathers?: number;
+  paragon?: number; pxp?: number; pAlloc?: Partial<Record<string, number>>; pityAnc: number; pityPri: number; sigils: number; feathers?: number; vaultKeys?: number;
   /** rift gems owned (id -> level) and socketed (up to 3) */
   gems?: Record<string, number>; gemSlots?: string[];
   /** best Trial level cleared in time (one talent point each) and talent ranks spent */
@@ -54,6 +54,8 @@ export interface Profile {
   relics?: string[]; relicDust?: number;
   /** boss trophies (account-wide, reset with the season) */
   kingShards?: number; hallows?: number;
+  /** Gilded Chisels (Gilded Vault reward): add an affix or re-roll two, once per item */
+  chisels?: number;
   /** Echo Cores (Endless; account-wide, reset with the season) */
   echoCores?: number;
   /** this season's journey counters (reset with the season) */
@@ -154,7 +156,7 @@ export function holderOf(p: Profile): Holder {
 
 export function setupFor(p: Profile, pid = 0, name = "You"): PlayerSetup {
   const c = char(p);
-  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, feathers: c.feathers ?? 0, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, pAlloc: c.pAlloc ?? {}, gems: c.gems ?? {}, gemSlots: c.gemSlots ?? [], talents: c.talents ?? {}, relics: Object.values(c.relicSlots ?? {}).filter((id): id is string => !!id && (p.relics ?? []).includes(id)) };
+  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, feathers: c.feathers ?? 0, vaultKeys: c.vaultKeys ?? 0, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, pAlloc: c.pAlloc ?? {}, gems: c.gems ?? {}, gemSlots: c.gemSlots ?? [], talents: c.talents ?? {}, relics: Object.values(c.relicSlots ?? {}).filter((id): id is string => !!id && (p.relics ?? []).includes(id)) };
 }
 
 /** Pull the player's persistent state back out of a running sim (items picked up, XP, levels). Boons are not kept. */
@@ -164,7 +166,7 @@ export function syncFromSim(p: Profile, s: SimState, pid = 0) {
   const c = char(p);
   c.equipment = JSON.parse(JSON.stringify(me.equipment));
   c.bag = JSON.parse(JSON.stringify(me.bag));
-  c.level = me.level; c.xp = me.xp; c.sigils = me.sigils; c.feathers = me.feathers; c.gems = { ...me.gems }; c.gemSlots = [...me.gemSlots]; c.paragon = me.paragon; c.pxp = me.pxp;
+  c.level = me.level; c.xp = me.xp; c.sigils = me.sigils; c.feathers = me.feathers; c.vaultKeys = me.vaultKeys; c.gems = { ...me.gems }; c.gemSlots = [...me.gemSlots]; c.paragon = me.paragon; c.pxp = me.pxp;
   p.materials = me.materials; p.shards = me.shards ?? p.shards ?? 0;
   saveProfile(p);
 }

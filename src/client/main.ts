@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { nextTrial, talentPoints, coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { chiselsForRun, nextTrial, talentPoints, coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
@@ -66,7 +66,7 @@ let banner: { text: string; sub: string; color: string; t: number } | null = nul
 let found: Record<string, number> = {}, foundLegs: { name: string; rarity: Rarity; quality?: string }[] = [];
 let runTally: RunTally | null = null;
 let gemLines: string[] = [];
-let gotAncestral = false, gotPrimal = false, gotSigil = 0, gotFeather = 0, runElites = 0, startLevel = 1;
+let gotAncestral = false, gotPrimal = false, gotSigil = 0, gotFeather = 0, gotKey = 0, runElites = 0, startLevel = 1;
 let completeInfo: { inTime: boolean; time: number } | null = null;
 let run: { kind: RunKind; tier: number; weekly: boolean; seed: number; boss?: ChaseBoss } | null = null;
 let leaveArmed = 0;
@@ -102,8 +102,9 @@ type RunOpts = { tier: number; seed: number | null; kind: RunKind; weekly?: bool
 type RunInfo = { kind: RunKind; tier: number; weekly: boolean; seed: number; boss?: ChaseBoss };
 /** Spend the key a chase run needs: a Bone Sigil for the King, a Pale Feather for the Seraph. */
 function payChase(o: RunOpts): boolean {
-  if (o.kind !== "chase") return true;
   const c = char(profile);
+  if (o.kind === "vault") { if ((c.vaultKeys ?? 0) <= 0) return false; c.vaultKeys = (c.vaultKeys ?? 0) - 1; saveProfile(profile); return true; }
+  if (o.kind !== "chase") return true;
   if (o.boss === "seraph") { if ((c.feathers ?? 0) <= 0) return false; c.feathers = (c.feathers ?? 0) - 1; }
   else { if (c.sigils <= 0) return false; c.sigils--; }
   saveProfile(profile);
@@ -148,13 +149,14 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   camX = p.x - wb.width / 2; camY = p.y - wb.height / 2;
   particles.length = nums.length = rings.length = arcs.length = ghosts.length = 0; pets.clear();
   found = {}; foundLegs = []; completeInfo = null; acc = 0; hitstop = 0; paused = false; input.enabled = true; // a run started from the menu must not inherit its paused input
-  gotAncestral = gotPrimal = false; gotSigil = 0; gotFeather = 0; runElites = 0; gemLines = []; startLevel = c.level;
+  gotAncestral = gotPrimal = false; gotSigil = 0; gotFeather = 0; gotKey = 0; runElites = 0; gemLines = []; startLevel = c.level;
   runIds = new Set([...Object.values(p.equipment).map((it) => it!.id), ...p.bag.map((it) => it.id)]); scrappedIds = [];
   mode = "rift"; screen = "rift";
   ui.hide();
   riftButtons();
   const party = sim.players.length > 1 ? ` · party of ${sim.players.length}` : "";
   if (info.kind === "hideout") { const host = sim.players.find((q) => q.pid === 0); showBanner(host && host.pid !== ME ? `${host.name}'s hideout` : "Your hideout", "Walk to a station or portal", "#c9b8ff", 2.2); }
+  else if (info.kind === "vault") showBanner(RIFT.vault.name.toUpperCase(), `${RIFT.vault.timeLimit} seconds of treasure · tier ${info.tier} · ${RIFT.vault.chisels} Gilded Chisels at the end`, "#ffd23f", 3.5);
   else if (info.kind === "trial") showBanner(`TRIAL ${info.tier}`, `Clear ${RIFT.trial.waves} waves in ${fmtTime(RIFT.trial.timeLimit)} for a talent point`, "#7dd8ff", 3.5);
   else if (info.kind === "bounty") showBanner("BOUNTIES", `Tier ${info.tier} · four tasks on one map · gold markers on the minimap`, "#ffd23f", 3.5);
   else if (info.kind === "endless") showBanner("ENDLESS", `Tier ${info.tier} start · ${RIFT.endless.lives} lives · clear waves fast to climb faster`, "#ff8a5a", 3.5);
@@ -170,7 +172,7 @@ function hideoutButtons() {
   root.className = "hudbtns";
   const n = hideNear;
   const guest = coop?.role === "guest";
-  const act = !n ? "" : n.kind ? `<button id="h-act" class="h-act">${guest ? `${esc(n.name)} · host opens` : `Enter ${esc(n.name)}${n.kind === "chase" ? ` (${n.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`})` : n.kind === "trial" ? ` ${nextTrial(char(profile).trialBest)}` : n.kind === "rift" || n.kind === "endless" ? ` · T${ui.tier}` : ""}`}</button>` : `<button id="h-act" class="h-act">${esc(n.name)}</button>`;
+  const act = !n ? "" : n.kind ? `<button id="h-act" class="h-act">${guest ? `${esc(n.name)} · host opens` : `Enter ${esc(n.name)}${n.kind === "chase" ? ` (${n.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`})` : n.kind === "trial" ? ` ${nextTrial(char(profile).trialBest)}` : n.kind === "vault" ? ` (${char(profile).vaultKeys ?? 0} keys)` : n.kind === "rift" || n.kind === "endless" ? ` · T${ui.tier}` : ""}`}</button>` : `<button id="h-act" class="h-act">${esc(n.name)}</button>`;
   root.innerHTML = `${act}<button id="h-menu">Menu</button>${guest ? `<button id="h-leave">Leave room</button>` : ""}`;
   const a = document.getElementById("h-act"); if (a) a.onclick = () => useSpot(n!);
   document.getElementById("h-menu")!.onclick = () => openMenu();
@@ -182,6 +184,7 @@ function useSpot(n: HideoutSpot) {
     const c = char(profile);
     if (n.kind === "chase" && n.id === "seraph") { if ((c.feathers ?? 0) <= 0) { ui.toast(`You need a Pale Feather (the King leaves one, and guardians drop them at tier ${RIFT.seraph.featherFrom}+).`, "#bfe8ff"); return; } startRun({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase", boss: "seraph" }); }
     else if (n.kind === "chase") { if (c.sigils <= 0) { ui.toast("You need a Bone Sigil (they drop from guardians at tier 3+).", "#ffd23f"); return; } startRun({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase" }); }
+    else if (n.kind === "vault") { if ((c.vaultKeys ?? 0) <= 0) { ui.toast("You need a Gilded Key: catch a Gilded Imp in a rift (tier 2+) before it escapes.", "#ffd23f"); return; } startRun({ tier: c.highestTier, seed: null, kind: "vault" }); }
     else if (n.kind === "trial") startRun({ tier: nextTrial(c.trialBest), seed: null, kind: "trial" });
     else startRun({ tier: Math.min(Math.max(1, ui.tier), c.highestTier), seed: null, kind: n.kind as RunKind });
     return;
@@ -327,6 +330,7 @@ function endRun() {
   if (newRunes.length) lines.push(`New runes: ${newRunes.join(", ")}`);
   if (gotSigil) lines.push(`Bone Sigil found (${c.sigils} owned). The Ossuary King awaits.`);
   if (gemLines.length) lines.push(`Gems levelled: ${gemLines.join(", ")}`);
+  if (gotKey) lines.push(`Gilded Key found (${c.vaultKeys ?? 0} owned). The Gilded Vault portal is in your hideout.`);
   if (gotFeather) lines.push(`Pale Feather found (${c.feathers ?? 0} owned). The Pale Seraph awaits.`);
   // counters for feats (lifetime, kept across seasons) and the season journey (this season only)
   const tally: RunTally = {
@@ -342,6 +346,8 @@ function endRun() {
   const tro = trophiesForRun(tally);
   if (tro.shards) { profile.kingShards = (profile.kingShards ?? 0) + tro.shards; lines.push(`+${tro.shards} King's Shards (craft set pieces in Gear)`); }
   if (tro.hallows) { profile.hallows = (profile.hallows ?? 0) + tro.hallows; lines.push(`+${tro.hallows} Seraph Hallow (make an item ancestral in Gear)`); }
+  const chis = chiselsForRun(tally);
+  if (chis) { profile.chisels = (profile.chisels ?? 0) + chis; lines.push(`+${chis} Gilded Chisels (add or re-roll affixes in Gear)`); }
   const dust = dustForRun(tally);
   if (dust) { profile.relicDust = (profile.relicDust ?? 0) + dust; lines.push(`+${dust} Relic Dust (extract legendary powers in Gear)`); }
   const runAether = aetherForRun(tally);
@@ -371,8 +377,8 @@ function endRun() {
     if (run.kind === "endless" && wave > (c.bestWave ?? 0)) { c.bestWave = wave; lines.push(`New best: wave ${wave}`); }
     checkFeats(lines);
     saveProfile(profile);
-    const title = run.kind === "trial" ? (completeInfo.inTime ? `Trial ${run.tier} passed` : `Trial ${run.tier} failed`) : run.kind === "bounty" ? "Bounties complete" : run.kind === "endless" ? `Endless: wave ${wave}` : run.kind === "chase" ? (run.boss === "seraph" ? "The Pale Seraph falls" : "The Ossuary King falls") : completeInfo.inTime ? "Rift cleared in time!" : "Guardian slain";
-    const sub = run.kind === "trial" ? (completeInfo.inTime ? "Talent points make your hero stronger in every activity." : "No talent point this time.") : run.kind === "endless" ? `Reached difficulty level ${s.rift.level ?? 0} from tier ${run.tier}. The chest grows every ${RIFT.endless.rewards.perWaves} waves.` : completeInfo.inTime ? "Bonus loot for time remaining." : "The timer ran out, so the rewards were smaller.";
+    const title = run.kind === "vault" ? "The Gilded Vault" : run.kind === "trial" ? (completeInfo.inTime ? `Trial ${run.tier} passed` : `Trial ${run.tier} failed`) : run.kind === "bounty" ? "Bounties complete" : run.kind === "endless" ? `Endless: wave ${wave}` : run.kind === "chase" ? (run.boss === "seraph" ? "The Pale Seraph falls" : "The Ossuary King falls") : completeInfo.inTime ? "Rift cleared in time!" : "Guardian slain";
+    const sub = run.kind === "vault" ? "The vault sealed itself again." : run.kind === "trial" ? (completeInfo.inTime ? "Talent points make your hero stronger in every activity." : "No talent point this time.") : run.kind === "endless" ? `Reached difficulty level ${s.rift.level ?? 0} from tier ${run.tier}. The chest grows every ${RIFT.endless.rewards.perWaves} waves.` : completeInfo.inTime ? "Bonus loot for time remaining." : "The timer ran out, so the rewards were smaller.";
     finishOnline();
     screen = "results";
     ui.showResults({ title, sub, time: completeInfo.time, kills: s.rift.kills, found, legendaries: foundLegs, lines }, goHub);
@@ -410,7 +416,7 @@ function finishOnline() {
     online.send({ t: "complete", inTime: completeInfo?.inTime, time: completeInfo?.time });
     for (const pid of coop.live) online.sendR(pid, { t: "end" });
   }
-  online.send({ t: "save", report: { equipment: c.equipment, bag: c.bag, scrapped, materials: profile.materials, shards: profile.shards ?? 0, level: c.level, xp: c.xp, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, sigils: c.sigils, feathers: c.feathers ?? 0, gems: c.gems ?? {}, gemSlots: c.gemSlots ?? [], uses: c.uses, highestTier: c.highestTier, pityAnc: c.pityAnc, pityPri: c.pityPri, bestTimes: c.bestTimes, riftsCleared: c.riftsCleared, tally: runTally ? { kills: runTally.kills, elites: runTally.elites, deaths: runTally.deaths, wave: runTally.wave } : undefined }, week: isoWeek(), weeklyBest: run.weekly });
+  online.send({ t: "save", report: { equipment: c.equipment, bag: c.bag, scrapped, materials: profile.materials, shards: profile.shards ?? 0, level: c.level, xp: c.xp, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, sigils: c.sigils, feathers: c.feathers ?? 0, vaultKeys: c.vaultKeys ?? 0, gems: c.gems ?? {}, gemSlots: c.gemSlots ?? [], uses: c.uses, highestTier: c.highestTier, pityAnc: c.pityAnc, pityPri: c.pityPri, bestTimes: c.bestTimes, riftsCleared: c.riftsCleared, tally: runTally ? { kills: runTally.kills, elites: runTally.elites, deaths: runTally.deaths, wave: runTally.wave } : undefined }, week: isoWeek(), weeklyBest: run.weekly });
   if (coop?.role === "host") online.send({ t: "runEnd" });
   else if (coop?.role === "guest" && !hostEnded && online.lobby) online.leave(); // a guest who leaves on their own leaves the party
   hostEnded = false;
@@ -582,7 +588,7 @@ function handleEvent(e: SimEvent) {
     case "enrage": showBanner("ENRAGED", "Faster and deadlier", "#ff4a4a", 2); sfx.guardian(); break;
     case "guardianStun": showBanner("STUNNED", "", "#9be0ff", 1); break;
     case "phase": showBanner(`PHASE ${Math.min(3, e.n)}`, e.text, "#ff3b6b", 3); sfx.guardian(); addShake(6); break;
-    case "timeUp": if (run?.kind === "trial") break; showBanner("TIME'S UP", "Finish for reduced rewards", "#ff7a3c", 2.5); break;
+    case "timeUp": if (run?.kind === "trial" || run?.kind === "vault") break; showBanner("TIME'S UP", "Finish for reduced rewards", "#ff7a3c", 2.5); break;
     case "paragonUp":
       if (!mine(e.pid)) break;
       sfx.complete(); burst(me().x, me().y - 8, 40, ["#c9a0ff", "#fff", "#ffd23f"], 120, 1, 0.8);
@@ -605,11 +611,16 @@ function handleEvent(e: SimEvent) {
     case "bountyTask": showBanner(e.left ? "BOUNTY DONE" : "ALL BOUNTIES DONE", e.left ? `${e.text} · ${e.left} to go` : "Grab your cache, then Finish", "#ffd23f", 2.5); sfx.guardian(); break;
     case "gem": if (mine(e.pid)) showBanner("RIFT GEM!", `${GEM[e.id]?.name ?? e.id} · socket it in Gear`, GEM[e.id]?.color ?? "#ffd23f", 3); break;
     case "gemUp": if (mine(e.pid)) gemLines.push(`${GEM[e.id]?.name ?? e.id} → level ${e.level}`); break;
+    case "impAlert": showBanner("GILDED IMP!", `Catch it in ${RIFT.imp.escapeAfter}s before it escapes`, "#ffd23f", 2.2); sfx.shout(); break;
+    case "impEscape": burst(e.x, e.y - 6, 30, ["#ffd23f", "#fff0a0", "#8a6d22"], 90, 1, 0.6); showBanner("IT GOT AWAY", "The imp vanished with its hoard", "#b8a8d0", 2); break;
+    case "impKill": burst(e.x, e.y - 6, 50, ["#ffd23f", "#fff0a0", "#c9a23a"], 140, 1, 0.9); break;
+    case "vaultKey": if (mine(e.pid)) { gotKey++; showBanner("GILDED KEY", "Opens the Gilded Vault in your hideout", "#ffd23f", 2.5); } break;
     case "feather": if (mine(e.pid)) { gotFeather++; showBanner("PALE FEATHER", "Opens the Sanctum of the Pale Seraph", "#bfe8ff", 2.5); } break;
     case "riftComplete":
       completeInfo = { inTime: e.inTime, time: e.time };
       sfx.complete();
-      if (run?.kind === "trial") showBanner(e.inTime ? "TRIAL PASSED" : "TRIAL FAILED", e.inTime ? `${fmtTime(e.time)} · tap Finish` : "The timer ran out · tap Finish to try again", e.inTime ? "#7dff9a" : "#ff7a3c", 4);
+      if (run?.kind === "vault") showBanner("THE VAULT SEALS", "Grab what you can, then Finish", "#ffd23f", 4);
+      else if (run?.kind === "trial") showBanner(e.inTime ? "TRIAL PASSED" : "TRIAL FAILED", e.inTime ? `${fmtTime(e.time)} · tap Finish` : "The timer ran out · tap Finish to try again", e.inTime ? "#7dff9a" : "#ff7a3c", 4);
       else if (run?.kind === "endless") showBanner(`WAVE ${sim?.rift.wave ?? 0}`, "Out of lives · grab your chest, then Finish", "#ff8a5a", 4);
       else showBanner(run?.kind === "chase" ? (run.boss === "seraph" ? "SERAPH SLAIN" : "KING SLAIN") : e.inTime ? "RIFT CLEARED" : "GUARDIAN SLAIN", `${fmtTime(e.time)} · grab your loot, then Finish`, "#7dff9a", 4);
       riftButtons();
@@ -806,7 +817,7 @@ function render(alpha: number, dt: number) {
   if (hth) {
     for (const d of s.rift.hideout?.decor ?? []) { const x = (d.x + 0.5) * s.map.ts, y = (d.y + 1) * s.map.ts - 2; list.push({ y: d.id === "rug" ? -1e9 : y, f: () => drawDecor(g, d.id, x, y, t) }); }
     for (const st of HIDEOUT.stations) { const [x, y] = spotPos(s.map, hth, st); list.push({ y, f: () => drawStation(g, st, x, y, t, hideNear === st) }); }
-    for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : po.kind === "trial" ? `trial ${nextTrial(char(profile).trialBest)}` : `tier ${Math.min(ui.tier, char(profile).highestTier)}`) }); }
+    for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : po.kind === "trial" ? `trial ${nextTrial(char(profile).trialBest)}` : po.kind === "vault" ? `${char(profile).vaultKeys ?? 0} keys` : `tier ${Math.min(ui.tier, char(profile).highestTier)}`) }); }
   }
   for (const q of s.players) {
     if (q.dead) continue;
@@ -915,7 +926,7 @@ function telegraphCircle(g: CanvasRenderingContext2D, x: number, y: number, r: n
 
 function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, t: number) {
   const moving = Math.abs(e.x - e.px) + Math.abs(e.y - e.py) > 0.05;
-  const frames = e.kind === "ghoul" ? bank.ghoul : e.kind === "hound" ? bank.hound : e.kind === "hexer" ? bank.hexer : e.kind === "gorehorn" ? bank.gorehorn : e.kind === "shieldbearer" ? bank.shieldbearer : e.kind === "archer" ? bank.archer : e.kind === "brute" ? bank.brute : e.kind === "pylon" ? bank.pylon : e.variant === "seraph" ? bank.seraph : e.variant ? bank.guardianOf(e.variant) : bank.guardian;
+  const frames = e.kind === "ghoul" ? bank.ghoul : e.kind === "hound" ? bank.hound : e.kind === "hexer" ? bank.hexer : e.kind === "gorehorn" ? bank.gorehorn : e.kind === "shieldbearer" ? bank.shieldbearer : e.kind === "archer" ? bank.archer : e.kind === "brute" ? bank.brute : e.kind === "pylon" ? bank.pylon : e.kind === "imp" ? bank.hoard : e.variant === "seraph" ? bank.seraph : e.variant ? bank.guardianOf(e.variant) : bank.guardian;
   const fr = frames[moving ? Math.floor(t * 8 + e.id) % frames.length : 0];
   const tgt = sim!.players.find((q) => q.pid === e.target);
   const flip = tgt ? tgt.x < e.x : false;
@@ -935,6 +946,10 @@ function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, 
   // the Seraph rises during Judgement
   if (e.variant === "seraph" && e.state === "tomb") yy -= 10;
   if ((e.kind === "guardian" || e.kind === "king") && e.state === "intro") g.globalAlpha = 1 - Math.max(0, e.t / 2) * 0.7;
+  if (e.kind === "imp") { // a gold glow and a trail of coins
+    g.globalAlpha = 0.3 + 0.2 * Math.sin(t * 8); g.fillStyle = "#ffd23f"; g.beginPath(); g.ellipse(x, y, e.r + 6, (e.r + 6) * 0.5, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+    if (moving && Math.random() < 0.4) particles.push({ x: x + (Math.random() - 0.5) * 6, y: y - 4, vx: 0, vy: -10, life: 0.5, max: 0.5, color: Math.random() < 0.5 ? "#ffd23f" : "#fff0a0", size: 1, grav: 0 });
+  }
   if (e.elite) {
     g.globalAlpha = 0.35 + 0.15 * Math.sin(t * 6);
     g.fillStyle = e.affixes.includes("molten") ? "#ff5a1f" : e.affixes.includes("frozen") || e.affixes.includes("shielded") ? "#9be0ff" : e.affixes.includes("thorns") ? "#7aff6a" : "#c9a0ff";
@@ -1132,7 +1147,12 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
   c.textAlign = "center"; c.font = font(14);
   c.fillStyle = left < 0 ? "#ff7a3c" : left < 60 ? (Math.floor(t * 2) % 2 ? "#ffd23f" : "#fff") : "#fff";
   const gd = s.enemies.find((e) => e.id === r.guardianId && !e.dead && (e.kind === "guardian" || e.kind === "king"));
-  if (r.kind === "trial") {
+  if (r.kind === "vault") {
+    c.fillStyle = "#ffd23f"; c.fillText(`Gilded Vault  ·  ${fmtTime(Math.max(0, left))}  ·  T${r.tier}`, W / 2, topY + 11);
+    c.fillStyle = "#1b1424"; c.fillRect(bx, topY + 20, bw, 12);
+    c.fillStyle = "#ffd23f"; c.fillRect(bx, topY + 20, (bw * Math.max(0, left)) / r.limit, 12);
+    c.fillStyle = "#140c1c"; c.font = font(10); c.fillText(r.done ? "SEALED" : "loot everything", W / 2, topY + 26);
+  } else if (r.kind === "trial") {
     const alive = s.enemies.reduce((a, e) => a + (e.dead ? 0 : 1), 0), TR = RIFT.trial;
     c.fillText(`Trial ${r.tier}  ·  wave ${Math.min(r.wave ?? 0, TR.waves)}/${TR.waves}  ·  ${fmtTime(Math.max(0, left))}`, W / 2, topY + 11);
     c.fillStyle = "#1b1424"; c.fillRect(bx, topY + 20, bw, 12);

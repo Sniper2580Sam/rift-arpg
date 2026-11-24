@@ -1,6 +1,6 @@
 // Server-side item authority: minting drops for a run, and validating what a player brings back.
 // Pure functions (no I/O) so they can be unit tested.
-import { coresForRun, trophiesForRun, dustForRun, aetherForFeats, aetherForRun, CLASSES, GEM, GEMS, gemCap, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
+import { chiselsForRun, coresForRun, trophiesForRun, dustForRun, aetherForFeats, aetherForRun, CLASSES, GEM, GEMS, gemCap, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
 import { Item, MintOpts, mintItem, scrapValue, shardValue } from "../sim/items";
 import { Rng, next } from "../sim/rng";
 import type { CharSave, Profile } from "../client/profile";
@@ -13,7 +13,7 @@ export interface RunMember {
   /** good items minted for this player this run (feat counters), and whether the run's counters were already added */
   finds?: { legendaries: number; mythics: number; ancestrals: number }; counted?: boolean;
 }
-export interface RunInfo { kind: "rift" | "chase" | "endless" | "bounty" | "trial"; boss?: "king" | "seraph"; tier: number; completed: boolean; inTime: boolean; time: number }
+export interface RunInfo { kind: "rift" | "chase" | "endless" | "bounty" | "trial" | "vault"; boss?: "king" | "seraph"; tier: number; completed: boolean; inTime: boolean; time: number }
 
 const MAX_DROPS = 500;
 
@@ -60,7 +60,7 @@ const same = (a: Item, b: Item) => JSON.stringify({ ...a, locked: undefined }) =
 
 export interface SaveReport {
   equipment: CharSave["equipment"]; bag: Item[]; scrapped: string[]; materials: number; shards?: number;
-  level: number; xp: number; sigils: number; feathers?: number; gems?: Record<string, number>; gemSlots?: string[]; uses: Record<string, number>; paragon?: number; pxp?: number;
+  level: number; xp: number; sigils: number; feathers?: number; vaultKeys?: number; gems?: Record<string, number>; gemSlots?: string[]; uses: Record<string, number>; paragon?: number; pxp?: number;
   highestTier: number; pityAnc: number; pityPri: number; bestTimes: Record<string, number>; riftsCleared: number;
   weeklyBest?: number;
   /** the player's own count of this run (kills and elites are trusted within limits; finds come from the server's mint) */
@@ -121,6 +121,7 @@ export function applySave(p: Profile, cls: string, rep: SaveReport, m: RunMember
     c.gems = g;
   }
   if (rep.gemSlots) c.gemSlots = rep.gemSlots.filter((id, i, a) => c.gems?.[id] && a.indexOf(id) === i).slice(0, GEMS.slots);
+  if (rep.vaultKeys !== undefined) c.vaultKeys = Math.max(0, Math.min(rep.vaultKeys | 0, (c.vaultKeys ?? 0) + 1));
   if (rep.feathers !== undefined) c.feathers = Math.max(0, Math.min(rep.feathers | 0, (c.feathers ?? 0) + 2));
   if (c.level >= L && rep.paragon !== undefined) { c.paragon = Math.max(c.paragon ?? 0, Math.min(rep.paragon | 0, (c.paragon ?? 0) + 5)); c.pxp = Math.max(0, rep.pxp ?? 0); }
   for (const [k, v] of Object.entries(rep.uses ?? {})) c.uses[k] = Math.max(c.uses[k] ?? 0, Math.min(v | 0, (c.uses[k] ?? 0) + 5000));
@@ -161,5 +162,6 @@ function countRun(p: Profile, c: CharSave, rep: SaveReport, m: RunMember, run: R
   p.aether = (p.aether ?? 0) + aetherForRun(tally) + aetherForFeats(keys);
   p.relicDust = (p.relicDust ?? 0) + dustForRun(tally);
   p.echoCores = (p.echoCores ?? 0) + coresForRun(tally);
+  p.chisels = (p.chisels ?? 0) + chiselsForRun(tally);
   const tro = trophiesForRun(tally); p.kingShards = (p.kingShards ?? 0) + tro.shards; p.hallows = (p.hallows ?? 0) + tro.hallows;
 }

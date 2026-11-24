@@ -639,11 +639,14 @@ const HOUND = [
   ],
 ];
 
+const HOARD_TOP = ["..kkk...kkk..", ".kGGGk.kYYYk.", ".kGeGekYyYYYk", ".kGGGGkYYYYYk", "..kgGkkYYsYYk", ".kGGGGGkYYYk.", "kGkGGGkGkkk..", "..kGGGk......"];
+const HOARD = [[...HOARD_TOP, "..kgk.kgk....", "..kk...kk...."], [...HOARD_TOP, "...kgkgk.....", "...kk.kk....."]];
+
 const PYLON = ["..kk..", ".kwwk.", ".kwyk.", "kwwwwk", "kwyywk", "kwwwwk", "kWWWWk", "kkkkkk"];
 
 export interface SpriteBank {
   hero: Sprite[]; ranger: Sprite[]; mage: Sprite[]; wright: Sprite[]; colossus: Sprite[]; raven: Sprite[]; pets: Record<string, Sprite[]>; pylon: Sprite[];
-  ghoul: Sprite[]; hound: Sprite[]; archer: Sprite[]; brute: Sprite[]; guardian: Sprite[]; imp: Sprite[];
+  ghoul: Sprite[]; hound: Sprite[]; archer: Sprite[]; brute: Sprite[]; guardian: Sprite[]; imp: Sprite[]; hoard: Sprite[];
   hexer: Sprite[]; gorehorn: Sprite[]; shieldbearer: Sprite[];
   seraph: Sprite[];
   /** a guardian recoloured for its variant (data/guardians.json pal) */
@@ -685,6 +688,7 @@ export function buildSprites(): SpriteBank {
     shieldbearer: SHIELDBEARER.map((r) => make(r)),
     guardianOf(id) { return cached(`g:${id}`, () => [make(GUARDIAN, { ...BASE, ...guardianDef(id).pal })])!; },
     imp: IMP.map((r) => make(r)),
+    hoard: HOARD.map((r) => make(r, { ...BASE, G: "#c9a23a", g: "#8a6d22", e: "#7dff9a", Y: "#ffd23f", y: "#fff0a0", s: "#8a6d22" })),
     heroSkin(cls, armor, weapon, dye) {
       return cached(`h:${cls}:${armor}:${weapon}:${dye}`, () => {
         // a dye recolours the base outfit; premium and earned armour keep their own colours

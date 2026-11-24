@@ -71,7 +71,7 @@
    "id": "rift",
    "name": "Rift",
    "kind": "rift",
-   "fx": 0.1,
+   "fx": 0.08,
    "fy": 0.8,
    "color": "#8a5cff",
    "glow": "#c9b8ff"
@@ -80,7 +80,7 @@
    "id": "bounty",
    "name": "Bounties",
    "kind": "bounty",
-   "fx": 0.26,
+   "fx": 0.22,
    "fy": 0.8,
    "color": "#ffd23f",
    "glow": "#fff0a0"
@@ -89,7 +89,7 @@
    "id": "endless",
    "name": "Endless",
    "kind": "endless",
-   "fx": 0.42,
+   "fx": 0.36,
    "fy": 0.8,
    "color": "#ff6a3a",
    "glow": "#ffb08a"
@@ -98,16 +98,25 @@
    "id": "trial",
    "name": "Trials",
    "kind": "trial",
-   "fx": 0.58,
+   "fx": 0.5,
    "fy": 0.8,
    "color": "#3ab0ff",
    "glow": "#a8e4ff"
   },
   {
+   "id": "vault",
+   "name": "Gilded Vault",
+   "kind": "vault",
+   "fx": 0.64,
+   "fy": 0.8,
+   "color": "#c9a23a",
+   "glow": "#ffe9a0"
+  },
+  {
    "id": "king",
    "name": "Ossuary King",
    "kind": "chase",
-   "fx": 0.74,
+   "fx": 0.78,
    "fy": 0.8,
    "color": "#ff2a5a",
    "glow": "#ff9ab0"
@@ -116,7 +125,7 @@
    "id": "seraph",
    "name": "Pale Seraph",
    "kind": "chase",
-   "fx": 0.9,
+   "fx": 0.92,
    "fy": 0.8,
    "color": "#bfe8ff",
    "glow": "#ffffff"

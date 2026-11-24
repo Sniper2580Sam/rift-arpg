@@ -147,7 +147,7 @@ export class UI {
     const tabs = (["play", "gear", "skills", "looks", "shop", "journey", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}"${t === "settings" ? ` aria-label="Settings"` : ""}>${t === "settings" ? "⚙" : t[0].toUpperCase() + t.slice(1)}</button>`).join("");
     let body = "";
     if (this.tab === "play") body = this.playTab(p, c, H);
-    if (this.tab === "gear") body = this.gemsHtml(c) + this.relicsHtml(p, c) + this.trophiesHtml(p, c) + this.echoHtml(p, c) + this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
+    if (this.tab === "gear") body = this.gemsHtml(c) + this.relicsHtml(p, c) + this.trophiesHtml(p, c) + this.echoHtml(p, c) + this.chiselHtml(p, c) + this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
     if (this.tab === "skills") body = this.skillsTab(c);
     if (this.tab === "looks") body = this.looksTab(p);
     if (this.tab === "shop") body = this.shopTab(p, H);
@@ -168,6 +168,11 @@ export class UI {
     const cl = this.root.querySelector<HTMLElement>("#hub-close"); if (cl) cl.onclick = () => H.close!();
     if (this.tab === "play") this.bindPlay(p, c, H, re);
     if (this.tab === "gear") this.bindGear(p, { equipment: c.equipment, bag: c.bag, materials: p.materials }, H, re, true);
+    this.root.querySelectorAll<HTMLElement>("[data-chm]").forEach((el) => el.onclick = () => { this.chiselMode = el.dataset.chm as "add" | "reroll"; re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-chisel]").forEach((el) => el.onclick = () => {
+      if (el.dataset.sure !== "1") { el.dataset.sure = "1"; el.textContent = `${this.chiselMode === "add" ? "Add an affix" : "Re-roll two"}? Tap again`; return; }
+      H.op?.({ t: "chisel", slot: el.dataset.chisel!, mode: this.chiselMode }); this.toast("Chiseled", "#ffd23f"); re();
+    });
     this.root.querySelectorAll<HTMLElement>("[data-echo]").forEach((el) => el.onclick = () => { H.op?.({ t: "echo", slot: el.dataset.echo! }); re(); });
     const cs = this.root.querySelector<HTMLSelectElement>("[data-craft-set]"); if (cs) cs.onchange = () => { this.craftSet = cs.value; re(); };
     this.root.querySelectorAll<HTMLElement>("[data-craft]").forEach((el) => el.onclick = () => { const [set, slot] = el.dataset.craft!.split(":"); H.op?.({ t: "craftSet", set, slot }); this.toast("Crafted. It's in your bag.", "#7dff9a"); re(); });
@@ -216,6 +221,8 @@ export class UI {
       </div>
       <button id="endless" class="endless">Endless waves from tier ${t} · best wave ${c.bestWave ?? 0}</button>
       <div class="dim small">Waves keep coming and get stronger, and faster quickly when you clear them fast. The party shares ${RIFT.endless.lives} lives. Loot comes at the end, more the further you get.</div>
+      <button id="vault" class="vault" ${(c.vaultKeys ?? 0) > 0 ? "" : "disabled"}>Open the Gilded Vault (uses 1 Gilded Key · you have ${c.vaultKeys ?? 0})</button>
+      <div class="dim small">Gilded Imps hide in some rifts from tier ${RIFT.imp.fromTier}. Catch one within ${RIFT.imp.escapeAfter}s of it spotting you for loot and a key. The Vault is ${RIFT.vault.timeLimit}s of treasure and pays ${RIFT.vault.chisels} Gilded Chisels.</div>
       <button id="trial" class="trial">Trial ${nextTrial(c.trialBest)} · ${talentPoints(c.trialBest)}/${RIFT.trial.maxLevel} talent points earned</button>
       <div class="dim small">${esc(RIFT.trial.desc)} No loot: Trials pay in talent points, which you spend under Skills.</div>
       <button id="chase" class="chase" ${c.sigils > 0 ? "" : "disabled"}>Challenge the Ossuary King (uses 1 Bone Sigil · you have ${c.sigils})</button>
@@ -274,6 +281,7 @@ export class UI {
     };
     $("#weekly").onclick = () => H.enter({ tier: WEEKLY_TIER, seed: null, kind: "rift", weekly: true });
     $("#endless").onclick = () => H.enter({ tier: this.tier, seed: null, kind: "endless" });
+    $("#vault").onclick = () => H.enter({ tier: c.highestTier, seed: null, kind: "vault" });
     $("#trial").onclick = () => H.enter({ tier: nextTrial(c.trialBest), seed: null, kind: "trial" });
     $("#chase").onclick = () => H.enter({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase" });
     $("#seraph").onclick = () => H.enter({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase", boss: "seraph" });
@@ -474,6 +482,17 @@ export class UI {
     const worn = Object.entries(c.equipment).filter(([, it]) => it) as [string, Item][];
     return `<div class="setting"><b>Echo Cores</b> <span class="dim small">${n} cores · each echo adds ${E.dmgPct}% damage and ${E.lifePct}% life · costs 1, 2, 3… cores · up to ${E.maxPerItem} per item</span>
       <div class="opts">${worn.map(([sl, it]) => { const e = it.echo ?? 0, cost = echoCost(it); return `<button data-echo="${sl}" ${e < E.maxPerItem && n >= cost ? "" : "disabled"}>${esc(it.name)} ${"◆".repeat(e)}${e < E.maxPerItem ? ` · ${cost}` : " · max"}</button>`; }).join("")}</div></div>`;
+  }
+  /** Gilded Chisels (Gilded Vault): pick a mode, then an equipped item; tap twice to confirm. Once per item. */
+  chiselMode: "add" | "reroll" = "add";
+  private chiselHtml(p: Profile, c: CharSave) {
+    const n = p.chisels ?? 0;
+    if (!n) return `<div class="setting dim small">Gilded Chisels: catch a Gilded Imp in a rift for a key, then loot the Gilded Vault. Each chisel adds an affix to an item or re-rolls its two weakest, once per item.</div>`;
+    const worn = Object.entries(c.equipment).filter(([, it]) => it) as [string, Item][];
+    const m = this.chiselMode;
+    return `<div class="setting"><b>Gilded Chisels</b> <span class="dim small">${n} chisel${n === 1 ? "" : "s"} · once per item · tap an item twice to use</span>
+      <div class="opts"><button data-chm="add" class="${m === "add" ? "on" : ""}">Add an affix</button><button data-chm="reroll" class="${m === "reroll" ? "on" : ""}">Re-roll weakest two</button></div>
+      <div class="opts">${worn.map(([sl, it]) => `<button data-chisel="${sl}" ${it.chiseled || (m === "reroll" && it.affixes.length < 2) ? "disabled" : ""}>${esc(it.name)}${it.chiseled ? " · chiseled" : ` · ${it.affixes.length} affixes`}</button>`).join("")}</div></div>`;
   }
   /** Boss trophies: King's Shards craft a chosen set piece; Seraph Hallows make a legendary or set item ancestral. */
   craftSet = "";
