@@ -167,7 +167,7 @@ wss.on("connection", (ws) => {
       case "runStart": {
         if (!r || c !== r.host) return;
         const ch = char(p);
-        const kind = m.kind === "chase" ? "chase" : m.kind === "endless" ? "endless" : "rift";
+        const kind = m.kind === "chase" ? "chase" : m.kind === "endless" ? "endless" : m.kind === "bounty" ? "bounty" : "rift";
         let tier = Math.max(1, Math.min(m.tier | 0, ch.highestTier));
         const boss = kind === "chase" && m.boss === "seraph" ? "seraph" : "king";
         if (kind === "chase" && boss === "seraph") { if ((ch.feathers ?? 0) <= 0) return tx(c, { t: "runFail", reason: "No Pale Feather." }); ch.feathers = (ch.feathers ?? 0) - 1; putProfile(c.name, p); tier = Math.max(3, ch.highestTier); }

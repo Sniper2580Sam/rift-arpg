@@ -175,6 +175,34 @@ for (const cls of ["ashknight", "gloomstalker"]) {
   if (!ok) { console.error("FAIL gems", p.gems, p.gemSlots, withG.dmgPct - base.dmgPct); proc.exit(1); } else console.log(`gems ok: got ${g[0]}, levelled to ${p.gems[g[0]]} by a timed T10 clear`);
 }
 
+{ // bounties: four tasks get done (the bot is walked to the shrine), then the cache drops
+  for (const cls of ["ashknight", "gloomstalker"]) {
+    const s = createSim({ seed: 21, tier: 6, kind: "bounty", players: [setup(0, cls, 30, kit(30, "legendary"))] });
+    const tasks = s.rift.bounty!;
+    let deaths = 0, lx = 0, ly = 0;
+    for (let t = 0; t < 30 * 600 && !s.rift.done; t++) {
+      const shrine = tasks.find((q) => q.kind === "shrine")!, p = s.players[0];
+      const others = tasks.filter((q) => q.kind !== "shrine" && q.kind !== "cull").every((q) => q.done);
+      let inp = bot(s, 0, t);
+      // go hold the shrine once the elite and totems are down (the bot fights whatever comes)
+      if (others && !shrine.done && Math.hypot(p.x - shrine.x, p.y - shrine.y) > 30) { const d = Math.hypot(shrine.x - p.x, shrine.y - p.y); inp = { ...inp, mx: (shrine.x - p.x) / d, my: (shrine.y - p.y) / d }; if (t % 150 === 0) { p.x = shrine.x; p.y = shrine.y; } }
+      step(s, { 0: inp });
+      if (s.boonOffers[0]) step(s, { 0: { ...NO_INPUT, cmds: [{ type: "boon", id: s.boonOffers[0][0] }] } });
+      for (const e of s.events) if (e.type === "playerDeath") deaths++;
+      // the test bot has no pathfinding: when it stops making progress, put it next to the nearest enemy
+      if (t % 60 === 0) { if (Math.hypot(p.x - lx, p.y - ly) < 4) { const e = s.enemies.filter((q) => !q.dead).sort((u, v) => Math.hypot(u.x - p.x, u.y - p.y) - Math.hypot(v.x - p.x, v.y - p.y))[0]; if (e && !(others && !shrine.done)) { p.x = e.x; p.y = e.y + 10; } } lx = p.x; ly = p.y; }
+    }
+    console.log(`bounty vs ${cls}: done=${s.rift.done} in ${s.rift.time.toFixed(0)}s deaths=${deaths} tasks=${tasks.map((q) => `${q.kind}:${Math.floor(q.have)}/${q.need}`).join(",")} drops=${s.loot.length + s.players[0].bag.length}`);
+    if (!s.rift.done) { console.error("FAIL bounty", cls); proc.exit(1); }
+  }
+  // a relic power adds the legendary's mod; the same power from an item doesn't stack
+  const L = LEGENDARIES.find((l) => !l.mythic)!;
+  const a = computeStats({}, { cls: "ashknight", level: 30 }), b = computeStats({}, { cls: "ashknight", level: 30, relics: [L.id] });
+  const it = mintItem(makeRng(3), "x", { rarity: "legendary", slot: L.slot }); it.legendary = L.id;
+  const c2 = computeStats({ [L.slot === "ring" ? "ring1" : L.slot]: it } as any, { cls: "ashknight", level: 30, relics: [L.id] });
+  if (b.mods.length !== a.mods.length + 1 || c2.mods.filter((m) => (m as any).id === L.id).length !== 1) { console.error("FAIL relic mods"); proc.exit(1); } else console.log("relics ok");
+}
+
 // 4) every legendary/mythic/set bonus runs
 for (const l of [...LEGENDARIES, ...MYTHICS]) {
   const it = mintItem(makeRng(5), l.id, { rarity: l.mythic ? "mythic" : "legendary", slot: l.slot });

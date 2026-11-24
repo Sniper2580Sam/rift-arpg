@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
@@ -155,6 +155,7 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   riftButtons();
   const party = sim.players.length > 1 ? ` · party of ${sim.players.length}` : "";
   if (info.kind === "hideout") { const host = sim.players.find((q) => q.pid === 0); showBanner(host && host.pid !== ME ? `${host.name}'s hideout` : "Your hideout", "Walk to a station or portal", "#c9b8ff", 2.2); }
+  else if (info.kind === "bounty") showBanner("BOUNTIES", `Tier ${info.tier} · four tasks on one map · gold markers on the minimap`, "#ffd23f", 3.5);
   else if (info.kind === "endless") showBanner("ENDLESS", `Tier ${info.tier} start · ${RIFT.endless.lives} lives · clear waves fast to climb faster`, "#ff8a5a", 3.5);
   else if (info.kind === "chase" && sim.rift.boss === "seraph") showBanner(RIFT.seraph.name, "Dodge the shard rings, then survive her Judgement.", "#bfe8ff", 3.5);
   else if (info.kind === "chase") showBanner(RIFT.chase.name, "Three phases. Dodge the fire, break the pylons.", "#ff3b6b", 3.5);
@@ -334,6 +335,8 @@ function endRun() {
   runTally = tally; // the live build sends it with the save; the server keeps its own count
   profile.life = bumpLife(lifeStats(profile), tally);
   profile.journey = { season: profile.season.n, stats: bumpLife(seasonStats(profile), tally) };
+  const dust = dustForRun(tally);
+  if (dust) { profile.relicDust = (profile.relicDust ?? 0) + dust; lines.push(`+${dust} Relic Dust (extract legendary powers in Gear)`); }
   const runAether = aetherForRun(tally);
   if (runAether) { profile.aether = (profile.aether ?? 0) + runAether; lines.push(`+${runAether} ${SHOP.symbol} ${SHOP.currency}`); }
   if (completeInfo) {
@@ -357,7 +360,7 @@ function endRun() {
     if (run.kind === "endless" && wave > (c.bestWave ?? 0)) { c.bestWave = wave; lines.push(`New best: wave ${wave}`); }
     checkFeats(lines);
     saveProfile(profile);
-    const title = run.kind === "endless" ? `Endless: wave ${wave}` : run.kind === "chase" ? (run.boss === "seraph" ? "The Pale Seraph falls" : "The Ossuary King falls") : completeInfo.inTime ? "Rift cleared in time!" : "Guardian slain";
+    const title = run.kind === "bounty" ? "Bounties complete" : run.kind === "endless" ? `Endless: wave ${wave}` : run.kind === "chase" ? (run.boss === "seraph" ? "The Pale Seraph falls" : "The Ossuary King falls") : completeInfo.inTime ? "Rift cleared in time!" : "Guardian slain";
     const sub = run.kind === "endless" ? `Reached difficulty level ${s.rift.level ?? 0} from tier ${run.tier}. The chest grows every ${RIFT.endless.rewards.perWaves} waves.` : completeInfo.inTime ? "Bonus loot for time remaining." : "The timer ran out, so the rewards were smaller.";
     finishOnline();
     screen = "results";
@@ -588,6 +591,7 @@ function handleEvent(e: SimEvent) {
       if (!ui.invOpen && !paused) riftButtons();
       break;
     case "sigil": if (mine(e.pid)) { gotSigil++; showBanner("BONE SIGIL", "Opens the Throne of the Ossuary King", "#ff3b6b", 2.5); } break;
+    case "bountyTask": showBanner(e.left ? "BOUNTY DONE" : "ALL BOUNTIES DONE", e.left ? `${e.text} · ${e.left} to go` : "Grab your cache, then Finish", "#ffd23f", 2.5); sfx.guardian(); break;
     case "gem": if (mine(e.pid)) showBanner("RIFT GEM!", `${GEM[e.id]?.name ?? e.id} · socket it in Gear`, GEM[e.id]?.color ?? "#ffd23f", 3); break;
     case "gemUp": if (mine(e.pid)) gemLines.push(`${GEM[e.id]?.name ?? e.id} → level ${e.level}`); break;
     case "feather": if (mine(e.pid)) { gotFeather++; showBanner("PALE FEATHER", "Opens the Sanctum of the Pale Seraph", "#bfe8ff", 2.5); } break;
@@ -696,6 +700,16 @@ function render(alpha: number, dt: number) {
     if (h.max > 3) { g.globalAlpha = 0.8 * a; g.strokeStyle = frost ? "#d8f4ff" : "#ffd23f"; g.beginPath(); g.ellipse(h.x, h.y, h.r, h.r * 0.6, 0, 0, Math.PI * 2); g.stroke(); }
     g.globalAlpha = 1;
     if (Math.random() < 0.06) particles.push({ x: h.x + (Math.random() - 0.5) * h.r, y: h.y, vx: 0, vy: -20, life: 0.4, max: 0.4, color: frost ? "#fff" : "#ffd23f", size: 1, grav: 0 });
+  }
+  // bounty shrine: a gold ring that fills while someone holds it
+  for (const bt of s.rift.bounty ?? []) {
+    if (bt.kind !== "shrine" || !onScreen(bt.x, bt.y)) continue;
+    const R = RIFT.bounty.shrineRadius;
+    g.globalAlpha = bt.done ? 0.25 : 0.35 + 0.1 * Math.sin(t * 3); g.strokeStyle = "#ffd23f"; g.lineWidth = 2;
+    g.beginPath(); g.ellipse(bt.x, bt.y, R, R * 0.6, 0, 0, Math.PI * 2); g.stroke();
+    if (bt.have > 0) { g.globalAlpha = 0.9; g.strokeStyle = "#fff0a0"; g.beginPath(); g.ellipse(bt.x, bt.y, R, R * 0.6, 0, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * bt.have) / bt.need); g.stroke(); }
+    g.lineWidth = 1; g.globalAlpha = 1;
+    g.fillStyle = "#ffd23f"; g.fillRect(Math.round(bt.x) - 1, Math.round(bt.y) - 12, 3, 10); g.fillStyle = "#fff0a0"; g.fillRect(Math.round(bt.x) - 2, Math.round(bt.y) - 15, 5, 4);
   }
   for (const z of s.zones) {
     if (!onScreen(z.x, z.y)) continue;
@@ -1114,6 +1128,16 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
     c.fillStyle = "#fff"; c.font = font(10);
     c.fillText(r.done ? "RUN OVER" : r.waveAt! > 0 ? `next wave in ${Math.ceil(secs)}` : `${alive} left · ${Math.floor(secs)}s${secs < RIFT.endless.fastClear[0][0] ? " · fast!" : ""}`, W / 2, topY + 26);
     c.fillStyle = "#ff8a8a"; c.font = font(9); c.fillText("♥".repeat(lives) + ` lives`, W / 2, topY + 40);
+  } else if (r.kind === "bounty") {
+    const tasks = r.bounty ?? [], dn = tasks.filter((q) => q.done).length;
+    c.fillStyle = "#fff"; c.fillText(`Bounties ${dn}/${tasks.length}  ·  ${fmtTime(r.done ? r.doneAt : r.time)}  ·  T${r.tier}`, W / 2, topY + 11);
+    c.fillStyle = "#1b1424"; c.fillRect(bx, topY + 20, bw, 12);
+    c.fillStyle = r.done ? "#7dff9a" : "#ffd23f"; c.fillRect(bx, topY + 20, (bw * dn) / Math.max(1, tasks.length), 12);
+    const cur = tasks.filter((q) => !q.done);
+    c.fillStyle = "#140c1c"; c.font = font(10); c.fillText(r.done ? "ALL DONE" : `${dn} done`, W / 2, topY + 26);
+    c.fillStyle = "#fff0a0"; c.font = font(9);
+    const short: Record<string, string> = { elite: "Gravelord", totems: "Totems", shrine: "Shrine", cull: "Kills" };
+    c.fillText(cur.map((q) => `${short[q.kind]}${q.need > 1 ? ` ${Math.floor(q.have)}/${q.need}` : ""}`).join(" · "), W / 2, topY + 40);
   } else {
   c.fillText((left >= 0 ? fmtTime(left) : "+" + fmtTime(-left)) + `  ·  T${r.tier}`, W / 2, topY + 11);
   c.fillStyle = "#1b1424"; c.fillRect(bx, topY + 20, bw, 12);
@@ -1136,6 +1160,11 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
     c.imageSmoothingEnabled = false; c.drawImage(miniCanvas, ox, my, mw, mh);
     for (const e of s.enemies) if (!e.dead && e.kind !== "guardian" && e.kind !== "king") { c.fillStyle = e.elite ? "#c9a0ff" : "#d93a3a"; c.fillRect(ox + e.x * k - 1, my + e.y * k - 1, e.elite ? 3 : 2, e.elite ? 3 : 2); }
     if (gd) { c.fillStyle = "#ffd23f"; c.fillRect(ox + gd.x * k - 3, my + gd.y * k - 3, 6, 6); }
+    for (const bt of s.rift.bounty ?? []) {
+      if (bt.done || bt.kind === "cull") continue;
+      const pts = bt.kind === "totems" ? s.enemies.filter((e) => bt.ids.includes(e.id) && !e.dead).map((e) => [e.x, e.y]) : [[bt.x, bt.y]];
+      for (const [x, y] of pts) { c.strokeStyle = Math.floor(t * 3) % 2 ? "#ffd23f" : "#fff0a0"; c.strokeRect(ox + x * k - 3.5, my + y * k - 3.5, 7, 7); }
+    }
     for (const l of s.loot) if (l.owner === ME && RARITY_ORDER_IDX(l.item.rarity) >= 2) { c.fillStyle = RARITY_COLOR[l.item.rarity]; c.fillRect(ox + l.x * k - 2, my + l.y * k - 2, 4, 4); }
     for (const q of s.players) { c.fillStyle = q.pid === ME ? "#fff" : "#7dff9a"; c.fillRect(ox + q.x * k - 2, my + q.y * k - 2, 4, 4); }
     c.globalAlpha = 1;

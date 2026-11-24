@@ -4,7 +4,7 @@ import { AFFIX as AFFIX_DEF } from "../sim/data";
 import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
-import { SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -143,7 +143,7 @@ export class UI {
     const tabs = (["play", "gear", "skills", "looks", "shop", "journey", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}"${t === "settings" ? ` aria-label="Settings"` : ""}>${t === "settings" ? "⚙" : t[0].toUpperCase() + t.slice(1)}</button>`).join("");
     let body = "";
     if (this.tab === "play") body = this.playTab(p, c, H);
-    if (this.tab === "gear") body = this.gemsHtml(c) + this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
+    if (this.tab === "gear") body = this.gemsHtml(c) + this.relicsHtml(p, c) + this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
     if (this.tab === "skills") body = this.skillsTab(c);
     if (this.tab === "looks") body = this.looksTab(p);
     if (this.tab === "shop") body = this.shopTab(p, H);
@@ -164,6 +164,11 @@ export class UI {
     const cl = this.root.querySelector<HTMLElement>("#hub-close"); if (cl) cl.onclick = () => H.close!();
     if (this.tab === "play") this.bindPlay(p, c, H, re);
     if (this.tab === "gear") this.bindGear(p, { equipment: c.equipment, bag: c.bag, materials: p.materials }, H, re, true);
+    this.root.querySelectorAll<HTMLElement>("[data-relic]").forEach((el) => el.onclick = () => { const [sl, id] = el.dataset.relic!.split(":"); H.op?.({ t: "relic", slot: sl, id: id || null }); re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-extract]").forEach((el) => el.onclick = () => {
+      if (el.dataset.sure !== "1") { el.dataset.sure = "1"; el.textContent = "Tap again: destroy and extract"; return; }
+      H.op?.({ t: "extract", bag: +el.dataset.extract! }); this.toast("Power extracted to the Reliquary", "#ffd23f"); re();
+    });
     this.root.querySelectorAll<HTMLElement>("[data-gem]").forEach((el) => el.onclick = () => { const [slot, id] = el.dataset.gem!.split(":"); H.op?.({ t: "gem", slot: +slot, id: id || null }); re(); });
     if (this.tab === "skills") {
       this.root.querySelectorAll<HTMLElement>("[data-rune]").forEach((el) => el.onclick = () => { const [sk, r] = el.dataset.rune!.split(":"); H.setRune(sk, r); re(); });
@@ -446,6 +451,22 @@ export class UI {
   }
 
   /** Paragon: shown once you hit max level. Points go into four capped stats; respec is free. */
+  /** Reliquary: extract a legendary's power (the item is destroyed) and wear up to 3 powers on top of your gear. */
+  private relicsHtml(p: Profile, c: CharSave) {
+    const own = p.relics ?? [], dust = p.relicDust ?? 0, bounties = lifeStats(p).bounties, cost = RIFT.reliquary.extractCost;
+    const names: Record<RelicSlot, string> = { weapon: "Weapon power", armor: "Armour power", jewelry: "Jewellery power" };
+    const slot = (sl: RelicSlot) => {
+      const need = relicUnlock(sl), cur = c.relicSlots?.[sl];
+      if (bounties < need) return `<div class="pg-row dim small"><span>🔒 ${names[sl]}: finish ${need} bounties (${bounties}/${need})</span></div>`;
+      const opts = own.filter((id) => LEGENDARY[id] && relicSlotOf(LEGENDARY[id].slot) === sl);
+      return `<div class="relic-row"><b>${names[sl]}</b><span class="opts"><button class="${!cur ? "on" : ""}" data-relic="${sl}:">None</button>${opts.map((id) => `<button class="${cur === id ? "on" : ""}" data-relic="${sl}:${id}" title="${esc(powerText({ legendary: id } as Item))}">${esc(LEGENDARY[id].name)}</button>`).join("")}</span>
+        ${cur ? `<div class="dim small">${esc(powerText({ legendary: cur } as Item))}</div>` : opts.length ? "" : `<div class="dim small">Nothing extracted for this slot yet.</div>`}</div>`;
+    };
+    const ex = c.bag.map((it, i) => ({ it, i })).filter(({ it }) => it.legendary && LEGENDARY[it.legendary] && !LEGENDARY[it.legendary].mythic && !own.includes(it.legendary));
+    return `<div class="setting"><b>Reliquary</b> <span class="dim small">${dust} Relic Dust · wear extracted legendary powers on top of your gear. Bounties give Relic Dust.</span>
+      ${RELIC_SLOTS.map(slot).join("")}
+      ${ex.length ? `<div class="dim small">Extract from your bag (destroys the item, ${cost} dust):</div><div class="opts">${ex.map(({ it, i }) => `<button data-extract="${i}" ${dust >= cost && !it.locked ? "" : "disabled"}>${esc(LEGENDARY[it.legendary!].name)}${it.locked ? " ★" : ""}</button>`).join("")}</div>` : ""}</div>`;
+  }
   /** Rift gems: socket up to 3. They level up when you clear a rift in time (tier 5+). */
   private gemsHtml(c: CharSave) {
     const own = Object.keys(c.gems ?? {}).filter((id) => GEM[id]), sl = (c.gemSlots ?? []).filter((id) => c.gems?.[id]);

@@ -1,6 +1,6 @@
 // Server-side item authority: minting drops for a run, and validating what a player brings back.
 // Pure functions (no I/O) so they can be unit tested.
-import { aetherForFeats, aetherForRun, CLASSES, GEM, GEMS, gemCap, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
+import { dustForRun, aetherForFeats, aetherForRun, CLASSES, GEM, GEMS, gemCap, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
 import { Item, MintOpts, mintItem, scrapValue, shardValue } from "../sim/items";
 import { Rng, next } from "../sim/rng";
 import type { CharSave, Profile } from "../client/profile";
@@ -13,7 +13,7 @@ export interface RunMember {
   /** good items minted for this player this run (feat counters), and whether the run's counters were already added */
   finds?: { legendaries: number; mythics: number; ancestrals: number }; counted?: boolean;
 }
-export interface RunInfo { kind: "rift" | "chase" | "endless"; boss?: "king" | "seraph"; tier: number; completed: boolean; inTime: boolean; time: number }
+export interface RunInfo { kind: "rift" | "chase" | "endless" | "bounty"; boss?: "king" | "seraph"; tier: number; completed: boolean; inTime: boolean; time: number }
 
 const MAX_DROPS = 500;
 
@@ -158,4 +158,5 @@ function countRun(p: Profile, c: CharSave, rep: SaveReport, m: RunMember, run: R
   const keys = [...fe.map((a) => a.id), ...ch.map(chapterKey)];
   if (keys.length) p.feats = [...(p.feats ?? []), ...keys];
   p.aether = (p.aether ?? 0) + aetherForRun(tally) + aetherForFeats(keys);
+  p.relicDust = (p.relicDust ?? 0) + dustForRun(tally);
 }

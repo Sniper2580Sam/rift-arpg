@@ -89,7 +89,7 @@ export interface UnlockCtx { owned?: string[]; chars: Record<string, CharProgres
 
 // ------------------------------------------------------------------ achievements (feats)
 /** Account-wide lifetime counters. They survive season resets. */
-export interface Life { rifts: number; tier: number; level: number; legendaries: number; kills: number; elites: number; flawless: number; kings: number; seraphs: number; wave: number; mythics: number; ancestrals: number; paragon: number; maxed: number; party6: number }
+export interface Life { bounties: number; rifts: number; tier: number; level: number; legendaries: number; kills: number; elites: number; flawless: number; kings: number; seraphs: number; wave: number; mythics: number; ancestrals: number; paragon: number; maxed: number; party6: number }
 export type LifeStat = keyof Life;
 export interface Achievement { id: string; name: string; desc: string; stat: LifeStat; goal: number; reward?: string; /** premium currency given once */ aether?: number }
 export const ACHIEVEMENTS = achievementsJson as Achievement[];
@@ -99,7 +99,7 @@ export function lifeStats(p: UnlockCtx): Life {
   const max = (f: (c: CharProgress) => number) => cs.reduce((m, c) => Math.max(m, f(c)), 0);
   const sum = (f: (c: CharProgress) => number) => cs.reduce((m, c) => m + f(c), 0);
   return {
-    rifts: L.rifts ?? 0, legendaries: L.legendaries ?? 0, kills: L.kills ?? 0, elites: L.elites ?? 0, flawless: L.flawless ?? 0, mythics: L.mythics ?? 0, ancestrals: L.ancestrals ?? 0, party6: L.party6 ?? 0,
+    bounties: L.bounties ?? 0, rifts: L.rifts ?? 0, legendaries: L.legendaries ?? 0, kills: L.kills ?? 0, elites: L.elites ?? 0, flawless: L.flawless ?? 0, mythics: L.mythics ?? 0, ancestrals: L.ancestrals ?? 0, party6: L.party6 ?? 0,
     tier: Math.max(L.tier ?? 0, max((c) => c.highestTier - 1)),
     wave: Math.max(L.wave ?? 0, max((c) => c.bestWave ?? 0)),
     level: Math.max(L.level ?? 0, max((c) => c.level ?? 0)),
@@ -153,9 +153,19 @@ export function bumpLife(L: Life, t: RunTally): Life {
     if (t.kind === "rift") { L.rifts++; if (t.inTime) L.tier = Math.max(L.tier, t.tier); if (t.inTime && t.tier >= 8 && !t.deaths) L.flawless++; if (t.party >= 6) L.party6++; }
     if (t.kind === "chase") { if (t.boss === "seraph") L.seraphs++; else L.kings++; }
     if (t.kind === "endless") L.wave = Math.max(L.wave, t.wave);
+    if (t.kind === "bounty") L.bounties++;
   }
   return L;
 }
+/** Relic Dust from a run: finished bounties only. */
+export const dustForRun = (t: RunTally) => (t.completed && t.kind === "bounty" ? RIFT.bounty.dust + Math.floor(t.tier / RIFT.bounty.dustPerTiers) : 0);
+
+// ------------------------------------------------------------------ reliquary: wear extracted legendary powers
+export type RelicSlot = "weapon" | "armor" | "jewelry";
+export const RELIC_SLOTS: RelicSlot[] = ["weapon", "armor", "jewelry"];
+export const relicSlotOf = (slot: SlotType): RelicSlot => (slot === "weapon" || slot === "offhand" ? "weapon" : slot === "amulet" || slot === "ring" ? "jewelry" : "armor");
+/** Bounties finished before a reliquary slot opens. */
+export const relicUnlock = (sl: RelicSlot) => (RIFT.reliquary.unlock as Record<RelicSlot, number>)[sl];
 
 /** Achievements reached but not yet in the done list. */
 export function newFeats(p: UnlockCtx): Achievement[] {

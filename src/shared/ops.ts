@@ -1,6 +1,6 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
-import { SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
+import { LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
 import { Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
@@ -23,6 +23,8 @@ export type HubOp =
   | { t: "paragon"; stat?: string; d?: number; reset?: boolean }
   | { t: "gem"; slot: number; id: string | null }
   | { t: "buyAether"; pack: string }
+  | { t: "extract"; bag: number }
+  | { t: "relic"; slot: string; id: string | null }
   | { t: "hideout"; theme?: string; place?: { id: string; x: number; y: number }; remove?: number }
   | { t: "newSeason" }
   | { t: "reset" };
@@ -146,6 +148,24 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       p.aether = (p.aether ?? 0) - item.price;
       p.owned.push(item.key);
       return true;
+    }
+    case "extract": {
+      // destroy a legendary in the bag to keep its power in the reliquary (account-wide), for Relic Dust
+      const it = c.bag[op.bag];
+      if (!it?.legendary || !LEGENDARY[it.legendary] || LEGENDARY[it.legendary].mythic || it.locked) return false;
+      if ((p.relics ?? []).includes(it.legendary) || (p.relicDust ?? 0) < RIFT.reliquary.extractCost) return false;
+      p.relicDust = (p.relicDust ?? 0) - RIFT.reliquary.extractCost;
+      p.relics = [...(p.relics ?? []), it.legendary];
+      c.bag.splice(op.bag, 1); return true;
+    }
+    case "relic": {
+      // wear an extracted power in its slot (weapon / armour / jewellery); slots open with bounties done
+      const sl = op.slot as RelicSlot;
+      if (!RELIC_SLOTS.includes(sl)) return false;
+      if (op.id === null) { const r = { ...(c.relicSlots ?? {}) }; delete r[sl]; c.relicSlots = r; return true; }
+      const L = LEGENDARY[op.id];
+      if (!L || !(p.relics ?? []).includes(op.id) || relicSlotOf(L.slot) !== sl || lifeStats(p).bounties < relicUnlock(sl)) return false;
+      c.relicSlots = { ...(c.relicSlots ?? {}), [sl]: op.id }; return true;
     }
     case "buyAether": {
       // test build stub: packs are free. The live server refuses this until a payment provider is wired in.

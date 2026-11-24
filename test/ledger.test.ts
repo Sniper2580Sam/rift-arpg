@@ -160,6 +160,19 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   check("easy runs pay nothing", (p2.aether ?? 0) === 0);
 }
 
+{ // reliquary: extract costs dust and the item, slots open with bounties, and bounties pay dust once
+  const p = newProfile(), c = p.chars.ashknight;
+  const leg = mintItem(makeRng(4), "lg", { rarity: "legendary", slot: "weapon" }); leg.legendary = "cinderbrand"; c.bag = [leg];
+  check("extract needs dust", applyHubOp(p, { t: "extract", bag: 0 }) === false);
+  p.relicDust = 2;
+  check("extract consumes the item and dust", applyHubOp(p, { t: "extract", bag: 0 }) === true && c.bag.length === 0 && p.relicDust === 0 && p.relics!.includes("cinderbrand"));
+  check("wear it in the weapon slot", applyHubOp(p, { t: "relic", slot: "weapon", id: "cinderbrand" }) === true && c.relicSlots?.weapon === "cinderbrand");
+  check("wrong slot refused", applyHubOp(p, { t: "relic", slot: "jewelry", id: "cinderbrand" }) === false);
+  const m = member(), r: RunInfo = { kind: "bounty", tier: 10, completed: true, inTime: true, time: 300 };
+  applySave(p, "ashknight", base(p) as any, m, r, 1); applySave(p, "ashknight", base(p) as any, m, r, 1);
+  check("bounty pays dust once and counts", p.relicDust === 5 && p.life!.bounties === 1);
+}
+
 if (fails) { console.log(`${fails} ledger checks failed`); process.exit(1); }
 console.log("ledger: all checks passed");
 

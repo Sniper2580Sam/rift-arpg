@@ -185,6 +185,23 @@
     50,
     75
   ],
+  "bounty": {
+    "name": "Bounties",
+    "timeLimit": 600,
+    "cull": 60,
+    "shrineSecs": 20,
+    "shrineRadius": 46,
+    "shrineWaveEvery": 4,
+    "eliteHp": 2.5,
+    "totems": 3,
+    "items": 3,
+    "dust": 3,
+    "dustPerTiers": 5
+  },
+  "reliquary": {
+    "extractCost": 2,
+    "unlock": { "weapon": 0, "armor": 5, "jewelry": 15 }
+  },
   "seraph": {
     "name": "Sanctum of the Pale Seraph",
     "hpMult": 1.15,

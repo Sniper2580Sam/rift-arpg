@@ -21,6 +21,8 @@ export interface CharSave {
   paragon?: number; pxp?: number; pAlloc?: Partial<Record<string, number>>; pityAnc: number; pityPri: number; sigils: number; feathers?: number;
   /** rift gems owned (id -> level) and socketed (up to 3) */
   gems?: Record<string, number>; gemSlots?: string[];
+  /** reliquary: an extracted legendary power per slot */
+  relicSlots?: Partial<Record<"weapon" | "armor" | "jewelry", string>>;
   riftsCleared: number; bestTimes: Record<string, number>;
   /** arsenal: saved builds (equipped item ids, skill bar, runes) */
   builds?: (Build | null)[];
@@ -44,6 +46,8 @@ export interface Profile {
   feats?: string[]; life?: Partial<Life>;
   /** premium currency (cosmetics only) */
   aether?: number;
+  /** reliquary (account-wide): extracted legendary powers and Relic Dust */
+  relics?: string[]; relicDust?: number;
   /** this season's journey counters (reset with the season) */
   journey?: { season: number; stats: Partial<Life> };
   weekly: { week: string; best: number };
@@ -142,7 +146,7 @@ export function holderOf(p: Profile): Holder {
 
 export function setupFor(p: Profile, pid = 0, name = "You"): PlayerSetup {
   const c = char(p);
-  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, feathers: c.feathers ?? 0, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, pAlloc: c.pAlloc ?? {}, gems: c.gems ?? {}, gemSlots: c.gemSlots ?? [] };
+  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, feathers: c.feathers ?? 0, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, pAlloc: c.pAlloc ?? {}, gems: c.gems ?? {}, gemSlots: c.gemSlots ?? [], relics: Object.values(c.relicSlots ?? {}).filter((id): id is string => !!id && (p.relics ?? []).includes(id)) };
 }
 
 /** Pull the player's persistent state back out of a running sim (items picked up, XP, levels). Boons are not kept. */
@@ -185,7 +189,7 @@ export function startNewSeason(p: Profile): Profile {
   n.season = { n: p.season.n + 1, started: new Date().toISOString().slice(0, 10) };
   n.unlockedPets = p.unlockedPets; n.pet = p.pet; n.cos = p.cos; n.settings = p.settings; n.filter = p.filter;
   // account-wide things carry over: purchases, the hideout, feats and the lifetime counters (baked from the old heroes)
-  n.owned = p.owned; n.hideout = p.hideout; n.feats = p.feats; n.life = lifeStats(p); n.aether = p.aether;
+  n.owned = p.owned; n.hideout = p.hideout; n.feats = p.feats; n.life = lifeStats(p); n.aether = p.aether; // the reliquary resets with the season, like gear
   try { localStorage.setItem(`${SAVE_KEY}-season-${p.season.n}`, JSON.stringify(p)); } catch { /* ignore */ }
   return n;
 }

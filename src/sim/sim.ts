@@ -30,6 +30,8 @@ export interface PlayerSetup {
   paragon?: number; pxp?: number; pAlloc?: Partial<Record<ParagonStat, number>>;
   /** rift gems owned (id -> level) and the ones socketed (up to 3) */
   gems?: Record<string, number>; gemSlots?: string[];
+  /** legendary powers worn in the reliquary */
+  relics?: string[];
   /** cosmetics: visual only, never read by the sim */
   cos?: CosChoice;
 }
@@ -42,7 +44,7 @@ export interface Player extends Holder {
   skills: string[]; cds: Num; charges: Num; chargeT: Num; swingT: number; swingCount: number;
   dashT: number; dashDx: number; dashDy: number; dashHit: number[]; dashSkill: string; trailT: number;
   paragon: number; pxp: number; pAlloc: Partial<Record<ParagonStat, number>>;
-  gems: Record<string, number>; gemSlots: string[];
+  gems: Record<string, number>; gemSlots: string[]; relics: string[];
   /** life-on-hit healed in the current second (capped, so many-hit skills can't out-heal everything) */
   leech: number;
   invuln: number; deaths?: number; chillT?: number; thornT?: number; dead: boolean; deadT: number; buff: Buff; boons: string[]; cheatT: number;
@@ -108,15 +110,19 @@ export type SimEvent =
   | { type: "boonOffer"; pid: number } | { type: "boonTaken"; pid: number; id: string }
   | { type: "sigil"; pid: number } | { type: "feather"; pid: number } | { type: "teleport"; x: number; y: number } | { type: "chain"; x1: number; y1: number; x2: number; y2: number; pid?: number; skill?: string }
   | { type: "waveStart"; wave: number; count: number; boss: boolean } | { type: "waveClear"; wave: number; secs: number; jump: number; cleared: boolean } | { type: "endlessOver"; wave: number; time: number }
-  | { type: "equipChanged"; pid: number } | { type: "ambush"; x: number; y: number; n: number };
+  | { type: "equipChanged"; pid: number } | { type: "ambush"; x: number; y: number; n: number } | { type: "bountyTask"; text: string; left: number };
 
-export type RunKind = "rift" | "chase" | "endless" | "hideout";
+export type RunKind = "rift" | "chase" | "endless" | "hideout" | "bounty";
+/** Bounty runs: four tasks on one map. */
+export interface BountyTask { kind: "elite" | "totems" | "shrine" | "cull"; text: string; x: number; y: number; ids: number[]; have: number; need: number; done: boolean }
 /** chase runs: which boss waits at the end */
 export type ChaseBoss = "king" | "seraph";
 export interface RiftState {
   kind: RunKind; tier: number; mods: string[];
   /** chase runs: the boss (default the Ossuary King) */
   boss?: ChaseBoss;
+  /** bounty runs: the tasks */
+  bounty?: BountyTask[];
   /** Endless mode: wave number, difficulty level (rises faster on quick clears), when the next wave comes (0 = a wave is up) and when the current one started */
   wave?: number; level?: number; waveAt?: number; waveStart?: number;
   /** hideout runs: the room being visited (rendered by everyone in it) */
@@ -202,7 +208,7 @@ export function createSim(cfg: SimConfig): SimState {
     players: [], enemies: [], projectiles: [], summons: [], hazards: [], zones: [], loot: [], pending: [],
     nextId: 1, itemCounter: 0, startX, startY,
     rift: {
-      kind, tier, mods, map: md?.id, density, time: 0, limit: kind === "chase" ? (cfg.boss === "seraph" ? RIFT.seraph.timeLimit : RIFT.chase.timeLimit) : kind === "endless" || kind === "hideout" ? 1e9 : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier) * Math.max(1, density / 5)),
+      kind, tier, mods, map: md?.id, density, time: 0, limit: kind === "bounty" ? RIFT.bounty.timeLimit : kind === "chase" ? (cfg.boss === "seraph" ? RIFT.seraph.timeLimit : RIFT.chase.timeLimit) : kind === "endless" || kind === "hideout" ? 1e9 : RIFT.timeLimit, progress: 0, need: Math.round(RIFT.progressNeeded * tierDensity(tier) * Math.max(1, density / 5)),
       guardianSpawned: false, guardianId: 0, done: false, doneAt: 0, kills: 0, timeUpSent: false, boonIdx: 0, nextWave: RIFT.waves.first,
     },
     boonOffers: {}, boonPending: {}, pity: cfg.pity ?? {}, events: [], _flows: [], _flowTick: -999,
@@ -249,6 +255,7 @@ export function createSim(cfg: SimConfig): SimState {
       }
     }
   }
+  if (kind === "bounty") setupBounty(s, floors);
   return s;
 }
 
@@ -266,7 +273,7 @@ export function addPlayer(s: SimState, ps: PlayerSetup): Player {
   const cls = ps.cls;
   const p: Player = {
     paragon: ps.paragon ?? 0, pxp: ps.pxp ?? 0, pAlloc: { ...(ps.pAlloc ?? {}) },
-    gems: { ...(ps.gems ?? {}) }, gemSlots: (ps.gemSlots ?? []).filter((g) => ps.gems?.[g] && GEM[g]).slice(0, GEMS.slots),
+    relics: (ps.relics ?? []).slice(0, 3), gems: { ...(ps.gems ?? {}) }, gemSlots: (ps.gemSlots ?? []).filter((g) => ps.gems?.[g] && GEM[g]).slice(0, GEMS.slots),
     pid: ps.pid, name: ps.name, cls, level: ps.level, xp: ps.xp, sigils: ps.sigils, feathers: ps.feathers ?? 0, runes: { ...ps.runes }, pet: ps.pet, filter: ps.filter, cos: { ...ps.cos },
     equipment: clone(ps.equipment), bag: clone(ps.bag), materials: ps.materials, shards: ps.shards ?? 0, slotPlus: { ...(ps.slotPlus ?? {}) }, slotCrit: { ...(ps.slotCrit ?? {}) },
     x: s.startX + (s.players.length % 2) * 12 - 6, y: s.startY + Math.floor(s.players.length / 2) * 12, px: 0, py: 0, r: 5, hp: 1, fx: 1, fy: 0, moving: false, walk: 0,
@@ -293,7 +300,7 @@ export function refreshAll(s: SimState) {
 }
 function refreshPlayer(s: SimState, p: Player, minEff: number) {
   const ratio = p.stats ? p.hp / p.stats.maxHp : 1;
-  p.stats = computeStats(p.equipment, { cls: p.cls, level: p.level, effLevel: Math.max(p.level, minEff), paragon: p.pAlloc, gems: Object.fromEntries(p.gemSlots.map((g) => [g, p.gems[g] ?? 1])), boons: p.boons, riftMods: s.rift.mods, slotPlus: p.slotPlus, slotCrit: p.slotCrit });
+  p.stats = computeStats(p.equipment, { cls: p.cls, level: p.level, effLevel: Math.max(p.level, minEff), paragon: p.pAlloc, gems: Object.fromEntries(p.gemSlots.map((g) => [g, p.gems[g] ?? 1])), relics: p.relics, boons: p.boons, riftMods: s.rift.mods, slotPlus: p.slotPlus, slotCrit: p.slotCrit });
   p.sk = {};
   for (const id of p.skills) p.sk[id] = resolveSkill(id, p.runes[id], p.stats);
   if (!p.dead) p.hp = Math.max(1, Math.min(p.stats.maxHp, p.stats.maxHp * ratio));
@@ -1614,6 +1621,77 @@ function ambush(s: SimState) {
   s.events.push({ type: "ambush", x, y, n: count });
 }
 
+// ------------------------------------------------------------------ bounties
+function setupBounty(s: SimState, floors: number[]) {
+  const B = RIFT.bounty, m = s.map, ts = m.ts, n = Math.max(1, s.players.length);
+  s.rift.need = 1e9; s.rift.nextWave = undefined;
+  // spread the task spots: each is far from the start and from the others
+  const spots: [number, number][] = [];
+  const pick = (): [number, number] => {
+    let best: [number, number] = [s.startX, s.startY], bd = -1;
+    for (let i = 0; i < 60; i++) {
+      const ti = floors[Math.floor(next(s.rng) * floors.length)];
+      const x = (ti % m.w) * ts + ts / 2, y = Math.floor(ti / m.w) * ts + ts / 2;
+      const d = Math.min(len(x - s.startX, y - s.startY), ...spots.map(([a, b]) => len(x - a, y - b)));
+      if (d > bd) { bd = d; best = [x, y]; }
+    }
+    spots.push(best); return best;
+  };
+  const tasks: BountyTask[] = [];
+  { const [x, y] = pick(); const e = spawnEnemy(s, "brute", x, y, n); makeElite(s, e); e.hp = e.maxHp = Math.round(e.maxHp * B.eliteHp); e.noProgress = true;
+    tasks.push({ kind: "elite", text: "Slay the Gravelord", x, y, ids: [e.id], have: 0, need: 1, done: false }); }
+  { const ids: number[] = []; let cx = 0, cy = 0;
+    for (let i = 0; i < B.totems; i++) { const [x, y] = pick(); cx += x; cy += y; const t = spawnEnemy(s, "pylon", x, y, n); t.hp = t.maxHp = Math.round(ENEMIES.brute.hp * 6 * Math.pow(RIFT.tiers.hpGrowth, s.rift.tier - 1) * (1 + RIFT.party.hpPerExtra * (n - 1))); t.r = 7; t.noProgress = true; ids.push(t.id); }
+    tasks.push({ kind: "totems", text: `Break ${B.totems} bone totems`, x: cx / B.totems, y: cy / B.totems, ids, have: 0, need: B.totems, done: false }); }
+  { const [x, y] = pick(); tasks.push({ kind: "shrine", text: "Hold the shrine", x, y, ids: [], have: 0, need: B.shrineSecs, done: false }); }
+  tasks.push({ kind: "cull", text: `Slay ${B.cull} enemies`, x: 0, y: 0, ids: [], have: 0, need: B.cull, done: false });
+  s.rift.bounty = tasks;
+}
+function updateBounty(s: SimState) {
+  const r = s.rift, B = RIFT.bounty;
+  for (const t of r.bounty ?? []) {
+    if (t.done) continue;
+    if (t.kind === "elite" || t.kind === "totems") {
+      t.have = t.ids.filter((id) => !s.enemies.some((e) => e.id === id && !e.dead)).length;
+      const live = s.enemies.find((e) => t.ids.includes(e.id) && !e.dead); if (live && t.kind === "elite") { t.x = live.x; t.y = live.y; }
+    } else if (t.kind === "shrine") {
+      if (s.players.some((p) => !p.dead && len(p.x - t.x, p.y - t.y) < B.shrineRadius)) {
+        const before = Math.floor(t.have / B.shrineWaveEvery);
+        t.have = Math.min(t.need, t.have + DT);
+        // the dead come for whoever holds the shrine
+        if (Math.floor(t.have / B.shrineWaveEvery) > before && t.have < t.need) {
+          const n = s.players.length;
+          for (let i = 0; i < 3 + n; i++) {
+            const d = DIR_TABLE[int(s.rng, 0, 31)], x = t.x + d[0] * 110, y = t.y + d[1] * 110;
+            if (isWall(s.map, x, y)) continue;
+            const e = spawnEnemy(s, i % 4 === 3 ? "archer" : "ghoul", x, y, n); e.aggro = true; e.noProgress = true;
+          }
+        }
+      }
+    } else t.have = Math.min(t.need, r.kills);
+    if (t.have >= t.need) {
+      t.done = true;
+      const left = (r.bounty ?? []).filter((q) => !q.done).length;
+      s.events.push({ type: "bountyTask", text: t.text, left });
+    }
+  }
+  if ((r.bounty ?? []).every((t) => t.done)) completeBounty(s);
+}
+/** All tasks done: everyone gets a cache of items (the Relic Dust is added with the save). */
+function completeBounty(s: SimState) {
+  const r = s.rift, B = RIFT.bounty;
+  r.done = true; r.doneAt = r.time;
+  for (const p of s.players) {
+    const pity = s.pity[p.pid] ?? {};
+    for (let i = 0; i < B.items; i++) {
+      const d = DIR_TABLE[Math.floor((i * 32) / B.items) % 32];
+      dropFor(s, p, p.x + d[0] * 20, p.y + d[1] * 20, i === 0 ? { rarity: chance(s.rng, 0.3) ? "set" : "legendary", forceAncestral: !!pity.ancestral, forcePrimal: !!pity.primal } : { legendaryWeightMult: 4 });
+    }
+  }
+  for (const e of s.enemies) if (!e.dead) { e.dead = true; s.events.push({ type: "kill", x: e.x, y: e.y, kind: e.kind, elite: e.elite }); }
+  s.events.push({ type: "riftComplete", inTime: r.time <= r.limit, time: r.time });
+}
+
 function updateRift(s: SimState) {
   const r = s.rift;
   if (r.done) return;
@@ -1621,6 +1699,7 @@ function updateRift(s: SimState) {
   if (!r.timeUpSent && r.time >= r.limit) { r.timeUpSent = true; s.events.push({ type: "timeUp" }); }
   if (r.kind === "hideout") return;
   if (r.kind === "endless") { updateEndless(s); return; }
+  if (r.kind === "bounty") { updateBounty(s); return; }
   if (r.kind === "rift" && !r.guardianSpawned && r.nextWave !== undefined && r.time >= r.nextWave) ambush(s);
   // boons: pick 1 of 3 at progress thresholds (lost at the end of the run)
   const at = RIFT.boonsAt;
