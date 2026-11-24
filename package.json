@@ -9,7 +9,8 @@
     "serve": "node scripts/build.mjs && npx --yes http-server dist -p 8080 -c-1",
     "build:live": "node scripts/build.mjs --live",
     "build:server": "esbuild src/server/server.ts --bundle --platform=node --format=esm --outfile=dist/server.mjs --external:ws --log-level=warning",
-    "server": "npm run build:live && npm run build:server && node dist/server.mjs"
+    "server": "npm run build:live && npm run build:server && node dist/server.mjs",
+    "site": "node scripts/build.mjs && node scripts/site.mjs"
   },
   "keywords": [],
   "author": "",
