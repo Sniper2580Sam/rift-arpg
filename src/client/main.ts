@@ -136,7 +136,7 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   const p = me();
   camX = p.x - wb.width / 2; camY = p.y - wb.height / 2;
   particles.length = nums.length = rings.length = arcs.length = ghosts.length = 0; pets.clear();
-  found = {}; foundLegs = []; completeInfo = null; acc = 0; hitstop = 0; paused = false; gotAncestral = gotPrimal = false; gotSigil = 0; startLevel = c.level;
+  found = {}; foundLegs = []; completeInfo = null; acc = 0; hitstop = 0; paused = false; input.enabled = true; // a run started from the menu must not inherit its paused input gotAncestral = gotPrimal = false; gotSigil = 0; startLevel = c.level;
   runIds = new Set([...Object.values(p.equipment).map((it) => it!.id), ...p.bag.map((it) => it.id)]); scrappedIds = [];
   mode = "rift"; screen = "rift";
   ui.hide();
