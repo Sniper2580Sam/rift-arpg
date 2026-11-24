@@ -144,3 +144,10 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Themes: Old Crypt and Ruined Camp free (basic), Gilded Throne Hall and Astral Sanctum premium (bigger rooms, marble or starfield floors, carpets, braziers, aurora, motes). Up to 40 decorations, 8 free and 8 premium.
 - Every premium item has a shop key (cos:/theme:/decor:/fx:). The Shop tab lists them at price 0; "buy" records ownership in profile.owned. Items worn before this change were grandfathered in.
 - Cosmetics: colours (dyes) are free and recolour the base armour. Earned armour: Riftbreaker (clear tier 10), Kingslayer (slay the Ossuary King), Vanguard (Endless wave 20). Each class has one premium class-only armour. Everything else is premium.
+
+## Sync conflicts, projectile stacking, turret boons, party size (2026-11-24)
+- Rooms hold up to 6 players (Samuel's call; the brief now says 1–6).
+- Google Drive sync remembers the save both sides last agreed on. If only one side changed, it wins quietly. If both changed (or a device with its own progress signs in), a card shows both saves and the player picks which to keep (tap twice to confirm). Before each upload it checks Drive's file version, so a device left open can't silently overwrite progress made on another. It also re-checks when the game returns to the front and when you return to the hideout.
+- Extra projectiles: projectiles fired together are one volley. The first hit on an enemy does full damage, and further hits from the same volley do 30% (rift.json volleyRepeat). Extra projectiles now widen coverage instead of multiplying single-target damage.
+- Bonewright constructs: "+N projectiles" adds shots per turret volley, and "+N minions" raises how many can stand at once (one per cast). The Bone Battery ring grows instead.
+- Hideout station and portal names are drawn at screen resolution (they were blurry when scaled up).

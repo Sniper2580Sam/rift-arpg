@@ -106,12 +106,10 @@ export function drawPortal(g: CanvasRenderingContext2D, s: HideoutSpot, x: numbe
   if (sub) label(g, sub, x, y + 11, "#b8a8d0", false, 7);
 }
 
-function label(g: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, bold: boolean, size = 8) {
-  g.font = `${size}px "GameFont", monospace`; g.textAlign = "center";
-  g.fillStyle = "rgba(10,6,14,0.75)"; const w = g.measureText(text).width; g.fillRect(Math.round(x - w / 2 - 2), Math.round(y - size + 1), Math.ceil(w + 4), size + 1);
-  g.fillStyle = color; g.fillText(text, Math.round(x), Math.round(y));
-  if (bold) { g.fillStyle = color; g.fillRect(Math.round(x - w / 2), Math.round(y + 2), Math.ceil(w), 1); }
-  g.textAlign = "left";
+/** Station and portal names are queued in world units and drawn later at screen resolution, so they stay sharp. */
+export const labels: { text: string; x: number; y: number; color: string; bold: boolean; size: number }[] = [];
+function label(_g: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, bold: boolean, size = 8) {
+  labels.push({ text, x, y, color, bold, size });
 }
 
 // ---------------------------------------------------------------- premium theme extras

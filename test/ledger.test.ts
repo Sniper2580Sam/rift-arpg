@@ -2,7 +2,7 @@
 import { char, newProfile } from "../src/client/profile";
 import { applyHubOp } from "../src/shared/ops";
 import { RunInfo, RunMember, applySave, mintFor, sanitizeOpts } from "../src/server/ledger";
-import { computeStats, mintItem, scrapValue } from "../src/sim/items";
+import { computeStats, mintItem, resolveSkill, scrapValue } from "../src/sim/items";
 import { makeRng } from "../src/sim/rng";
 
 let fails = 0;
@@ -122,4 +122,12 @@ console.log("ledger: all checks passed");
     const st = computeStats({ ring1: ring, ring2: { ...ring, id: "copy" } } as any, { cls: "stormcaller", level: 30 });
     check("duplicate set ring counts once", st.setCounts[ring.set] === 1);
   } else check("found a set ring to test", false);
+}
+{ // Splinters on a bone turret adds shots per volley, not turrets; Legion still adds turrets
+  const st0 = computeStats({}, { cls: "bonewright", level: 10, boons: ["splinters"] } as any);
+  const t = resolveSkill("bone_turret", undefined, st0);
+  check("projectile boon adds turret shots, not turrets", t.p.count === 1 && t.p.shots === 3);
+  const st1 = computeStats({}, { cls: "bonewright", level: 10, boons: ["legion"] } as any);
+  const t1 = resolveSkill("bone_turret", undefined, st1).p;
+  check("minion boon lets more turrets stand, one per cast", t1.count === 1 && t1.maxCount === 4);
 }

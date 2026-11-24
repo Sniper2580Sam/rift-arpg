@@ -7,10 +7,10 @@ import { sfx, setMuted, unlockAudio } from "./audio";
 import { Input, KEY_LABELS } from "./input";
 import { Profile, char, isoWeek, loadProfile, saveProfile, setLocalSaves, setOnSaved, setupFor, syncFromSim, weeklySeed } from "./profile";
 import { queue as cloudQueue, startCloud } from "./cloud";
-import { driveQueue, startDrive } from "./gdrive";
+import { driveQueue, driveRecheck, startDrive } from "./gdrive";
 import { HubOp, applyHubOp } from "../shared/ops";
 import { RARITY_COLOR, Sprite, buildSprites, renderMap } from "./sprites";
-import { allSpots, decorIcon, drawDecor, drawPortal, drawStation, drawThemeAir, drawThemeFloor, spotPos } from "./hideout";
+import { allSpots, decorIcon, labels as hideLabels, drawDecor, drawPortal, drawStation, drawThemeAir, drawThemeFloor, spotPos } from "./hideout";
 import { UI, fmtTime, modsLine } from "./ui";
 import { Online, onlineAvailable, signIn, signOut } from "./net";
 import { Direct } from "./direct";
@@ -237,6 +237,7 @@ function leaveHideout() {
 }
 /** Home: your hideout. In a direct room the host's hideout is shared and guests wait for it. */
 function enterHideout() {
+  driveRecheck();
   const apply = (window as any).__applyPendingRemote; if (apply) { (window as any).__applyPendingRemote = null; setTimeout(apply, 0); }
   if (inHideout() && coop?.role === "guest") { ui.hide(); hideoutButtons(); return; }
   if (sim) leaveHideout();
@@ -961,6 +962,16 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
     c.fillStyle = n.color; c.fillText(n.text, px, py);
   }
   c.globalAlpha = 1;
+  // hideout station and portal names, drawn sharp at screen resolution
+  for (const lb of hideLabels) {
+    const px = ((lb.x - sx) * pix) / S, py = ((lb.y - sy) * pix) / S, fs = Math.round((lb.size * pix) / S * 0.9);
+    c.font = font(fs); c.textBaseline = "alphabetic";
+    const w = c.measureText(lb.text).width;
+    c.fillStyle = "rgba(10,6,14,0.75)"; c.fillRect(px - w / 2 - 4, py - fs * 0.85, w + 8, fs * 1.1);
+    c.fillStyle = lb.color; c.fillText(lb.text, px, py);
+    if (lb.bold) c.fillRect(px - w / 2, py + 3, w, 2);
+  }
+  hideLabels.length = 0; c.textBaseline = "middle";
   c.font = font(11);
   for (const l of s.loot) {
     if (l.owner !== ME || l.item.rarity === "common" || RARITY_ORDER_IDX(l.item.rarity) < RARITY_ORDER_IDX(profile.filter)) continue;
@@ -1371,14 +1382,16 @@ else {
   setOnSaved((p) => { cloudQueue(p); driveQueue(p); });
   let pendingRemote: Profile | null = null;
   const useRemote = (p: Profile) => {
-    if (!(inHideout() && !coop) || menuOpen) { pendingRemote = p; return; }
+    if (sim && !inHideout()) { pendingRemote = p; return; } // mid-run: after it ends
+    menuOpen = false;
+    if (sim) { sim = null; run = null; coop = null; } // drop the old hideout without writing it back over the restored save
     profile = p; setMuted(profile.settings.mute);
     try { localStorage.setItem("rift-arpg-save", JSON.stringify(p)); } catch { /* ignore */ }
     ui.toast("Save restored from your account", "#7dff9a");
     goHub();
   };
   startCloud(() => profile, useRemote);
-  startDrive(() => profile, (p) => { useRemote(p); }, () => { if (menuOpen || mode === "hub") ui.refreshDrive?.(); });
+  startDrive(() => profile, (p) => { useRemote(p); }, () => !sim || inHideout(), () => { if (menuOpen || mode === "hub") ui.refreshDrive?.(); });
   (window as any).__applyPendingRemote = () => { if (pendingRemote) { const p = pendingRemote; pendingRemote = null; useRemote(p); } };
 }
 requestAnimationFrame(frame);

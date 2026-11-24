@@ -48,6 +48,8 @@ export interface Enemy {
   id: number; kind: EnemyKind;
   x: number; y: number; px: number; py: number; r: number;
   hp: number; maxHp: number; dmgMult: number; speedMult: number;
+  /** last projectile volley that hit this enemy: further hits from the same volley are weaker */
+  vol?: number;
   state: string; t: number; atkCd: number; aggro: boolean; target: number;
   kbx: number; kby: number; flash: number;
   burnDps: number; burnT: number; burnTick: number; burnPid: number;
@@ -61,6 +63,8 @@ export interface Projectile {
   x: number; y: number; px: number; py: number; vx: number; vy: number; r: number;
   pid: number; skill: string; mult: number; dmg: number; tags: string[]; pierce: boolean; life: number; hit: number[];
   returning: boolean; kb: number; dead: boolean; trailT: number; cold: boolean; fire: boolean;
+  /** projectiles fired together share a volley id */
+  volley: number;
 }
 export interface Summon { id: number; pid: number; skill: string; x: number; y: number; px: number; py: number; r: number; life: number; atkT: number; fx: number; dead: boolean; ox: number; oy: number; size: number; kind: string;
   /** constructs (Bonewright): stationary; 1 turret, 2 mortar, 3 totem, 4 lantern, 5 battery turret */ build?: number; boostT?: number; boostPct?: number }
@@ -531,10 +535,12 @@ function castProjectile(s: SimState, p: Player, sk: ResolvedSkill) {
   const n = Math.max(1, Math.round(sk.p.count ?? 1));
   const step = (sk.p.spreadSteps ?? 1) * 8; // in 1/256 turns
   const kind = sk.id === "ember_lance" ? "lance" : "bolt";
+  const vol = s.nextId;
   for (let i = 0; i < n; i++) {
     const k = (i - (n - 1) / 2) * step;
     const [dx, dy] = rotFine(p.fx, p.fy, k);
     const pr = mkProj(s, 0, kind, p.x + dx * 6, p.y + dy * 6, dx * sk.p.speed, dy * sk.p.speed, sk.p.radius, p.pid, sk.id, sk.p.damage, 0, sk.tags, (sk.p.pierce ?? 0) > 0, sk.p.range / sk.p.speed, sk.p.knockback);
+    pr.volley = vol;
     s.projectiles.push(pr);
   }
   s.events.push({ type: "cast", pid: p.pid, skill: sk.id, x: p.x, y: p.y });
@@ -678,10 +684,11 @@ function updateBuild(s: SimState, m: Summon, p: Player, sk: ResolvedSkill) {
     return;
   }
   const [dx, dy] = norm(target.x - m.x, target.y - m.y);
-  const sp = P.speed ?? 280;
+  const sp = P.speed ?? 280, vol = s.nextId;
   for (let i = 0; i < shots; i++) {
     const [vx, vy] = rotFine(dx, dy, (i - (shots - 1) / 2) * 10);
-    s.projectiles.push(mkProj(s, 0, "bolt", m.x + vx * 5, m.y - 4 + vy * 5, vx * sp, vy * sp, 3, p.pid, sk.id, P.damage, 0, sk.tags, (P.pierce ?? 0) > 0, ((P.range ?? 170) + 30) / sp, 15));
+    const pr = mkProj(s, 0, "bolt", m.x + vx * 5, m.y - 4 + vy * 5, vx * sp, vy * sp, 3, p.pid, sk.id, P.damage, 0, sk.tags, (P.pierce ?? 0) > 0, ((P.range ?? 170) + 30) / sp, 15);
+    pr.volley = vol; s.projectiles.push(pr);
   }
 }
 
@@ -749,7 +756,7 @@ function updatePending(s: SimState) {
 
 function mkProj(s: SimState, team: 0 | 1, kind: Projectile["kind"], x: number, y: number, vx: number, vy: number, r: number,
   pid: number, skill: string, mult: number, dmg: number, tags: string[], pierce: boolean, life: number, kb: number): Projectile {
-  return { id: s.nextId++, team, kind, x, y, px: x, py: y, vx, vy, r, pid, skill, mult, dmg, tags, pierce, life, hit: [], returning: false, kb, dead: false, trailT: 0, cold: tags.includes("cold"), fire: tags.includes("fire") };
+  return { id: s.nextId++, team, kind, x, y, px: x, py: y, vx, vy, r, pid, skill, mult, dmg, tags, pierce, life, hit: [], returning: false, kb, dead: false, trailT: 0, cold: tags.includes("cold"), fire: tags.includes("fire"), volley: 0 };
 }
 
 // ------------------------------------------------------------------ damage
@@ -1294,7 +1301,9 @@ function updateProjectiles(s: SimState) {
         if (len(e.x - pr.x, e.y - pr.y) < e.r + pr.r) {
           pr.hit.push(e.id);
           const [kx, ky] = norm(pr.vx, pr.vy);
-          const grow = sk.p.pierceGrow ? 1 + sk.p.pierceGrow * (pr.hit.length - 1) : 1;
+          let grow = sk.p.pierceGrow ? 1 + sk.p.pierceGrow * (pr.hit.length - 1) : 1;
+          // extra projectiles widen the spread; stacking them all into one enemy only adds a little
+          if (pr.volley) { if (e.vol === pr.volley) grow *= RIFT.volleyRepeat; else e.vol = pr.volley; }
           hitEnemy(s, e, pr.mult, owner, sk, { kb: pr.kb, kx, ky, direct: true, extra: grow });
           if (!pr.pierce) { pr.dead = true; break; }
         }

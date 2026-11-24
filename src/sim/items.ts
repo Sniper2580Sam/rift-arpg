@@ -301,7 +301,12 @@ export function resolveSkill(id: string, rune: string | undefined, st: Stats): R
   for (const m of st.mods) if (matches(m) && m.addTags) for (const t of m.addTags) if (!tags.includes(t)) tags.push(t);
   for (const m of st.mods) {
     if (!matches(m)) continue;
-    for (const [k, v] of Object.entries(m.add ?? {})) p[k] = (p[k] ?? 0) + v;
+    // constructs: "+N projectiles" means more shots per volley, and "+N minions" means N more can stand at once
+    // (each cast still builds one, so the oldest isn't knocked down early)
+    // a build that drops its whole group at once (the Bone Battery ring) grows the group instead
+    const build = tags.includes("construct") && p.maxCount !== undefined, ring = build && (d.p.count ?? 1) > 1;
+    const ck = !build ? "count" : m.tag === "projectile" ? "shots" : ring ? "count" : "maxCount";
+    for (const [k, v] of Object.entries(m.add ?? {})) { const kk = k === "count" ? ck : k; p[kk] = (p[kk] ?? 0) + v; }
     for (const [k, v] of Object.entries(m.mul ?? {})) p[k] = (p[k] ?? (k === "power" ? 1 : 0)) * v;
     for (const [k, v] of Object.entries(m.set ?? {})) p[k] = OVERRIDE.has(k) ? v : Math.max(p[k] ?? 0, v);
   }
