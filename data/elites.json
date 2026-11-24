@@ -1,10 +1,13 @@
 {
-  "hpMult": 3.0, "dmgMult": 1.3, "scale": 1.3, "drops": 3, "xpMult": 4,
+  "hpMult": 3.0, "dmgMult": 1.5, "scale": 1.3, "drops": 3, "xpMult": 4,
   "affixes": {
     "shielded":    { "name": "Shielded",    "desc": "Becomes immune for 2 seconds every 7 seconds." },
     "teleporting": { "name": "Teleporting", "desc": "Blinks next to its target." },
     "mortar":      { "name": "Mortar",      "desc": "Lobs explosive shells from range." },
     "molten":      { "name": "Molten",      "desc": "Leaves burning ground and explodes on death." },
-    "vortex":      { "name": "Vortex",      "desc": "Pulls its target in." }
+    "vortex":      { "name": "Vortex",      "desc": "Pulls its target in." },
+    "frozen":      { "name": "Frozen",      "desc": "Drops frost bombs around its target that chill on hit." },
+    "fast":        { "name": "Fast",        "desc": "Moves and attacks much faster." },
+    "thorns":      { "name": "Thorns",      "desc": "Hurts whoever hits it." }
   }
 }

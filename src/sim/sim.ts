@@ -1,7 +1,7 @@
 // Pure deterministic simulation for 1–4 players. No DOM, no Math.random, no wall-clock time.
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
-import { BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , MAP, MAPS, MapDef } from "./data";
-import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue, shardValue } from "./items";
+import { BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , MAP, MAPS, MapDef, ITEMS } from "./data";
+import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, equipTarget, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue, shardValue } from "./items";
 import { TileMap, flowField, genArena, genCave, genLinear, genOpen, genRooms, moveWithWalls } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
 import { DIR_TABLE, len, norm, rotFine } from "./vec";
@@ -35,7 +35,7 @@ export interface Player extends Holder {
   x: number; y: number; px: number; py: number; r: number; hp: number; fx: number; fy: number; moving: boolean; walk: number;
   skills: string[]; cds: Num; charges: Num; chargeT: Num; swingT: number; swingCount: number;
   dashT: number; dashDx: number; dashDy: number; dashHit: number[]; dashSkill: string; trailT: number;
-  invuln: number; dead: boolean; deadT: number; buff: Buff; boons: string[]; cheatT: number;
+  invuln: number; deaths?: number; chillT?: number; thornT?: number; dead: boolean; deadT: number; buff: Buff; boons: string[]; cheatT: number;
   stats: Stats; sk: Record<string, ResolvedSkill>; uses: Num; connected: boolean;
   /** class resource (Embers / Focus / Mana) and seconds since the last hit dealt or taken */
   res: number; combatT: number;
@@ -65,7 +65,7 @@ export interface Projectile {
 export interface Summon { id: number; pid: number; skill: string; x: number; y: number; px: number; py: number; r: number; life: number; atkT: number; fx: number; dead: boolean; ox: number; oy: number; size: number; kind: string;
   /** constructs (Bonewright): stationary; 1 turret, 2 mortar, 3 totem, 4 lantern, 5 battery turret */ build?: number; boostT?: number; boostPct?: number }
 export interface Hazard { id: number; pid: number; skill: string; x: number; y: number; r: number; mult: number; life: number; max: number; tickT: number; tags: string[]; slowPct: number; slowT: number; dead: boolean; kind: string }
-export interface Zone { id: number; x: number; y: number; r: number; delay: number; life: number; dmg: number; kind: "blast" | "pool"; tickT: number; dead: boolean }
+export interface Zone { id: number; x: number; y: number; r: number; delay: number; life: number; dmg: number; kind: "blast" | "pool" | "frost"; tickT: number; dead: boolean }
 export interface Loot { id: number; x: number; y: number; item: Item; age: number; owner: number }
 interface Pending { t: number; pid: number; skill: string }
 
@@ -78,18 +78,18 @@ export type SimEvent =
   | { type: "pickup"; pid: number; rarity: Rarity; name: string; item: Item }
   | { type: "scrapped"; pid: number; name: string; mats: number; id: string }
   | { type: "bagFull"; pid: number }
-  | { type: "swing"; pid: number; x: number; y: number; fx: number; fy: number; ring: boolean; range: number; hits: number; arcCos: number }
+  | { type: "swing"; pid: number; skill?: string; x: number; y: number; fx: number; fy: number; ring: boolean; range: number; hits: number; arcCos: number }
   | { type: "cast"; pid: number; skill: string; x: number; y: number; r?: number }
   | { type: "playerHurt"; pid: number; amount: number }
   | { type: "playerDeath"; pid: number } | { type: "respawn"; pid: number } | { type: "cheatDeath"; pid: number }
   | { type: "slam"; x: number; y: number; r: number; big: boolean }
-  | { type: "explosion"; x: number; y: number; r: number; cold?: boolean }
+  | { type: "explosion"; x: number; y: number; r: number; cold?: boolean; pid?: number; skill?: string }
   | { type: "guardianSpawn"; x: number; y: number; kind: EnemyKind }
   | { type: "enrage" } | { type: "guardianStun" } | { type: "timeUp" } | { type: "phase"; n: number; text: string }
   | { type: "riftComplete"; inTime: boolean; time: number }
   | { type: "levelUp"; pid: number; level: number }
   | { type: "boonOffer"; pid: number } | { type: "boonTaken"; pid: number; id: string }
-  | { type: "sigil"; pid: number } | { type: "teleport"; x: number; y: number } | { type: "chain"; x1: number; y1: number; x2: number; y2: number }
+  | { type: "sigil"; pid: number } | { type: "teleport"; x: number; y: number } | { type: "chain"; x1: number; y1: number; x2: number; y2: number; pid?: number; skill?: string }
   | { type: "equipChanged"; pid: number } | { type: "ambush"; x: number; y: number; n: number };
 
 export interface RiftState {
@@ -276,8 +276,9 @@ function makeElite(s: SimState, e: Enemy) {
   e.hp = e.maxHp = Math.round(e.maxHp * ELITES.hpMult);
   e.dmgMult *= ELITES.dmgMult; e.scale = ELITES.scale; e.r = Math.round(e.r * ELITES.scale);
   const pool = Object.keys(ELITES.affixes);
-  const n = Math.min(3, 1 + Math.floor((s.rift.tier - 1) / 4) + (chance(s.rng, 0.3) ? 1 : 0));
+  const n = Math.min(4, 1 + Math.floor((s.rift.tier - 1) / 3) + (chance(s.rng, 0.3) ? 1 : 0));
   while (e.affixes.length < n) { const a = pool.splice(Math.floor(next(s.rng) * pool.length), 1)[0]; e.affixes.push(a); }
+  if (e.affixes.includes("fast")) e.speedMult *= 1.5;
 }
 
 // ------------------------------------------------------------------ step
@@ -307,6 +308,7 @@ export function step(s: SimState, inputs: Record<number, PlayerInput>, host?: Ho
 
 function applyHostCmd(s: SimState, c: HostCmd) {
   if (c.type === "spawnLoot") {
+    [c.x, c.y] = onFloor(s.map, c.x, c.y);
     s.loot.push({ id: s.nextId++, x: c.x, y: c.y, item: c.item, age: 0, owner: c.owner });
     s.events.push({ type: "drop", x: c.x, y: c.y, rarity: c.item.rarity, name: c.item.name, owner: c.owner, quality: c.item.quality });
   } else if (c.type === "join") {
@@ -318,7 +320,9 @@ function applyHostCmd(s: SimState, c: HostCmd) {
 }
 
 function offerBoon(s: SimState, p: Player) {
-  const pool = BOONS.map((b) => b.id).filter((b) => !p.boons.includes(b));
+  // only offer boons that touch one of your equipped skills (no "+2 minions" for a build with no minions)
+  const fits = (b: (typeof BOONS)[number]) => !b.mod || b.mod.tag === "any" || !b.mod.tag || p.skills.some((id) => p.sk[id]?.tags.includes(b.mod!.tag!));
+  const pool = BOONS.filter((b) => !p.boons.includes(b.id) && fits(b)).map((b) => b.id);
   const offer: string[] = [];
   while (offer.length < 3 && pool.length) offer.push(pool.splice(Math.floor(next(s.rng) * pool.length), 1)[0]);
   if (!offer.length) return;
@@ -399,8 +403,10 @@ function updatePlayer(s: SimState, p: Player, inp: PlayerInput) {
   const ml = len(mx, my);
   if (ml > 1) { mx /= ml; my /= ml; }
   p.moving = ml > 0.05;
+  if (p.chillT) p.chillT = Math.max(0, p.chillT - DT);
+  if (p.thornT) p.thornT = Math.max(0, p.thornT - DT);
   if (p.moving) {
-    const sp = p.stats.speed * (1 + p.stats.moveSpeed / 100) * DT;
+    const sp = p.stats.speed * (1 + p.stats.moveSpeed / 100) * ((p.chillT ?? 0) > 0 ? 0.55 : 1) * DT;
     const ox = p.x, oy = p.y;
     moveWithWalls(s.map, p, mx * sp, my * sp);
     p.walk += len(p.x - ox, p.y - oy);
@@ -494,7 +500,7 @@ function castMelee(s: SimState, p: Player, sk: ResolvedSkill) {
   if (sk.p.healPerHit && hits) heal(p, p.stats.maxHp * sk.p.healPerHit * hits);
   if (sk.p.repair && hits) for (const m of s.summons) if (m.build && m.pid === p.pid && !m.dead && len(m.x - p.x, m.y - p.y) < 160) m.life += sk.p.repair * Math.min(3, hits);
   if (sk.p.genPerHit && hits) gainRes(p, Math.min(sk.p.genMax ?? 999, sk.p.genPerHit * hits));
-  s.events.push({ type: "swing", pid: p.pid, x: p.x, y: p.y, fx: p.fx, fy: p.fy, ring, range: rng, hits, arcCos: sk.p.arcCos });
+  s.events.push({ type: "swing", pid: p.pid, skill: sk.id, x: p.x, y: p.y, fx: p.fx, fy: p.fy, ring, range: rng, hits, arcCos: sk.p.arcCos });
   if (sk.p.wave) {
     const sp = 210;
     s.projectiles.push(mkProj(s, 0, "wave", p.x + p.fx * 6, p.y + p.fy * 6, p.fx * sp, p.fy * sp, 9, p.pid, sk.id, sk.p.wave, 0, [...sk.tags, "fire"], true, 120 / sp, 30));
@@ -661,7 +667,7 @@ function updateBuild(s: SimState, m: Summon, p: Player, sk: ResolvedSkill) {
 
 /** A mortar shell landing: like an explosion, but carries the skill's on-hit effects (burn, slow). */
 function shell(s: SimState, x: number, y: number, r: number, mult: number, p: Player, sk: ResolvedSkill) {
-  s.events.push({ type: "explosion", x, y, r, cold: sk.tags.includes("cold") && !sk.tags.includes("fire") });
+  s.events.push({ type: "explosion", x, y, r, cold: sk.tags.includes("cold") && !sk.tags.includes("fire"), pid: p.pid, skill: sk.id });
   for (const e of s.enemies) {
     if (e.dead || len(e.x - x, e.y - y) > r + e.r) continue;
     const [kx, ky] = norm(e.x - x, e.y - y);
@@ -738,7 +744,7 @@ function chainFrom(s: SimState, from: Enemy, mult: number, p: Player, sk: Resolv
     for (const e of s.enemies) { if (e.dead || hit.has(e.id)) continue; const d = len(e.x - cur.x, e.y - cur.y); if (d < bd) { bd = d; best = e; } }
     if (!best) break;
     hit.add(best.id); m *= P.chainMult ?? 0.7;
-    s.events.push({ type: "chain", x1: cur.x, y1: cur.y, x2: best.x, y2: best.y });
+    s.events.push({ type: "chain", x1: cur.x, y1: cur.y, x2: best.x, y2: best.y, pid: p.pid, skill: sk.id });
     hitEnemy(s, best, m, p, sk, { kb: 0, kx: 0, ky: 0, direct: true, chained: true });
     cur = best;
   }
@@ -760,6 +766,8 @@ function hitEnemy(s: SimState, e: Enemy, mult: number, p: Player | undefined, sk
   const crit = !o.noCrit && chance(s.rng, st.critChance / 100);
   if (crit) dmg *= 1 + st.critDmg / 100;
   const amount = Math.max(1, Math.round(dmg));
+  // Thorns elites hurt whoever hits them (at most twice a second)
+  if (e.elite && e.affixes.includes("thorns") && (p.thornT ?? 0) <= 0) { p.thornT = 0.5; damagePlayer(s, p, (ENEMIES[e.kind]?.damage ?? 10) * e.dmgMult * 0.35); }
   if (o.kb && e.kind !== "guardian" && e.kind !== "king" && e.kind !== "pylon") {
     const res = e.kind === "brute" ? 0.35 : e.elite ? 0.5 : 1;
     e.kbx += (o.kx ?? 0) * o.kb * res; e.kby += (o.ky ?? 0) * o.kb * res;
@@ -785,7 +793,7 @@ function applyDamage(s: SimState, e: Enemy, dmg: number, crit: boolean, pid: num
 }
 
 function explosion(s: SimState, x: number, y: number, r: number, flat: number, mult: number, p: Player | undefined, sk: ResolvedSkill | undefined) {
-  s.events.push({ type: "explosion", x, y, r, cold: sk?.tags.includes("cold") && !sk.tags.includes("fire") });
+  s.events.push({ type: "explosion", x, y, r, cold: sk?.tags.includes("cold") && !sk.tags.includes("fire"), pid: p?.pid, skill: sk?.id });
   for (const e of s.enemies) {
     if (e.dead || len(e.x - x, e.y - y) > r + e.r) continue;
     if (flat > 0) { if (e.shieldT <= 0) applyDamage(s, e, Math.max(1, Math.round(flat)), false, p?.pid ?? 0, {}, false); }
@@ -844,7 +852,26 @@ function lootOpts(s: SimState, p: Player, extra: MintOpts): MintOpts {
   };
 }
 
+/** Nearest open floor point to (x, y), so loot never lands inside a wall. */
+function onFloor(m: TileMap, x: number, y: number): [number, number] {
+  if (!isWall(m, x, y)) return [x, y];
+  const tx = Math.floor(x / m.ts), ty = Math.floor(y / m.ts);
+  for (let r = 1; r < 12; r++) {
+    let best: [number, number] | null = null, bd = 1e9;
+    for (let oy = -r; oy <= r; oy++) for (let ox = -r; ox <= r; ox++) {
+      if (Math.max(Math.abs(ox), Math.abs(oy)) !== r) continue;
+      const cx = tx + ox, cy = ty + oy;
+      if (cx < 0 || cy < 0 || cx >= m.w || cy >= m.h || m.tiles[cy * m.w + cx] !== 0) continue;
+      const px = (cx + 0.5) * m.ts, py = (cy + 0.5) * m.ts, d = len(px - x, py - y);
+      if (d < bd) { bd = d; best = [px, py]; }
+    }
+    if (best) return best;
+  }
+  return [x, y];
+}
+
 function dropFor(s: SimState, p: Player, x: number, y: number, extra: MintOpts) {
+  [x, y] = onFloor(s.map, x, y);
   const opts = lootOpts(s, p, extra);
   if (s.mint === "external") { s.events.push({ type: "dropRequest", owner: p.pid, x, y, opts: { ...opts, equipment: undefined } }); return; }
   const id = `${(s.seed >>> 0).toString(36)}-${s.itemCounter++}`;
@@ -870,7 +897,10 @@ function damagePlayer(s: SimState, p: Player, raw: number) {
       s.events.push({ type: "cheatDeath", pid: p.pid });
       return;
     }
-    p.hp = 0; p.dead = true; p.deadT = 4; p.dashT = 0;
+    // each death in this rift waits longer before respawning: 4 s, 8 s, 12 s… up to 20 s
+    p.deaths = (p.deaths ?? 0) + 1;
+    const D = RIFT.deathPenalty;
+    p.hp = 0; p.dead = true; p.deadT = Math.min(D.max, D.base + D.perDeath * (p.deaths - 1)); p.dashT = 0;
     s.events.push({ type: "playerDeath", pid: p.pid });
   }
 }
@@ -982,6 +1012,9 @@ function eliteAffixes(s: SimState, e: Enemy, p: Player, dist: number) {
   }
   if (e.affixes.includes("molten") && s.tick % 15 === 0 && (e.x !== e.px || e.y !== e.py)) {
     s.zones.push({ id: s.nextId++, x: e.x, y: e.y, r: 10, delay: 0, life: 3, dmg: dmg * 0.6, kind: "pool", tickT: 0, dead: false });
+  }
+  if (e.affixes.includes("frozen") && s.tick % 120 === (e.id % 120) && dist < 200) {
+    for (let i = 0; i < 3; i++) { const d = DIR_TABLE[(s.tick + i * 11) % 32]; s.zones.push({ id: s.nextId++, x: p.x + d[0] * 18 * i, y: p.y + d[1] * 18 * i, r: 20, delay: 1.4, life: 0, dmg: dmg * 0.8, kind: "frost", tickT: 0, dead: false }); }
   }
   if (e.affixes.includes("vortex") && e.affT <= 0 && dist > 40 && dist < 160 && !e.affixes.includes("teleporting")) {
     e.affT = 6;
@@ -1277,11 +1310,11 @@ function updateHazards(s: SimState) {
 
 function updateZones(s: SimState) {
   for (const z of s.zones) {
-    if (z.kind === "blast") {
+    if (z.kind === "blast" || z.kind === "frost") {
       z.delay -= DT;
       if (z.delay > 0) continue;
       z.dead = true;
-      for (const p of s.players) if (!p.dead && len(p.x - z.x, p.y - z.y) < z.r + p.r) damagePlayer(s, p, z.dmg);
+      for (const p of s.players) if (!p.dead && len(p.x - z.x, p.y - z.y) < z.r + p.r) { damagePlayer(s, p, z.dmg); if (z.kind === "frost") p.chillT = 2; }
       s.events.push({ type: "slam", x: z.x, y: z.y, r: z.r, big: false });
     } else {
       z.life -= DT; z.tickT -= DT;
@@ -1312,6 +1345,16 @@ function updateLoot(s: SimState) {
       s.events.push({ type: "scrapped", pid: p.pid, name: l.item.name, mats: v, id: l.item.id });
       continue;
     }
+    // an empty gear slot takes the item straight away
+    const slot = equipTarget(p, l.item);
+    if (!p.equipment[slot] && ITEMS_EQUIP_SLOTS.includes(slot)) {
+      p.equipment[slot] = l.item;
+      s.loot.splice(i, 1);
+      refreshAll(s);
+      s.events.push({ type: "pickup", pid: p.pid, rarity: l.item.rarity, name: l.item.name, item: l.item });
+      s.events.push({ type: "equipChanged", pid: p.pid });
+      continue;
+    }
     if (p.bag.length >= BAG_SIZE) { if (s.tick % 45 === 0) s.events.push({ type: "bagFull", pid: p.pid }); continue; }
     p.bag.push(l.item);
     s.loot.splice(i, 1);
@@ -1322,6 +1365,7 @@ function updateLoot(s: SimState) {
 // ------------------------------------------------------------------ rift
 /** Ambush: a pack spawns just off-screen around a random living player and hunts the party. */
 /** Fresh characters on tiers 1–2 meet thinner packs (and need less progress); full density from tier 3. */
+const ITEMS_EQUIP_SLOTS: string[] = (ITEMS as any).equipSlots;
 function tierDensity(tier: number) { const d = (RIFT as any).densityByTier as number[] | undefined; return d?.[tier - 1] ?? 1; }
 
 function ambush(s: SimState) {

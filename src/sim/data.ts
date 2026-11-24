@@ -2,6 +2,7 @@ import skillsJson from "../../data/skills.json";
 import classesJson from "../../data/classes.json";
 import enemiesJson from "../../data/enemies.json";
 import riftJson from "../../data/rift.json";
+import vfxJson from "../../data/vfx.json";
 import mapsJson from "../../data/maps.json";
 import affixesJson from "../../data/affixes.json";
 import itemsJson from "../../data/items.json";
@@ -68,7 +69,10 @@ export type CosKind = "armor" | "wings" | "weapon" | "petSkin";
 export interface Cosmetic { id: string; name: string; [k: string]: string | number }
 export const COSMETICS = cosmeticsJson as unknown as Record<CosKind, Cosmetic[]>;
 export const COS_KINDS: CosKind[] = ["armor", "wings", "weapon", "petSkin"];
-export type CosChoice = Partial<Record<CosKind, string>>;
+export type CosChoice = Partial<Record<CosKind, string>> & { fx?: Record<string, string> };
+/** Premium skill effects: a style re-colours one skill's projectiles, casts, blasts and trails. Visual only. */
+export interface VfxStyle { name: string; main: string; accent: string; core: string; trail: string }
+export const VFX = vfxJson as { styles: Record<string, VfxStyle>; perSkill: Record<string, string[]> };
 
 export const RARITY_ORDER: Rarity[] = ["common", "magic", "rare", "legendary", "set", "mythic"];
 export const slotTypeOf = (e: EquipSlot): SlotType => (e === "ring1" || e === "ring2" ? "ring" : e);

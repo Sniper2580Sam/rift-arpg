@@ -1,6 +1,6 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
-import { ITEMS, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, LOADOUT_SIZE, SKILL, validLoadout } from "../sim/data";
+import { ITEMS, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, LOADOUT_SIZE, SKILL, validLoadout, VFX } from "../sim/data";
 import { Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
@@ -93,6 +93,14 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
     case "setting":
       if (op.k === "filter") { if (!FILTERS.has(op.v)) return false; p.filter = op.v; return true; }
       if (op.k === "pet") { if (!p.unlockedPets.includes(op.v)) return false; p.pet = op.v; return true; }
+      if (op.k.startsWith("fx.")) {
+        // premium skill effects: free in this build; "default" clears it
+        const skill = op.k.slice(3);
+        if (op.v !== "default" && !(VFX.perSkill[skill] ?? []).includes(op.v)) return false;
+        const fx = { ...(p.cos?.fx ?? {}) };
+        if (op.v === "default") delete fx[skill]; else fx[skill] = op.v;
+        p.cos = { ...(p.cos ?? {}), fx }; return true;
+      }
       if (op.k.startsWith("cos.")) {
         // cosmetics: every one is free in this build (no store yet), so any catalogue id is valid
         const kind = op.k.slice(4) as CosKind;

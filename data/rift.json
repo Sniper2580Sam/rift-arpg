@@ -48,7 +48,7 @@
       ]
     }
   ],
-  "eliteChance": 0.18,
+  "eliteChance": 0.24,
   "guardianRewards": {
     "baseItems": 3,
     "inTimeItems": 2,
@@ -58,9 +58,9 @@
   "tiers": {
     "max": 20,
     "tier1Hp": 0.85,
-    "tier1Dmg": 0.75,
+    "tier1Dmg": 0.85,
     "hpGrowth": 1.4,
-    "dmgGrowth": 1.14,
+    "dmgGrowth": 1.2,
     "xpGrowth": 0.25,
     "legendaryGrowth": 0.15,
     "ancestralFrom": 3,
@@ -115,5 +115,10 @@
   "densityByTier": [
     0.55,
     0.8
-  ]
+  ],
+  "deathPenalty": {
+    "base": 4,
+    "perDeath": 4,
+    "max": 20
+  }
 }

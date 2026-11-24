@@ -1,0 +1,274 @@
+{
+ "styles": {
+  "voidfire": {
+   "name": "Voidfire",
+   "main": "#b04aff",
+   "accent": "#ff6ad5",
+   "core": "#f0d0ff",
+   "trail": "ember"
+  },
+  "solar": {
+   "name": "Solar",
+   "main": "#ffd23f",
+   "accent": "#ff8a1f",
+   "core": "#fffbe0",
+   "trail": "sparkle"
+  },
+  "glacial": {
+   "name": "Glacial",
+   "main": "#7ad8ff",
+   "accent": "#3a6aff",
+   "core": "#ffffff",
+   "trail": "snow"
+  },
+  "bloodmoon": {
+   "name": "Bloodmoon",
+   "main": "#ff2a4a",
+   "accent": "#8a0a2a",
+   "core": "#ffb0a0",
+   "trail": "drip"
+  },
+  "spectral": {
+   "name": "Spectral",
+   "main": "#7dffcf",
+   "accent": "#2a9a7a",
+   "core": "#e0fff4",
+   "trail": "wisp"
+  },
+  "umbral": {
+   "name": "Umbral",
+   "main": "#8a7aff",
+   "accent": "#1a1430",
+   "core": "#d8d0ff",
+   "trail": "smoke"
+  },
+  "verdant": {
+   "name": "Verdant",
+   "main": "#7ad06a",
+   "accent": "#e8ff9a",
+   "core": "#f4ffe0",
+   "trail": "leaf"
+  },
+  "prism": {
+   "name": "Prismatic",
+   "main": "#ff6ad5",
+   "accent": "#6ad8ff",
+   "core": "#ffffff",
+   "trail": "prism"
+  }
+ },
+ "perSkill": {
+  "cleave": [
+   "voidfire",
+   "prism"
+  ],
+  "ember_lance": [
+   "umbral",
+   "verdant"
+  ],
+  "ash_dash": [
+   "verdant",
+   "voidfire"
+  ],
+  "warcry": [
+   "solar",
+   "verdant"
+  ],
+  "flame_nova": [
+   "voidfire",
+   "prism"
+  ],
+  "cinderlings": [
+   "umbral",
+   "verdant"
+  ],
+  "hex_bolt": [
+   "glacial",
+   "bloodmoon"
+  ],
+  "volley": [
+   "umbral",
+   "solar"
+  ],
+  "tumble": [
+   "voidfire",
+   "prism"
+  ],
+  "frost_snare": [
+   "prism",
+   "verdant"
+  ],
+  "rally_banner": [
+   "verdant",
+   "spectral"
+  ],
+  "raven_swarm": [
+   "solar",
+   "spectral"
+  ],
+  "searing_strike": [
+   "voidfire",
+   "prism"
+  ],
+  "shield_bash": [
+   "prism",
+   "spectral"
+  ],
+  "whirling_ash": [
+   "voidfire",
+   "glacial"
+  ],
+  "molten_hammer": [
+   "umbral",
+   "glacial"
+  ],
+  "iron_skin": [
+   "voidfire",
+   "prism"
+  ],
+  "chain_hook": [
+   "bloodmoon",
+   "spectral"
+  ],
+  "phoenix_form": [
+   "voidfire",
+   "glacial"
+  ],
+  "inferno_pillar": [
+   "umbral",
+   "glacial"
+  ],
+  "bone_shot": [
+   "spectral",
+   "prism"
+  ],
+  "shadow_knives": [
+   "prism",
+   "glacial"
+  ],
+  "hex_rain": [
+   "glacial",
+   "umbral"
+  ],
+  "soulpiercer": [
+   "umbral",
+   "bloodmoon"
+  ],
+  "smoke_veil": [
+   "voidfire",
+   "prism"
+  ],
+  "night_hunt": [
+   "bloodmoon",
+   "solar"
+  ],
+  "banshee_wail": [
+   "solar",
+   "spectral"
+  ],
+  "spark": [
+   "umbral",
+   "bloodmoon"
+  ],
+  "magic_missile": [
+   "solar",
+   "prism"
+  ],
+  "static_touch": [
+   "umbral",
+   "verdant"
+  ],
+  "chain_lightning": [
+   "voidfire",
+   "bloodmoon"
+  ],
+  "arcane_orb": [
+   "spectral",
+   "bloodmoon"
+  ],
+  "thunderstorm": [
+   "voidfire",
+   "prism"
+  ],
+  "disintegrate": [
+   "spectral",
+   "bloodmoon"
+  ],
+  "blink": [
+   "solar",
+   "spectral"
+  ],
+  "mana_shield": [
+   "spectral",
+   "bloodmoon"
+  ],
+  "static_field": [
+   "voidfire",
+   "prism"
+  ],
+  "storm_avatar": [
+   "umbral",
+   "verdant"
+  ],
+  "black_hole": [
+   "solar",
+   "spectral"
+  ],
+  "arcane_torrent": [
+   "spectral",
+   "bloodmoon"
+  ],
+  "rivet_shot": [
+   "voidfire",
+   "prism"
+  ],
+  "bone_mallet": [
+   "bloodmoon",
+   "spectral"
+  ],
+  "bone_turret": [
+   "verdant",
+   "glacial"
+  ],
+  "spike_ward": [
+   "solar",
+   "glacial"
+  ],
+  "marrow_mortar": [
+   "spectral",
+   "prism"
+  ],
+  "scrap_burst": [
+   "prism",
+   "bloodmoon"
+  ],
+  "war_totem": [
+   "glacial",
+   "umbral"
+  ],
+  "mending_lantern": [
+   "umbral",
+   "bloodmoon"
+  ],
+  "recoil_vault": [
+   "voidfire",
+   "prism"
+  ],
+  "bone_plating": [
+   "bloodmoon",
+   "solar"
+  ],
+  "overcharge": [
+   "verdant",
+   "voidfire"
+  ],
+  "ossuary_colossus": [
+   "solar",
+   "verdant"
+  ],
+  "bone_battery": [
+   "spectral",
+   "prism"
+  ]
+ }
+}

@@ -1,7 +1,7 @@
 // DOM screens: hub (play / gear / skills / settings), inventory with compare + reroll, boon picker, results.
 import { AFFIX as AFFIX_DEF } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
-import { BOON, CLASSES, COSMETICS, CosKind, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { BOON, CLASSES, COSMETICS, CosKind, VFX, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -436,10 +436,23 @@ export class UI {
       <div class="opts">${COSMETICS[kind].map((c, i) => { const on = (cur[kind] ?? COSMETICS[kind][0].id) === c.id; return `<button class="${on ? "on" : ""}" data-cos="${kind}:${c.id}">${swatch(c as any)}${esc(c.name)}</button>`; }).join("")}</div>
       <div class="dim small">${esc(String((COSMETICS[kind].find((c) => c.id === (cur[kind] ?? COSMETICS[kind][0].id)) as any)?.desc ?? ""))}</div></div>`;
     return `<div class="look-prev"><canvas id="lookPrev" width="64" height="40"></canvas><div class="dim small">Cosmetics only change how you look. Other players see them in co-op. All of them are free in this test build.</div></div>
-      ${group("armor", "Armour", "")}${group("wings", "Wings", "")}${group("weapon", "Weapon", "")}${group("petSkin", "Pet skin", p.pet === "none" ? "pick a pet in Settings to see it" : "")}`;
+      ${group("armor", "Armour", "")}${group("wings", "Wings", "")}${group("weapon", "Weapon", "")}${group("petSkin", "Pet skin", p.pet === "none" ? "pick a pet in Settings to see it" : "")}${this.fxGroup(p)}`;
+  }
+  /** Premium skill effects: two styles per skill, equipped skills first. */
+  private fxGroup(p: Profile) {
+    const c = char(p), cls = CLASSES[c.cls], cur = p.cos?.fx ?? {};
+    const eq = c.loadout ?? cls.loadout;
+    const ids = [...eq, ...cls.skills.filter((id: string) => !eq.includes(id))].filter((id: string) => VFX.perSkill[id]);
+    const sw = (st: { main: string; accent: string; core: string }) => `<i class="sw"><i style="background:${st.main}"></i><i style="background:${st.accent}"></i><i style="background:${st.core}"></i></i>`;
+    const row = (id: string) => `<div class="fx-row"><span class="${eq.includes(id) ? "" : "dim"}">${esc(SKILL[id].name)}</span><span class="opts">
+      <button class="${!cur[id] ? "on" : ""}" data-fx="${id}:default">Default</button>
+      ${VFX.perSkill[id].map((sid) => { const st = VFX.styles[sid]; return `<button class="${cur[id] === sid ? "on" : ""}" data-fx="${id}:${sid}">${sw(st)}${esc(st.name)}</button>`; }).join("")}</span></div>`;
+    return `<div class="setting"><b>Skill effects</b> <span class="dim small">premium · free in this test build</span>
+      <div class="dim small">Re-colours a skill's projectiles, casts, blasts and trails. Your party sees them too.</div>${ids.map(row).join("")}</div>`;
   }
   private bindLooks(p: Profile, H: HubHandlers, re: () => void) {
     this.root.querySelectorAll<HTMLElement>("[data-cos]").forEach((el) => el.onclick = () => { const [k, v] = el.dataset.cos!.split(":"); H.setting("cos." + k, v); re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-fx]").forEach((el) => el.onclick = () => { const [k, v] = el.dataset.fx!.split(":"); H.setting("fx." + k, v); re(); });
     const cv = this.root.querySelector<HTMLCanvasElement>("#lookPrev");
     if (!cv) return;
     const g = cv.getContext("2d")!; g.imageSmoothingEnabled = false;

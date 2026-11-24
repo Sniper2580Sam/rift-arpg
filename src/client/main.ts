@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { CLASSES, ENEMIES, MAP, MODIFIER, RIFT, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { CLASSES, ENEMIES, MAP, MODIFIER, RIFT, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax } from "../sim/sim";
@@ -85,9 +85,9 @@ const pets = new Map<number, { x: number; y: number; flip: boolean }>();
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; grav: number }
 interface Num { x: number; y: number; text: string; color: string; size: number; t: number; vx: number }
 interface Ring { x: number; y: number; r: number; t: number; max: number; color: string; fill?: boolean }
-interface Arc { x: number; y: number; fx: number; fy: number; r: number; ring: boolean; t: number; arcCos: number }
+interface Arc { x: number; y: number; fx: number; fy: number; r: number; ring: boolean; t: number; arcCos: number; vfx?: VfxStyle }
 interface Ghost { x: number; y: number; t: number; flip: boolean; cls: string }
-const bolts: { x1: number; y1: number; x2: number; y2: number; t: number }[] = [];
+const bolts: { x1: number; y1: number; x2: number; y2: number; t: number; fx?: VfxStyle }[] = [];
 const particles: Particle[] = [], nums: Num[] = [], rings: Ring[] = [], arcs: Arc[] = [], ghosts: Ghost[] = [];
 const me = () => sim!.players.find((p) => p.pid === ME)!;
 
@@ -283,6 +283,22 @@ const BLOOD: Record<string, string[]> = {
   ghoul: ["#6f8f5a", "#4a6640", "#9bc27a"], archer: ["#f2ead3", "#c9bf9f"], brute: ["#9a7aa8", "#6b4f7a", "#4a3456"], guardian: ["#f2ead3", "#ffd23f", "#2b1f3a"],
   king: ["#f2ead3", "#ff3b6b", "#2b1f3a"], pylon: ["#f2ead3", "#ffd23f"],
 };
+/** The premium effect a player picked for a skill, if any. */
+function fxOf(pid: number | undefined, skill: string | undefined): VfxStyle | undefined {
+  if (pid === undefined || !skill || !sim) return undefined;
+  const id = sim.players.find((q) => q.pid === pid)?.cos?.fx?.[skill];
+  return id ? VFX.styles[id] : undefined;
+}
+/** Trail and burst particles in a style's own shape. */
+function fxParticles(st: VfxStyle, x: number, y: number, n: number, speed: number) {
+  for (let i = 0; i < n && particles.length < 600; i++) {
+    const a = Math.random() * Math.PI * 2, v = speed * (0.3 + Math.random() * 0.7);
+    const cols = [st.main, st.accent, st.core];
+    const color = st.trail === "prism" ? `hsl(${Math.floor((performance.now() / 4 + i * 47) % 360)},90%,70%)` : cols[Math.floor(Math.random() * 3)];
+    const up = st.trail === "ember" || st.trail === "wisp" || st.trail === "smoke" ? -30 : st.trail === "drip" || st.trail === "leaf" || st.trail === "snow" ? 25 : 0;
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v + up, life: 0.5, max: 0.5, color, size: st.trail === "sparkle" || st.trail === "prism" ? 1 : st.trail === "smoke" ? 3 : 2, grav: st.trail === "drip" ? 120 : 0 });
+  }
+}
 const SKILL_COLOR = (tags: string[]) => (tags.includes("cold") && !tags.includes("fire") ? "#9be0ff" : tags.includes("fire") ? "#ff8a1f" : "#e8e0ff");
 
 function handleEvent(e: SimEvent) {
@@ -303,13 +319,15 @@ function handleEvent(e: SimEvent) {
       else sfx.kill();
       break;
     case "swing":
-      arcs.push({ x: e.x, y: e.y, fx: e.fx, fy: e.fy, r: e.range, ring: e.ring, t: 0, arcCos: e.arcCos });
+      { const v = fxOf(e.pid, e.skill); arcs.push({ x: e.x, y: e.y, fx: e.fx, fy: e.fy, r: e.range, ring: e.ring, t: 0, arcCos: e.arcCos, vfx: v }); if (v) fxParticles(v, e.x + e.fx * e.range * 0.6, e.y + e.fy * e.range * 0.6, 10, 60); }
       sfx.swing();
       if (e.hits > 0 && mine(e.pid)) { addShake(e.ring ? 3 : 1); hitstop = Math.max(hitstop, e.ring ? 0.05 : 0.018); }
       break;
     case "cast": {
       const sk = SKILL[e.skill];
       if (!sk) break;
+      const v = fxOf(e.pid, e.skill);
+      if (v) { fxParticles(v, e.x, e.y, 18, 90); rings.push({ x: e.x, y: e.y, r: e.r ?? 24, t: 0, max: 0.35, color: v.main, fill: sk.kind === "nova" }); if (sk.kind !== "projectile" && sk.kind !== "melee") break; }
       if (sk.kind === "projectile") sfx.lance();
       if (sk.kind === "dash") sfx.dash();
       if (sk.kind === "summon") { sfx.summon(); burst(e.x, e.y, 20, ["#ff8a1f", "#ffd23f"], 80, 1, 0.5); }
@@ -325,12 +343,13 @@ function handleEvent(e: SimEvent) {
       addShake(3); hurtFlash = 0.35; sfx.hurt();
       if (sim && nums.length < 70) { const p = me(); nums.push({ x: p.x, y: p.y - 14, text: "-" + e.amount, color: "#ff4a4a", size: 1, t: 0, vx: 0 }); }
       break;
-    case "playerDeath": if (mine(e.pid)) { sfx.death(); showBanner("You fell", "Respawning…", "#ff4a4a", 3); } break;
+    case "playerDeath": if (mine(e.pid)) { sfx.death(); { const p = me(); showBanner("You fell", `Death ${p.deaths ?? 1} · back in ${Math.ceil(p.deadT)} s (each death adds 4 s)`, "#ff4a4a", Math.min(4, p.deadT)); } } break;
     case "cheatDeath": if (mine(e.pid)) { showBanner("THE LAST EMBER", "Death refused", "#ff3b6b", 2); flash = 0.4; flashColor = "#ff3b6b"; } break;
     case "slam": rings.push({ x: e.x, y: e.y, r: e.r, t: 0, max: 0.35, color: e.big ? "#ffd23f" : "#ff6a6a" }); addShake(e.big ? 6 : 3); sfx.slam(); burst(e.x, e.y, 12, ["#5c4a6e", "#8a7f66"], 90, 1, 0.5); break;
-    case "explosion": rings.push({ x: e.x, y: e.y, r: e.r, t: 0, max: 0.3, color: e.cold ? "#9be0ff" : "#ff8a1f" }); burst(e.x, e.y, 16, e.cold ? ["#9be0ff", "#fff"] : ["#ff8a1f", "#ffd23f", "#ff5a1f"], 110, 1, 0.45); addShake(2.5); sfx.explosion(); break;
+    case "explosion": { const v = fxOf(e.pid, e.skill); if (v) { rings.push({ x: e.x, y: e.y, r: e.r, t: 0, max: 0.35, color: v.main, fill: true }); fxParticles(v, e.x, e.y, 20, 120); addShake(2.5); sfx.explosion(); break; } }
+      rings.push({ x: e.x, y: e.y, r: e.r, t: 0, max: 0.3, color: e.cold ? "#9be0ff" : "#ff8a1f" }); burst(e.x, e.y, 16, e.cold ? ["#9be0ff", "#fff"] : ["#ff8a1f", "#ffd23f", "#ff5a1f"], 110, 1, 0.45); addShake(2.5); sfx.explosion(); break;
     case "teleport": burst(e.x, e.y, 14, ["#c9a0ff", "#fff"], 70, 1, 0.4); break;
-    case "chain": if (bolts.length < 40) bolts.push({ x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0 }); break;
+    case "chain": if (bolts.length < 40) bolts.push({ x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, fx: fxOf(e.pid, e.skill) }); break;
     case "drop":
       if (!mine(e.owner)) break;
       sfx.drop(e.rarity);
@@ -345,7 +364,8 @@ function handleEvent(e: SimEvent) {
       if (!mine(e.pid)) break;
       sfx.pickup(); found[e.rarity] = (found[e.rarity] ?? 0) + 1; runIds.add(e.item.id);
       if (e.rarity === "legendary" || e.rarity === "set" || e.rarity === "mythic") foundLegs.push({ name: e.name, rarity: e.rarity, quality: e.item.quality });
-      if (e.rarity !== "common" && e.rarity !== "magic") ui.toast(`Picked up ${e.name} · Bag to equip`, RARITY_COLOR[e.rarity]);
+      if (Object.values(me().equipment).some((it) => it?.id === e.item.id)) ui.toast(`Equipped ${e.name} (empty slot)`, RARITY_COLOR[e.rarity]);
+      else if (e.rarity !== "common" && e.rarity !== "magic") ui.toast(`Picked up ${e.name} · Bag to equip`, RARITY_COLOR[e.rarity]);
       syncFromSim(profile, sim!, ME);
       break;
     case "scrapped": if (mine(e.pid)) scrappedIds.push(e.id); if (mine(e.pid) && nums.length < 70) { const p = me(); nums.push({ x: p.x, y: p.y - 18, text: `+${e.mats} mat`, color: "#b8a8d0", size: 0.7, t: 0, vx: 0 }); } break;
@@ -474,7 +494,7 @@ function render(alpha: number, dt: number) {
   for (const z of s.zones) {
     if (!onScreen(z.x, z.y)) continue;
     if (z.kind === "pool") { g.globalAlpha = 0.55; g.fillStyle = (Math.floor(t * 10 + z.id) % 2) ? "#c2361f" : "#e0521f"; g.beginPath(); g.ellipse(z.x, z.y, z.r, z.r * 0.6, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
-    else telegraphCircle(g, z.x, z.y, z.r, 1 - z.delay / 1.4);
+    else telegraphCircle(g, z.x, z.y, z.r, 1 - z.delay / 1.4, z.kind === "frost");
   }
   for (const e of s.enemies) {
     if (e.dead || !onScreen(e.x, e.y, 80)) continue;
@@ -517,7 +537,7 @@ function render(alpha: number, dt: number) {
     g.globalAlpha = 1;
   }
   for (const b of bolts) {
-    g.strokeStyle = (Math.floor(b.t * 60) % 2) ? "#ffffff" : "#9be0ff"; g.lineWidth = 1; g.beginPath(); g.moveTo(b.x1, b.y1);
+    g.strokeStyle = (Math.floor(b.t * 60) % 2) ? (b.fx?.core ?? "#ffffff") : (b.fx?.main ?? "#9be0ff"); g.lineWidth = 1; g.beginPath(); g.moveTo(b.x1, b.y1);
     for (let i = 1; i < 5; i++) { const k = i / 5; g.lineTo(b.x1 + (b.x2 - b.x1) * k + (Math.random() - 0.5) * 8, b.y1 + (b.y2 - b.y1) * k + (Math.random() - 0.5) * 8); }
     g.lineTo(b.x2, b.y2); g.stroke();
   }
@@ -557,6 +577,17 @@ function render(alpha: number, dt: number) {
     if (!onScreen(pr.x, pr.y)) continue;
     const x = lerp(pr.px, pr.x, alpha), y = lerp(pr.py, pr.y, alpha);
     const [nx, ny] = norm2(pr.vx, pr.vy);
+    const pv = pr.team === 0 ? fxOf(pr.pid, pr.skill) : undefined;
+    if (pv) {
+      // premium effect: a glowing head in the style's colours with its own trail
+      g.globalAlpha = 0.35; g.fillStyle = pv.accent; g.beginPath(); g.arc(x, y, pr.r + 4, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+      g.strokeStyle = pv.main; g.lineWidth = Math.max(3, pr.r * 0.7);
+      g.beginPath(); g.moveTo(x - nx * 12, y - ny * 12); g.lineTo(x + nx * 3, y + ny * 3); g.stroke();
+      g.strokeStyle = pv.core; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(x - nx * 9, y - ny * 9); g.lineTo(x + nx * 4, y + ny * 4); g.stroke();
+      if (Math.random() < 0.6) fxParticles(pv, x - nx * 6, y - ny * 6, 1, 15);
+      continue;
+    }
     if (pr.kind === "lance" || pr.kind === "bolt") {
       const col = pr.returning ? "#7fd8ff" : pr.cold && !pr.fire ? "#9be0ff" : pr.fire ? "#ff5a1f" : "#d8d0f0";
       const L = pr.kind === "lance" ? 12 : 7;
@@ -583,7 +614,7 @@ function render(alpha: number, dt: number) {
   for (const a of arcs) {
     const k2 = a.t / 0.13;
     g.globalAlpha = 1 - k2;
-    g.strokeStyle = a.ring ? "#ffd23f" : "#ffffff"; g.lineWidth = 3;
+    g.strokeStyle = a.vfx ? a.vfx.main : a.ring ? "#ffd23f" : "#ffffff"; g.lineWidth = a.vfx ? 4 : 3;
     const ang = Math.atan2(a.fy, a.fx), half = Math.acos(Math.max(-1, Math.min(1, a.arcCos)));
     g.beginPath();
     if (a.ring) g.arc(a.x, a.y, a.r * (0.6 + 0.4 * k2), 0, Math.PI * 2);
@@ -631,10 +662,10 @@ function drawSprite(g: CanvasRenderingContext2D, sp: Sprite, x: number, y: numbe
   if (flip) { g.save(); g.translate(dx + w, dy); g.scale(-1, 1); g.drawImage(img, 0, 0, w, h); g.restore(); }
   else g.drawImage(img, dx, dy, w, h);
 }
-function telegraphCircle(g: CanvasRenderingContext2D, x: number, y: number, r: number, k: number) {
-  g.fillStyle = "rgba(255,40,40,0.18)"; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
-  g.fillStyle = "rgba(255,60,60,0.35)"; g.beginPath(); g.arc(x, y, r * Math.max(0, Math.min(1, k)), 0, Math.PI * 2); g.fill();
-  g.strokeStyle = "rgba(255,90,90,0.8)"; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke();
+function telegraphCircle(g: CanvasRenderingContext2D, x: number, y: number, r: number, k: number, frost = false) {
+  g.fillStyle = frost ? "rgba(90,180,255,0.18)" : "rgba(255,40,40,0.18)"; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  g.fillStyle = frost ? "rgba(140,210,255,0.4)" : "rgba(255,60,60,0.35)"; g.beginPath(); g.arc(x, y, r * Math.max(0, Math.min(1, k)), 0, Math.PI * 2); g.fill();
+  g.strokeStyle = frost ? "rgba(190,235,255,0.9)" : "rgba(255,90,90,0.8)"; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke();
 }
 
 function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, t: number) {
@@ -651,7 +682,7 @@ function drawEnemy(g: CanvasRenderingContext2D, e: Enemy, x: number, y: number, 
   if ((e.kind === "guardian" || e.kind === "king") && e.state === "intro") g.globalAlpha = 1 - Math.max(0, e.t / 2) * 0.7;
   if (e.elite) {
     g.globalAlpha = 0.35 + 0.15 * Math.sin(t * 6);
-    g.fillStyle = e.affixes.includes("molten") ? "#ff5a1f" : e.affixes.includes("shielded") ? "#9be0ff" : "#c9a0ff";
+    g.fillStyle = e.affixes.includes("molten") ? "#ff5a1f" : e.affixes.includes("frozen") || e.affixes.includes("shielded") ? "#9be0ff" : e.affixes.includes("thorns") ? "#7aff6a" : "#c9a0ff";
     g.beginPath(); g.ellipse(x, y, e.r + 4, (e.r + 4) * 0.5, 0, 0, Math.PI * 2); g.fill();
     g.globalAlpha = 1;
   }
@@ -911,7 +942,7 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
     }
     c.globalAlpha = 1;
   }
-  if (p.dead) { c.fillStyle = "rgba(60,0,0,0.35)"; c.fillRect(0, 0, W, H); }
+  if (p.dead) { c.fillStyle = "rgba(60,0,0,0.35)"; c.fillRect(0, 0, W, H); c.textAlign = "center"; c.fillStyle = "#ffb0b0"; c.font = font(16); c.fillText(`Respawn in ${Math.ceil(p.deadT)}`, W / 2, H * 0.62); c.textAlign = "left"; }
   if (hurtFlash > 0) {
     const gr = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
     gr.addColorStop(0, "rgba(255,0,0,0)"); gr.addColorStop(1, `rgba(255,0,0,${hurtFlash})`);

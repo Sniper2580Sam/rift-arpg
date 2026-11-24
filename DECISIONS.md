@@ -109,3 +109,12 @@ Calls made while Samuel was away. Each one is easy to reverse. **Brief conflicts
 - Easter eggs: Gilded Vault (~1.4% of codes: half the enemies, 6× drops, 3× legendary weight) and Good Luck (~0.7%: 10–50× density, progress needed scales with density/5).
 - Good Luck caps live enemies at 1,200 so phones keep up (about 4 ms per tick in node; enemy separation switches to a spatial grid above 120 enemies).
 - Mana/resource bar now uses the real max (base + res_max affixes) and shows "current / max".
+
+## Difficulty and feedback batch (Samuel chose "Tougher, smarter enemies", 2026-11-24)
+- Enemy damage grows 20% per tier (was 14%), and base hits are harder (ghoul 9, archer 12, brute 30, guardian 20, king 26). T1 starts at 85% damage.
+- Elites: 24% of packs (was 18%), +50% damage (was +30%), and one more affix every 3 tiers (up to 4). New affixes: Frozen (frost bombs that slow you), Fast (+50% speed), Thorns (hurts whoever hits it).
+- Death penalty: the respawn wait is 4 s, then 8, 12, 16, up to 20 s for each death in the same rift. The rift timer keeps running.
+- Boons that only boost one tag (Legion: minions, Splinters: projectiles) are only offered if one of your skills has that tag.
+- Picking up an item for an empty gear slot equips it straight away.
+- Loot never lands in walls: drops snap to the nearest floor tile.
+- Premium skill effects (data/vfx.json): 8 styles, 2 per skill. They re-colour projectiles, casts, swings, blasts and chains. They're cosmetic only and free in the test build, like the other cosmetics.
