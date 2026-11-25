@@ -292,3 +292,6 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 ## 2026-11-25: Shop previews for the hideout (Samuel)
 - **Themes:** "Visit" in the Shop takes you to your hideout in that theme, keeping your layout and decorations. Nothing is saved. A bar at the top offers Buy (tap twice) or Back to my hideout. Starting any run ends the visit. It works only when you're on your own, not in a co-op room.
 - **Decorations:** Preview shows the decoration next to your hero in the Shop's preview box.
+
+## 2026-11-25: The game is called Riftbound (Samuel)
+- Renamed on the title screen, page title, installed-app name, privacy page, server log and docs. Save keys, the repo name and the GitHub Pages address stay `rift-arpg`, so existing saves and links keep working.

@@ -225,6 +225,6 @@ function sanitizeOp(c: Conn, op: HubOp): HubOp {
   return op;
 }
 
-http.listen(PORT, () => console.log(`Rift ARPG server on port ${PORT} (saves: ${kv.name}; ${ICE.length ? "relay/STUN configured" : "no STUN/TURN: same network only"})`));
+http.listen(PORT, () => console.log(`Riftbound server on port ${PORT} (saves: ${kv.name}; ${ICE.length ? "relay/STUN configured" : "no STUN/TURN: same network only"})`));
 // hosts stop the server with SIGTERM on every deploy or sleep: finish writing saves first
 for (const sig of ["SIGTERM", "SIGINT"] as const) process.on(sig, async () => { await out.flush(); process.exit(0); });

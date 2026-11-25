@@ -1,4 +1,4 @@
-# Rift ARPG (working title)
+# Riftbound
 
 Milestones 1–6 build-out. See TEST.md (what to try) and DECISIONS.md (calls made, brief conflicts).
 

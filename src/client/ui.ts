@@ -196,7 +196,7 @@ export class UI {
     this.root.innerHTML = `
       <div class="panel hub">
         <div class="hub-head">
-          <div><h1>RIFT ARPG</h1><div class="sub">working title · Season ${p.season.n} · ${H.coop ? "live build" : "test build"}</div></div>
+          <div><h1>RIFTBOUND</h1><div class="sub">Season ${p.season.n} · ${H.coop ? "live build" : "test build"}</div></div>
           <div class="who"><b>${cd.name}</b> · Lv ${c.level}${c.paragon ? ` · P${c.paragon}` : ""}<div class="xpbar"><i style="width:${Math.round(xpProgress(c) * 100)}%"></i></div></div>${H.close ? `<button id="hub-close" class="hub-close" aria-label="Back to hideout">✕</button>` : ""}
         </div>
         <nav class="tabs">${tabs}</nav>
