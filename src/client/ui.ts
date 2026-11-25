@@ -926,7 +926,7 @@ export class UI {
     if (i) i.onclick = () => { driveSignIn(); };
     if (o) o.onclick = () => { driveSignOut(); };
     const ci = this.root.querySelector<HTMLElement>("#cloud-in"), co = this.root.querySelector<HTMLElement>("#cloud-out");
-    if (ci) ci.onclick = () => { cloudSignIn().catch((e) => this.toast(`Sign-in failed: ${(e as Error).message}`, "#ff6a6a")); };
+    if (ci) ci.onclick = () => { cloudSignIn(); };
     if (co) co.onclick = () => { cloudSignOut(); };
   }
   private settingsTab(p: Profile) {

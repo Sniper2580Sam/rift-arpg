@@ -2,7 +2,8 @@
 // (functions/api), one per Google account, and only one device plays it at a time: a second device asks to take over.
 // The first sign-in brings over the best of this device's save and the old Google Drive save.
 import { Profile, isFresh, migrate } from "./profile";
-import { askWhich, googleAccess, readDriveSave } from "./gdrive";
+import { askWhich, readDriveSave } from "./gdrive";
+import google from "../../data/google.json";
 
 type State = "none" | "out" | "connecting" | "on" | "busy" | "taken" | "conflict" | "error";
 let state: State = "none", lastErr = "", lastSync = 0;
@@ -39,7 +40,7 @@ export async function startCloudSave(getLocal: () => Profile, remote: (p: Profil
     if (status !== 200 || !d.cloud) return false;
     rev = Number(store.get(REV) ?? 0);
     set(d.signedIn ? "connecting" : "out");
-    if (d.signedIn) sync(false);
+    if (!(await finishRedirect()) && d.signedIn) sync(false);
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && (state === "on" || state === "error")) sync(false); });
     addEventListener("online", () => { if (state === "error") sync(false); });
     addEventListener("pagehide", () => { if (dirty && state === "on") upload(dirty, true); });
@@ -47,14 +48,26 @@ export async function startCloudSave(getLocal: () => Profile, remote: (p: Profil
   } catch { return false; }
 }
 
+/** Sign in by going to Google's page and back (popups get stuck in iPhone Home Screen apps). */
 export async function cloudSignIn() {
   set("connecting");
-  try {
-    driveTok = await googleAccess("openid https://www.googleapis.com/auth/drive.appdata");
-    const { status, d } = await call("POST", "auth", { access_token: driveTok });
-    if (status !== 200) throw new Error(d.error ?? "sign-in failed");
-    await sync(false);
-  } catch (e) { set("out"); lastErr = (e as Error).message; onChange(); throw e; }
+  const st = Math.random().toString(36).slice(2);
+  store.set("rift-auth-state", st);
+  const back = location.origin + location.pathname;
+  const q = new URLSearchParams({ client_id: (google as any).clientId, redirect_uri: back, response_type: "token", scope: "openid https://www.googleapis.com/auth/drive.appdata", state: st, include_granted_scopes: "true", prompt: "select_account" });
+  location.href = "https://accounts.google.com/o/oauth2/v2/auth?" + q;
+}
+/** Back from Google's page: the token arrives in the address (#access_token=…). Returns true if this was a sign-in. */
+async function finishRedirect(): Promise<boolean> {
+  if (!location.hash.includes("access_token=") && !location.hash.includes("error=")) return false;
+  const h = new URLSearchParams(location.hash.slice(1));
+  history.replaceState(null, "", location.pathname + location.search); // keep the token out of the address bar
+  if (h.get("error") || !h.get("access_token") || h.get("state") !== store.get("rift-auth-state")) { set("out", h.get("error") ?? "sign-in failed"); return true; }
+  driveTok = h.get("access_token")!;
+  const { status, d } = await call("POST", "auth", { access_token: driveTok });
+  if (status !== 200) { set("out", d.error ?? "sign-in failed"); return true; }
+  await sync(false);
+  return true;
 }
 export async function cloudSignOut() { clearInterval(beat); await call("DELETE", "auth").catch(() => {}); set("out"); }
 
