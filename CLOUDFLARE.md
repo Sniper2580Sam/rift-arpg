@@ -19,7 +19,7 @@ below exist, both workflows do nothing.
    - `CLOUDFLARE_API_TOKEN`: the token
    - `CLOUDFLARE_ACCOUNT_ID`: from the dashboard URL or the account home sidebar
 5. **Run Infra**: repo > Actions > Infra > Run workflow. The summary shows the game URL
-   (`https://riftbound.pages.dev`).
+   (https://riftbound-7pq.pages.dev, since "riftbound" was taken).
 6. **Deploy**: Actions > Deploy > Run workflow once; after that it runs on every push that changes `docs/`.
 7. Optional: make the repo private once the Pages link works (GitHub Pages stops then).
 
@@ -27,3 +27,8 @@ below exist, both workflows do nothing.
 
 Run Terraform locally instead: delete the `backend "s3"` block in `infra/main.tf`, then `cd infra && terraform init && terraform apply -var account_id=...`
 with `CLOUDFLARE_API_TOKEN` set. Keep the `terraform.tfstate` file safe.
+
+## Live (2026-11-25)
+
+- Game: https://riftbound-7pq.pages.dev. Deploy runs on every push that changes `docs/` and checks the site and relay afterwards.
+- Relay key: made once by Infra and kept as Pages secrets. To replace it, run Infra with "Make a new TURN relay key" ticked, then run Deploy.
