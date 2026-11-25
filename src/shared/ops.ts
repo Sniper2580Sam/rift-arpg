@@ -1,7 +1,7 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
 import { makeRng } from "../sim/rng";
-import { passiveCanAdd, passiveCanRemove, runeLevel, talentCanAdd, talentPoints, talentRespec, subclassOf, SET, setComplete, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
+import { passiveCanAdd, passiveCanRemove, runeLevel, talentCanAdd, talentPoints, talentRespec, subclassOf, SET, setComplete, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, hideoutPreset, hideoutTheme, presetDecor, HideoutLayout, validLoadout, VFX } from "../sim/data";
 import { chiselItem, echoCost, hallowItem, mintItem, Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
@@ -33,7 +33,7 @@ export type HubOp =
   | { t: "echo"; bag?: number; slot?: string }
   | { t: "chisel"; bag?: number; slot?: string; mode: "add" | "reroll" }
   | { t: "relic"; slot: string; id: string | null }
-  | { t: "hideout"; theme?: string; place?: { id: string; x: number; y: number }; remove?: number }
+  | { t: "hideout"; theme?: string; place?: { id: string; x: number; y: number }; remove?: number; layout?: string; props?: boolean; design?: HideoutLayout }
   | { t: "newSeason" }
   | { t: "reset" };
 
@@ -250,18 +250,38 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
         const th = HIDEOUT.themes.find((t) => t.id === op.theme);
         if (!th || (th.premium && !ownsKey(p, `theme:${th.id}`))) return false;
         // decorations outside the new room's size are dropped
-        p.hideout = { theme: th.id, decor: h.decor.filter((d) => d.x < th.w - 1 && d.y < th.h - 1) }; return true;
+        p.hideout = { ...h, theme: th.id, decor: h.decor.filter((d) => d.x < th.w - 1 && d.y < th.h - 1) }; return true;
+      }
+      if (op.layout !== undefined) {
+        // a preset arrangement; one that comes with props replaces your decorations with them (all free)
+        const l = HIDEOUT.layouts.find((x) => x.id === op.layout);
+        if (!l) return false;
+        p.hideout = { ...h, layout: l.id, decor: op.props && l.props ? presetDecor(hideoutTheme(h.theme), l.id) : h.decor }; return true;
+      }
+      if (op.design) {
+        // an imported design code: anything you don't own, or that doesn't fit the room, is left out
+        const d = op.design, th = HIDEOUT.themes.find((t) => t.id === d.theme);
+        const theme = th && (!th.premium || ownsKey(p, `theme:${th.id}`)) ? th : hideoutTheme(h.theme);
+        const decor: HideoutLayout["decor"] = [];
+        for (const o of Array.isArray(d.decor) ? d.decor : []) {
+          const dd = HIDEOUT.decor.find((x) => x.id === o?.id);
+          const x = o?.x | 0, y = o?.y | 0;
+          if (!dd || (dd.premium && !ownsKey(p, `decor:${dd.id}`)) || decor.length >= HIDEOUT.maxDecor) continue;
+          if (x < 1 || y < 1 || x > theme.w - 2 || y > theme.h - 2 || decor.some((q) => q.x === x && q.y === y)) continue;
+          decor.push({ id: dd.id, x, y });
+        }
+        p.hideout = { theme: theme.id, layout: hideoutPreset(d.layout).id, decor }; return true;
       }
       if (op.place) {
         const d = HIDEOUT.decor.find((x) => x.id === op.place!.id);
         const x = op.place.x | 0, y = op.place.y | 0;
         if (!d || (d.premium && !ownsKey(p, `decor:${d.id}`)) || h.decor.length >= HIDEOUT.maxDecor || x < 1 || y < 1 || x > 62 || y > 62) return false;
         if (h.decor.some((o) => o.x === x && o.y === y)) return false;
-        p.hideout = { theme: h.theme, decor: [...h.decor, { id: d.id, x, y }] }; return true;
+        p.hideout = { ...h, decor: [...h.decor, { id: d.id, x, y }] }; return true;
       }
       if (op.remove !== undefined) {
         if (!h.decor[op.remove]) return false;
-        p.hideout = { theme: h.theme, decor: h.decor.filter((_, i) => i !== op.remove) }; return true;
+        p.hideout = { ...h, decor: h.decor.filter((_, i) => i !== op.remove) }; return true;
       }
       return false;
     }

@@ -57,7 +57,7 @@ export function tierJump(time: number): number {
   for (const [secs, n] of (RIFT as any).tierJumps as [number, number][]) if (time < secs) return n;
   return 1;
 }
-export interface MapTheme { floor: string[]; speck: string[]; wallTop: string; wallFace: string; wallLight: string; wallLine: string; void: string; deco: string; pattern?: string }
+export interface MapTheme { floor: string[]; speck: string[]; wallTop: string; wallFace: string; wallLight: string; wallLine: string; void: string; deco: string; pattern?: string; /** open-air room: no walls, the void shows the theme's live layer (lava, sky) */ open?: boolean }
 export interface MapDef {
   id: string; name: string; layout: "cave" | "linear" | "open" | "rooms" | "ring" | "arena"; w: number; h: number; weight: number; desc: string; egg?: boolean;
   packMult?: number; dropMult?: number; legendaryWeightMult?: number; density?: [number, number]; enemyCap?: number; theme: MapTheme;
@@ -342,14 +342,61 @@ export function shopCatalogue(): { key: string; section: string; name: string; d
 export type CosChoice = Partial<Record<CosKind, string>> & { fx?: Record<string, string> };
 /** Premium skill effects: a style re-colours one skill's projectiles, casts, blasts and trails. Visual only. */
 export interface VfxStyle { name: string; main: string; accent: string; core: string; trail: string }
-export interface HideoutTheme { id: string; name: string; premium: boolean; w: number; h: number; shape: "rect" | "rough" | "hall" | "round"; desc: string; pattern?: string; carpet?: string; trim?: string; light?: string; rune?: string; motes?: string[]; map: MapTheme }
+export interface HideoutTheme { id: string; name: string; premium: boolean; w: number; h: number; shape: "rect" | "rough" | "hall" | "round" | "islands" | "peak" | "rooms"; desc: string; pattern?: string; carpet?: string; trim?: string; light?: string; rune?: string; motes?: string[]; map: MapTheme }
 export interface HideoutSpot { id: string; name: string; fx: number; fy: number; tab?: string; /** the sub-tab a workstation opens */ sub?: string; desc?: string; kind?: string; color?: string; glow?: string }
 /** A player's hideout: theme and placed decorations (tile coordinates). Visual only. */
-export interface HideoutLayout { theme: string; decor: { id: string; x: number; y: number }[] }
-export const HIDEOUT = hideoutJson as unknown as { maxDecor: number; stations: HideoutSpot[]; portals: HideoutSpot[]; themes: HideoutTheme[]; decor: { id: string; name: string; premium: boolean }[] };
+export interface HideoutLayout { theme: string; /** preset arrangement of stations and portals (data/hideout.json layouts) */ layout?: string; decor: { id: string; x: number; y: number }[] }
+/** A preset arrangement: where stations and portals stand (fractions of the room) and, for some, a set of free props. */
+export interface HideoutPreset { id: string; name: string; desc: string; start: [number, number]; spots?: Record<string, [number, number]>; props?: { id: string; fx: number; fy: number }[] }
+export const HIDEOUT = hideoutJson as unknown as { maxDecor: number; stations: HideoutSpot[]; portals: HideoutSpot[]; themes: HideoutTheme[]; layouts: HideoutPreset[]; decor: { id: string; name: string; premium: boolean }[] };
+export const hideoutPreset = (id?: string) => HIDEOUT.layouts.find((l) => l.id === id) ?? HIDEOUT.layouts[0];
+/** A spot's place in a layout, as fractions of the room. */
+export const spotFrac = (s: HideoutSpot, layout?: string): [number, number] => hideoutPreset(layout).spots?.[s.id] ?? [s.fx, s.fy];
+const fracTile = (th: HideoutTheme, f: [number, number]): [number, number] => [Math.round(f[0] * (th.w - 1)), Math.round(f[1] * (th.h - 1))];
+/** A preset's free props in a theme's room, in tiles (two props never share a tile). */
+export function presetDecor(th: HideoutTheme, layout?: string): HideoutLayout["decor"] {
+  const out: HideoutLayout["decor"] = [];
+  for (const p of hideoutPreset(layout).props ?? []) {
+    const [x, y] = fracTile(th, [p.fx, p.fy]);
+    if (x < 1 || y < 1 || x > th.w - 2 || y > th.h - 2 || out.some((o) => o.x === x && o.y === y)) continue;
+    out.push({ id: p.id, x, y });
+  }
+  return out.slice(0, HIDEOUT.maxDecor);
+}
+/** Where you arrive in a layout, in tiles. */
+export const hideoutStart = (th: HideoutTheme, layout?: string) => fracTile(th, hideoutPreset(layout).start);
+/** Floor pads the room is built around (x, y, radius in tiles): one under every station and portal, and a bigger one
+ *  where you arrive. Island and summit rooms use them so every layout stands on solid ground. */
+export function hideoutPads(th: HideoutTheme, layout?: string): [number, number, number][] {
+  return [[...hideoutStart(th, layout), 3.6] as [number, number, number], ...[...HIDEOUT.stations, ...HIDEOUT.portals].map((s) => [...spotTile(th, s, layout), 2.3] as [number, number, number])];
+}
+
+// ---- design codes: a hideout as a short string players can share ("RIFTHOME1:" + base64 JSON)
+const CODE_TAG = "RIFTHOME1:";
+export function encodeHideout(h: HideoutLayout): string {
+  const body = { t: h.theme, l: h.layout ?? "classic", d: h.decor.map((o) => [o.id, o.x, o.y]) };
+  return CODE_TAG + btoa(JSON.stringify(body)).replace(/=+$/, "");
+}
+/** Reads a design code. Returns null for anything that isn't one. Ownership is checked when it is applied. */
+export function decodeHideout(code: string): HideoutLayout | null {
+  try {
+    const s = code.trim();
+    if (!s.startsWith(CODE_TAG) || s.length > 4000) return null;
+    let b = s.slice(CODE_TAG.length).replace(/\s+/g, "");
+    while (b.length % 4) b += "=";
+    const o = JSON.parse(atob(b));
+    if (typeof o?.t !== "string" || !Array.isArray(o.d)) return null;
+    const decor: HideoutLayout["decor"] = [];
+    for (const r of o.d.slice(0, HIDEOUT.maxDecor)) {
+      if (!Array.isArray(r) || r.length !== 3 || typeof r[0] !== "string" || !Number.isInteger(r[1]) || !Number.isInteger(r[2])) continue;
+      decor.push({ id: r[0], x: r[1], y: r[2] });
+    }
+    return { theme: o.t, layout: typeof o.l === "string" ? o.l : undefined, decor };
+  } catch { return null; }
+}
 export const hideoutTheme = (id?: string) => HIDEOUT.themes.find((t) => t.id === id) ?? HIDEOUT.themes[0];
 /** Where a station or portal sits in a theme's room, in tiles. */
-export const spotTile = (th: HideoutTheme, s: HideoutSpot): [number, number] => [Math.round(s.fx * (th.w - 1)), Math.round(s.fy * (th.h - 1))];
+export const spotTile = (th: HideoutTheme, s: HideoutSpot, layout?: string): [number, number] => fracTile(th, spotFrac(s, layout));
 export const VFX = vfxJson as { styles: Record<string, VfxStyle>; perSkill: Record<string, string[]> };
 
 export const RARITY_ORDER: Rarity[] = ["common", "magic", "rare", "legendary", "set", "mythic"];

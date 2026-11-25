@@ -765,6 +765,24 @@ export function renderMap(tiles: number[], w: number, h: number, ts: number, see
         let vx = px + Math.floor(rnd() * ts), vy = py;
         for (let i = 0; i < 10; i++) { g.fillRect(vx, vy, 1, 1); vx += rnd() < 0.5 ? 1 : 0; vy += 1 + Math.floor(rnd() * 1.5); if (vx >= px + ts || vy >= py + ts) break; }
         if (rnd() < 0.15) { g.fillStyle = "rgba(255,255,255,0.35)"; g.fillRect(px + 3, py + 3, 3, 1); }
+      } else if (th.pattern === "basalt") {
+        // dark basalt flags with faint glowing seams
+        g.fillStyle = th.floor[Math.floor(rnd() * th.floor.length)]; g.fillRect(px, py, ts, ts);
+        g.fillStyle = th.speck[1]; g.fillRect(px, py + ts - 1, ts, 1); g.fillRect(px + ts - 1, py, 1, ts);
+        if (rnd() < 0.18) { g.fillStyle = "#ff6a1f"; let vx = px + 2 + Math.floor(rnd() * 10), vy = py + 2; for (let i = 0; i < 6; i++) { g.fillRect(vx, vy, 1, 1); vx += rnd() < 0.5 ? 1 : -1; vy += 2; } }
+        if (rnd() < 0.3) { g.fillStyle = th.speck[0]; g.fillRect(px + Math.floor(rnd() * 12), py + Math.floor(rnd() * 12), 3, 2); }
+      } else if (th.pattern === "snowrock") {
+        // grey rock with snow drifts
+        g.fillStyle = th.floor[Math.floor(rnd() * th.floor.length)]; g.fillRect(px, py, ts, ts);
+        for (let i = 0; i < 3; i++) { g.fillStyle = th.speck[rnd() < 0.5 ? 0 : 1]; g.fillRect(px + Math.floor(rnd() * 13), py + Math.floor(rnd() * 13), 3, 1); }
+        if (rnd() < 0.35) { g.fillStyle = "#e8f0f8"; const sx = px + Math.floor(rnd() * 8), sy = py + Math.floor(rnd() * 10); g.fillRect(sx, sy, 6 + Math.floor(rnd() * 4), 3); g.fillStyle = "#ffffff"; g.fillRect(sx + 1, sy, 4, 1); }
+      } else if (th.pattern === "parquet") {
+        // herringbone wood with a polished sheen
+        const a = ((x >> 0) + (y >> 0)) % 2;
+        g.fillStyle = th.floor[a]; g.fillRect(px, py, ts, ts);
+        g.fillStyle = th.speck[0];
+        for (let i = 0; i < 4; i++) { if (a) g.fillRect(px, py + i * 4, ts, 1); else g.fillRect(px + i * 4, py, 1, ts); }
+        if (rnd() < 0.12) { g.fillStyle = "rgba(255,240,200,0.18)"; g.fillRect(px + 2, py + 2, 5, 1); }
       } else if (th.pattern === "stars") {
         g.fillStyle = th.floor[Math.floor(rnd() * th.floor.length)]; g.fillRect(px, py, ts, ts);
         for (let i = 0; i < 2; i++) if (rnd() < 0.6) { g.fillStyle = rnd() < 0.2 ? "#ffffff" : rnd() < 0.5 ? "#8ab0ff" : th.speck[0]; g.fillRect(px + Math.floor(rnd() * ts), py + Math.floor(rnd() * ts), 1, 1); }
@@ -781,6 +799,16 @@ export function renderMap(tiles: number[], w: number, h: number, ts: number, see
       decorate(g, th.deco, px, py, rnd);
       // shadow under walls above
       if (at(x, y - 1) === 1) { g.fillStyle = "rgba(0,0,0,0.35)"; g.fillRect(px, py, ts, 4); }
+    } else if (th.open) {
+      // open-air rooms (lava, sky): no walls, the void stays see-through so the live layer under it shows,
+      // and floor edges drop away as rock columns
+      if (at(x, y - 1) === 0) {
+        g.fillStyle = th.wallFace; g.fillRect(px, py, ts, 9);
+        g.fillStyle = th.wallLight; g.fillRect(px, py, ts, 1);
+        g.fillStyle = th.wallLine; g.fillRect(px + (x % 3) * 5 + 2, py + 2, 1, 6); g.fillRect(px, py + 5, ts, 1);
+        g.fillStyle = th.wallTop; g.fillRect(px, py + 9, ts, 3);
+      }
+      if (at(x - 1, y) === 0 && at(x, y - 1) !== 0) { g.fillStyle = "rgba(0,0,0,0.25)"; g.fillRect(px, py, 2, ts); }
     } else {
       g.fillStyle = th.void;
       g.fillRect(px, py, ts, ts);

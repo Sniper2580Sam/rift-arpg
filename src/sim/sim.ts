@@ -1,8 +1,8 @@
 // Pure deterministic simulation for 1–6 players. No DOM, no Math.random, no wall-clock time.
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
-import { isAbyssal, lootChances, tierDmgMult, tierHpMult, GEM, GEMS, gemCap, BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , GUARDIANS, ParagonStat, paragonXp, GuardianDef, guardianDef, MAP, MAPS, MapDef, ITEMS, HideoutLayout, hideoutTheme } from "./data";
+import { isAbyssal, lootChances, tierDmgMult, tierHpMult, GEM, GEMS, gemCap, BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , GUARDIANS, ParagonStat, paragonXp, GuardianDef, guardianDef, MAP, MAPS, MapDef, ITEMS, HideoutLayout, hideoutTheme, hideoutStart, hideoutPads } from "./data";
 import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, equipTarget, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue, shardValue } from "./items";
-import { TileMap, flowField, flowFieldWide, genArena, genCave, genHideout, genLinear, genOpen, genRing, genRooms, moveWithWalls, unstick } from "./map";
+import { TileMap, flowField, flowFieldWide, genArena, genCave, genHideout, genLinear, nearestOpen, genOpen, genRing, genRooms, moveWithWalls, unstick } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
 import { DIR_TABLE, len, norm, rotFine } from "./vec";
 
@@ -194,7 +194,7 @@ export function createSim(cfg: SimConfig): SimState {
   const rng = makeRng(cfg.seed);
   const hth = kind === "hideout" ? hideoutTheme(cfg.hideout?.theme) : undefined;
   const md = kind === "chase" || kind === "hideout" ? undefined : kind === "endless" || kind === "trial" ? MAP.endless : kind === "vault" ? MAP.vault : MAP[cfg.map ?? ""] ?? pickMap(cfg.seed);
-  const map = hth ? genHideout(rng, hth.w, hth.h, RIFT.tileSize, hth.shape)
+  const map = hth ? genHideout(rng, hth.w, hth.h, RIFT.tileSize, hth.shape, hideoutPads(hth, cfg.hideout?.layout))
     : !md ? genArena(rng, 44, 44, RIFT.tileSize)
     : md.layout === "arena" ? genArena(rng, md.w, md.h, RIFT.tileSize)
     : md.layout === "linear" ? genLinear(rng, md.w, md.h, RIFT.tileSize)
@@ -208,7 +208,7 @@ export function createSim(cfg: SimConfig): SimState {
   for (let i = 0; i < map.tiles.length; i++) if (map.tiles[i] === 0 && openness(map, i) >= 8) floors.push(i);
   let startX: number, startY: number;
   if (kind === "chase") { startX = (map.w / 2) * ts; startY = (map.h / 2 + 10) * ts; }
-  else if (kind === "hideout") { startX = (map.w / 2) * ts; startY = Math.round(map.h * 0.62) * ts; }
+  else if (kind === "hideout") { const [tx, ty] = nearestOpen(map, ...hideoutStart(hth!, cfg.hideout?.layout)); startX = (tx + 0.5) * ts; startY = (ty + 0.5) * ts; }
   else if (kind === "endless" || kind === "trial") { startX = (map.w / 2) * ts; startY = (map.h / 2) * ts; }
   else { const st = floors[Math.floor(next(rng) * floors.length)]; startX = (st % map.w) * ts + ts / 2; startY = Math.floor(st / map.w) * ts + ts / 2; }
   const mods = kind !== "rift" ? [] : cfg.mods ?? rollModifiers(cfg.seed, tier);

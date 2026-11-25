@@ -4,7 +4,7 @@ import { applyHubOp } from "../src/shared/ops";
 import { RunInfo, RunMember, applySave, mintFor, sanitizeOpts } from "../src/server/ledger";
 import { computeStats, mintItem, resolveSkill, scrapValue } from "../src/sim/items";
 import { makeRng } from "../src/sim/rng";
-import { talentPoints, trialTarget } from "../src/sim/data";
+import { HIDEOUT, decodeHideout, encodeHideout, talentPoints, trialTarget } from "../src/sim/data";
 
 let fails = 0;
 const check = (name: string, cond: boolean) => { console.log(`${cond ? "ok  " : "FAIL"} ${name}`); if (!cond) fails++; };
@@ -90,6 +90,20 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   check("premium decor after buying", applyHubOp(p, { t: "hideout", place: { id: "statue", x: 6, y: 5 } }) === true);
   check("premium theme after buying", applyHubOp(p, { t: "hideout", theme: "gilded" }) === true && p.hideout!.decor.length === 2);
   check("remove decor", applyHubOp(p, { t: "hideout", remove: 0 }) === true && p.hideout!.decor.length === 1 && p.hideout!.decor[0].id === "statue");
+  check("layout keeps decor", applyHubOp(p, { t: "hideout", layout: "compact" }) === true && p.hideout!.layout === "compact" && p.hideout!.decor.length === 1);
+  check("unknown layout refused", applyHubOp(p, { t: "hideout", layout: "nope" }) === false);
+  check("grand layout brings its props", applyHubOp(p, { t: "hideout", layout: "grand", props: true }) === true && p.hideout!.decor.length > 25 && p.hideout!.decor.every((d) => !HIDEOUT.decor.find((x) => x.id === d.id)!.premium));
+  check("theme change keeps layout", applyHubOp(p, { t: "hideout", theme: "crypt" }) === true && p.hideout!.layout === "grand");
+  // design codes
+  const mine = { theme: "gilded", layout: "circle", decor: [{ id: "statue", x: 4, y: 4 }, { id: "barrel", x: 5, y: 4 }, { id: "throne", x: 6, y: 4 }] };
+  const code = encodeHideout(mine), back = decodeHideout(code);
+  check("design code round trip", !!back && JSON.stringify(back) === JSON.stringify(mine) && code.startsWith("RIFTHOME1:"));
+  check("junk codes rejected", decodeHideout("hello") === null && decodeHideout("RIFTHOME1:!!!") === null);
+  const q = newProfile();
+  check("import skips what you don't own", applyHubOp(q, { t: "hideout", design: back! }) === true && q.hideout!.theme === "crypt" && q.hideout!.layout === "circle" && q.hideout!.decor.length === 1 && q.hideout!.decor[0].id === "barrel");
+  check("import with owned items", applyHubOp(p, { t: "hideout", design: back! }) === true && p.hideout!.theme === "gilded" && p.hideout!.decor.length === 2);
+  const big = { theme: "crypt", decor: [...Array(80)].map((_, i) => ({ id: "barrel", x: 1 + (i % 20), y: 1 + Math.floor(i / 20) })).concat([{ id: "barrel", x: 1, y: 1 }, { id: "barrel", x: 99, y: 2 }, { id: "nope", x: 3, y: 9 }]) };
+  check("import is capped and cleaned", applyHubOp(q, { t: "hideout", design: big }) === true && q.hideout!.decor.length === HIDEOUT.maxDecor && q.hideout!.layout === "classic");
 }
 { // hub "scrap common+magic" really empties them from the character's bag
   const p = newProfile(); const c = p.chars.ashknight; const r = makeRng(3);

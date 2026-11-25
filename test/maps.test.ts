@@ -1,7 +1,7 @@
 // Every map layout generates, is connected, places packs, and a bot can clear it. The Good Luck map runs fast enough.
 import { createSim, step, NO_INPUT, PlayerInput, SimState, pickMap, shieldFactor } from "../src/sim/sim";
-import { MAPS } from "../src/sim/data";
-import { isWallAt, moveWithWalls } from "../src/sim/map";
+import { HIDEOUT, MAPS, spotTile } from "../src/sim/data";
+import { isWallAt, moveWithWalls, nearestOpen } from "../src/sim/map";
 const proc = (globalThis as any).process;
 let fails = 0;
 const check = (name: string, ok: boolean, extra = "") => { console.log(`${ok ? "ok  " : "FAIL"} ${name}${extra ? " " + extra : ""}`); if (!ok) fails++; };
@@ -111,6 +111,29 @@ check("eggs are rare", (counts.goodluck ?? 0) < 400 && (counts.goodluck ?? 0) > 
 { // a Shieldbearer blocks hits from the front, not from behind
   const e: any = { kind: "shieldbearer", x: 100, y: 100, tx: 1, ty: 0, state: "chase" };
   check("shield blocks from the front", shieldFactor(e, 140, 100) < 0.5 && shieldFactor(e, 60, 100) === 1);
+}
+{ // hideouts: every theme with every layout puts the hero and every station and portal on its own open, reachable tile
+  for (const th of HIDEOUT.themes) for (const l of HIDEOUT.layouts) {
+    const bad: string[] = [];
+    for (const sd of [1, 2, 3]) {
+      const s = createSim({ seed: sd, kind: "hideout", tier: 1, players: [setup], hideout: { theme: th.id, layout: l.id, decor: [] }, mods: [] });
+      const m = s.map, p = s.players[0], ts = m.ts;
+      const start = [Math.floor(p.x / ts), Math.floor(p.y / ts)];
+      if (m.tiles[start[1] * m.w + start[0]] !== 0) bad.push("start");
+      // flood from the start
+      const seen = new Set<number>([start[1] * m.w + start[0]]), st = [start[1] * m.w + start[0]];
+      while (st.length) { const c = st.pop()!; for (const d of [1, -1, m.w, -m.w]) { const n = c + d; if (m.tiles[n] === 0 && !seen.has(n)) { seen.add(n); st.push(n); } } }
+      const used = new Set<number>();
+      for (const sp of [...HIDEOUT.stations, ...HIDEOUT.portals]) {
+        const [x, y] = nearestOpen(m, ...spotTile(th, sp, l.id)), i = y * m.w + x;
+        if (!seen.has(i)) bad.push(sp.id + " unreachable");
+        if (used.has(i)) bad.push(sp.id + " shares a tile");
+        used.add(i);
+      }
+    }
+    check(`hideout ${th.id}/${l.id}`, bad.length === 0, bad.slice(0, 4).join(", "));
+  }
+  check("every layout places every spot", HIDEOUT.layouts.every((l) => !l.spots || [...HIDEOUT.stations, ...HIDEOUT.portals].every((s) => l.spots![s.id])));
 }
 if (fails) { console.log(`${fails} map checks failed`); proc.exit(1); }
 console.log("maps: all checks passed");

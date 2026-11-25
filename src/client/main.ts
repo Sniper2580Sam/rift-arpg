@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { isAbyssal, runeLevel, chiselsForRun, nextTrial, talentPoints, talentSpent, paragonSpent, trialPassed, trialTarget, coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SET, SKILL, xpForLevel } from "../sim/data";
+import { isAbyssal, runeLevel, chiselsForRun, nextTrial, talentPoints, talentSpent, paragonSpent, trialPassed, trialTarget, coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, hideoutPreset, encodeHideout, decodeHideout, ownsKey, tierJump, VFX, VfxStyle, Rarity, SET, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, Item, applyInvCmd, noteFinds, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
@@ -10,7 +10,7 @@ import { queue as cloudQueue, startCloud } from "./cloud";
 import { driveQueue, driveRecheck, startDrive } from "./gdrive";
 import { HubOp, applyHubOp } from "../shared/ops";
 import { RARITY_COLOR, Sprite, buildSprites, renderMap } from "./sprites";
-import { allSpots, decorIcon, labels as hideLabels, drawDecor, drawPortal, drawShowcase, drawStation, drawThemeAir, drawThemeFloor, spotPos } from "./hideout";
+import { allSpots, decorIcon, labels as hideLabels, drawDecor, drawPortal, drawShowcase, drawStation, drawThemeAir, drawThemeFloor, drawThemeUnder, spotPos } from "./hideout";
 import { UI, fmtTime, modsLine, GearSub, SkillSub, HubHandlers } from "./ui";
 import { Online, onlineAvailable, signIn, signOut } from "./net";
 import { Direct } from "./direct";
@@ -211,6 +211,7 @@ function useSpot(n: HideoutSpot) {
   openMenu(n.tab);
 }
 /** Decorating: a tray of themes and decorations. Walk to a spot and tap an item to place it on your tile. */
+let shareOpen = false, layoutConfirm = "";
 function startDecorating() {
   if (!canFreeze() || coop?.role === "guest") { ui.toast("Decorate when nobody else is in your hideout.", "#ffd23f"); return; }
   decorating = true; hideNear = null;
@@ -230,8 +231,46 @@ function decorTray() {
     const ic = decorIcon(d.id);
     return `<button class="dt-item${d.premium ? " prem" : ""}${own ? "" : " locked"}" data-decor="${d.id}" title="${esc(d.name)}">${ic ? `<img src="${ic.toDataURL()}" alt="">` : ""}<small>${d.premium ? "★ " : ""}${esc(d.name)}</small></button>`;
   }).join("");
-  root.innerHTML = `<div class="dt-head"><b>Decorate</b><span class="dim">${h.decor.length}/${HIDEOUT.maxDecor} · walk somewhere, tap an item to place it there</span><button id="dt-remove">Remove nearest</button><button id="dt-done">Done</button></div>
-    <div class="dt-row">${themes}</div><div class="dt-row">${items}</div>`;
+  const cur = hideoutPreset(h.layout).id;
+  const layouts = HIDEOUT.layouts.map((l) => `<button class="dt-layout${l.id === cur ? " on" : ""}${l.id === layoutConfirm ? " warn" : ""}" data-layout="${l.id}" title="${esc(l.desc)}">${esc(l.name)}${l.id === layoutConfirm ? ` · tap again` : ""}</button>`).join("");
+  const lp = hideoutPreset(layoutConfirm || cur);
+  const note = layoutConfirm ? `${esc(lp.name)} comes with ${lp.props!.length} props and replaces your ${h.decor.length} decorations. Tap it again to use it.` : esc(lp.desc);
+  root.innerHTML = `<div class="dt-head"><b>Decorate</b><span class="dim">${h.decor.length}/${HIDEOUT.maxDecor} · walk somewhere, tap an item to place it there</span><button id="dt-remove">Remove nearest</button><button id="dt-share">Share</button><button id="dt-done">Done</button></div>
+    <div class="dt-row">${themes}</div>
+    <div class="dt-row"><span class="dt-lab">Layout</span>${layouts}</div><div class="dt-note dim">${note}</div>
+    <div class="dt-row">${items}</div>
+    ${shareOpen ? `<div class="dt-share"><div class="dim">Copy your code to share this design, or paste someone's code to use theirs. Anything you don't own is left out.</div>
+      <textarea id="dt-code" rows="2" spellcheck="false" placeholder="RIFTHOME1:...">${esc(encodeHideout(h))}</textarea>
+      <div class="dt-head"><button id="dt-copy">Copy my code</button><button id="dt-paste">Use pasted code</button><button id="dt-share-x">Close</button></div></div>` : ""}`;
+  root.querySelectorAll<HTMLElement>("[data-layout]").forEach((b) => b.onclick = () => {
+    const l = hideoutPreset(b.dataset.layout);
+    // a layout with props replaces your decorations: ask with a second tap when you have some
+    if (l.props && h.decor.length && layoutConfirm !== l.id) { layoutConfirm = l.id; decorTray(); return; }
+    layoutConfirm = "";
+    if (l.id === cur && !l.props) return;
+    hubOp({ t: "hideout", layout: l.id, props: !!l.props });
+    enterHideout(); decorating = true; decorTray();
+  });
+  document.getElementById("dt-share")!.onclick = () => { shareOpen = !shareOpen; decorTray(); };
+  if (shareOpen) {
+    const ta = document.getElementById("dt-code") as HTMLTextAreaElement;
+    document.getElementById("dt-share-x")!.onclick = () => { shareOpen = false; decorTray(); };
+    document.getElementById("dt-copy")!.onclick = () => {
+      const code = encodeHideout(h); ta.value = code; ta.select();
+      navigator.clipboard?.writeText(code).then(() => ui.toast("Design code copied.", "#7ad06a"), () => ui.toast("Select the code and copy it.", "#ffd23f"));
+    };
+    document.getElementById("dt-paste")!.onclick = () => {
+      const d = decodeHideout(ta.value);
+      if (!d) { ui.toast("That isn't a hideout design code.", "#ff6a6a"); return; }
+      if (!hubOp({ t: "hideout", design: d })) { ui.toast("That code couldn't be used.", "#ff6a6a"); return; }
+      const got = profile.hideout!, skipped: string[] = [];
+      if (got.theme !== d.theme) skipped.push(`the ${hideoutTheme(d.theme).name} theme`);
+      const left = d.decor.length - got.decor.length;
+      if (left > 0) skipped.push(`${left} decoration${left > 1 ? "s" : ""}`);
+      ui.toast(skipped.length ? `Design applied without ${skipped.join(" and ")} (not owned, or doesn't fit the room).` : "Design applied.", skipped.length ? "#ffd23f" : "#7ad06a");
+      shareOpen = false; enterHideout(); decorating = true; decorTray();
+    };
+  }
   root.querySelectorAll<HTMLElement>("[data-theme]").forEach((b) => b.onclick = () => {
     const id = b.dataset.theme!, t = hideoutTheme(id);
     if (t.premium && !ownsKey(profile, `theme:${id}`)) { decorating = false; openMenu("shop"); return; }
@@ -259,14 +298,14 @@ function decorTray() {
     sim!.rift.hideout = profile.hideout;
     decorTray();
   };
-  document.getElementById("dt-done")!.onclick = () => { decorating = false; hideoutButtons(); };
+  document.getElementById("dt-done")!.onclick = () => { decorating = false; shareOpen = false; layoutConfirm = ""; hideoutButtons(); };
 }
 /** Which station or portal the local hero stands at (checked every frame; buttons redraw only on change). */
 function hideoutTick() {
   if (!inHideout() || menuOpen || ui.invOpen || decorating) return;
   const p = me(), th = hideoutTheme(sim!.rift.hideout?.theme);
   let best: HideoutSpot | null = null, bd = 30;
-  for (const s of allSpots()) { const [x, y] = spotPos(sim!.map, th, s); const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = s; } }
+  for (const s of allSpots()) { const [x, y] = spotPos(sim!.map, th, s, sim!.rift.hideout?.layout); const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = s; } }
   if (best !== hideNear) { hideNear = best; hideoutButtons(); }
 }
 function leaveHideout() {
@@ -466,6 +505,7 @@ function hubOp(op: HubOp) {
   saveProfile(profile);
   if (online && !online.direct) online.op(op);
   else if (online?.direct) online.pushSetup();
+  return !!r;
 }
 /** The local input, except in the hideout: next to a station or portal, the main attack button uses it instead of attacking. */
 let hideTapHeld = false;
@@ -752,10 +792,11 @@ function render(alpha: number, dt: number) {
   g.fillStyle = (sim?.rift.kind === "hideout" ? hideoutTheme(sim.rift.hideout?.theme).map.void : sim?.rift.map && MAP[sim.rift.map]?.theme.void) || "#0e0a14"; g.fillRect(0, 0, W, H);
   g.save();
   g.translate(-sx, -sy);
-  g.drawImage(mapCanvas!, sx, sy, W, H, sx, sy, W, H);
   const t = performance.now() / 1000;
   const hth = s.rift.kind === "hideout" ? hideoutTheme(s.rift.hideout?.theme) : undefined;
-  if (hth) drawThemeFloor(g, s.map, hth, t);
+  if (hth?.map.open) drawThemeUnder(g, s.map, hth, t);
+  g.drawImage(mapCanvas!, sx, sy, W, H, sx, sy, W, H);
+  if (hth) drawThemeFloor(g, s.map, hth, t, s.rift.hideout?.layout);
   const onScreen = (x: number, y: number, m = 40) => x > sx - m && x < sx + W + m && y > sy - m && y < sy + H + m;
 
   for (const h of s.hazards) {
@@ -877,9 +918,9 @@ function render(alpha: number, dt: number) {
     } });
   }
   if (hth) {
-    for (const d of s.rift.hideout?.decor ?? []) { const x = (d.x + 0.5) * s.map.ts, y = (d.y + 1) * s.map.ts - 2; list.push({ y: d.id === "rug" ? -1e9 : y, f: () => drawDecor(g, d.id, x, y, t) }); }
+    for (const d of s.rift.hideout?.decor ?? []) { if (s.map.tiles[d.y * s.map.w + d.x] !== 0) continue; const x = (d.x + 0.5) * s.map.ts, y = (d.y + 1) * s.map.ts - 2; list.push({ y: d.id === "rug" ? -1e9 : y, f: () => drawDecor(g, d.id, x, y, t) }); }
     for (const st of HIDEOUT.stations) {
-      const [x, y] = spotPos(s.map, hth, st);
+      const [x, y] = spotPos(s.map, hth, st, s.rift.hideout?.layout);
       if (st.id === "showcase") {
         // the owner's hero on a plinth, in their current gear look (co-op visitors see the host's)
         const host = s.players.find((q) => q.pid === 0) ?? s.players[0];
@@ -895,7 +936,7 @@ function render(alpha: number, dt: number) {
       }
       list.push({ y, f: () => drawStation(g, st, x, y, t, hideNear === st, stationNote(st.id)) });
     }
-    for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `T${bossTier()} · ${char(profile).feathers ?? 0} feathers` : `T${bossTier()} · ${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : po.kind === "trial" ? `trial ${trialTarget(char(profile))}` : po.kind === "vault" ? `${char(profile).vaultKeys ?? 0} keys` : `tier ${curTier()}`) }); }
+    for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po, s.rift.hideout?.layout); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `T${bossTier()} · ${char(profile).feathers ?? 0} feathers` : `T${bossTier()} · ${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : po.kind === "trial" ? `trial ${trialTarget(char(profile))}` : po.kind === "vault" ? `${char(profile).vaultKeys ?? 0} keys` : `tier ${curTier()}`) }); }
   }
   for (const q of s.players) {
     if (q.dead) { list.push({ y: q.y, f: () => drawFallen(g, q, q.x, q.y, t) }); continue; }

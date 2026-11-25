@@ -277,3 +277,14 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 - **One tier on the character** (`c.tier`, 1 up to your highest tier). The Obelisk station in the hideout sets it, and so does the Rift Board's tier picker. Rifts, bounties, Endless, the Gilded Vault and both chase bosses (minimum T3) use it. Each portal shows the tier it will open.
 - **Trials keep their own ladder** (the next Trial, or your best Trial while you earn talent points back), because Trial tiers are what give talent points.
 - The vault used to always run at your highest tier. It now uses the chosen tier, clamped on the server.
+
+## 2026-11-25: Hideout layouts, free decorations and design codes (Samuel)
+- **4 preset layouts** for every hideout theme (data/hideout.json `layouts`; chosen in Decorate → Layout): **Classic** (as before), **Compact** (everything a few steps from where you arrive), **Circle** (portals ringed round you, workstations round them) and **Grand** (Classic plus 36 free props: banners, torches, rugs, shelves, a campfire...). Grand replaces your decorations, so with any placed it asks for a second tap. Layouts move stations and portals only; the room shape comes from the theme. Spots land on the nearest open floor tile.
+- **8 new free decorations:** bookshelf, weapon rack, cauldron, lantern, training dummy, campfire, mushrooms, potted fern.
+- **Design codes:** Decorate → Share shows your code (`RIFTHOME1:` + base64 JSON of theme, layout and decorations) with a Copy button, and takes a pasted code. Anything you don't own (a premium theme or decoration), or that doesn't fit the room, is left out and the toast says what was skipped. The server applies the same checks (`hideout` op with `design`).
+
+## 2026-11-25: Three flashy premium hideout themes (Samuel: "multiple rooms, or on a mountain, or pillars sticking out of lava with bridges")
+- **Lava Bastion:** every station and portal stands on its own basalt pillar in a flowing lava sea, joined by rope bridges along a spanning tree (shortest links first). The room is built around the chosen layout (`hideoutPads`), so every layout works. Embers rise and the lava glows at each pillar's foot.
+- **Skyreach Summit:** a snowy plateau above the clouds at dusk. Clouds drift past below, snow blows across, and any spot near the edge gets its own ledge joined to the summit.
+- **Grand Manor:** six parquet rooms (3 by 2) joined by archways, each with its own rug and chandelier, and sconces along the walls.
+- The lava and summit rooms are open-air: no walls, the void shows a live layer under the map (`MapTheme.open`), and floor edges drop away as rock columns. All three are priced like the other premium themes (data/shop.json).
