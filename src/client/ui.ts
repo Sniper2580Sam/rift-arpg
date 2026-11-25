@@ -266,6 +266,28 @@ export class UI {
     if (d) d.onclick = () => set(this.tier - 1);
     if (u) u.onclick = () => set(this.tier + 1);
   }
+  /** class shown on the weekly leaderboard ("" = everyone) */
+  boardCls = "";
+  /** The live weekly rift leaderboard: fastest solo clears of this week's seeded rift, filterable by class. */
+  private loadBoard(me: string) {
+    const week = isoWeek();
+    fetch(`/api/weekly?week=${week}`).then((r) => r.json()).then((d: { rows: { name: string; cls: string; time: number }[] }) => {
+      const box = this.root.querySelector<HTMLElement>("#wboard");
+      if (!box) return;
+      const draw = () => {
+        const rows = d.rows.filter((r) => !this.boardCls || r.cls === this.boardCls);
+        const mine = rows.findIndex((r) => r.name === me);
+        const show = rows.slice(0, 10);
+        const line = (r: (typeof rows)[number], i: number) => `<div class="wb-row${r.name === me ? " me" : ""}"><span>${i + 1}</span><b>${esc(r.name)}</b><small>${esc(CLASSES[r.cls]?.name ?? r.cls)}</small><span>${fmtTime(r.time)}</span></div>`;
+        box.innerHTML = `<div class="wb-head"><b>Weekly leaderboard</b> <span class="dim small">${week.slice(5)} · solo clears · ${rows.length} players</span></div>
+          <div class="opts wb-cls"><button class="${this.boardCls ? "" : "on"}" data-wb="">All</button>${Object.entries(CLASSES).map(([id, c]) => `<button class="${this.boardCls === id ? "on" : ""}" data-wb="${id}">${esc(c.name)}</button>`).join("")}</div>
+          ${show.length ? show.map(line).join("") : `<div class="dim small">No clears yet this week. Be the first.</div>`}
+          ${mine >= 10 ? `<div class="dim small">…</div>${line(rows[mine], mine)}` : ""}`;
+        box.querySelectorAll<HTMLElement>("[data-wb]").forEach((b) => b.onclick = () => { this.boardCls = b.dataset.wb!; draw(); });
+      };
+      draw();
+    }).catch(() => { const box = this.root.querySelector<HTMLElement>("#wboard"); if (box) box.innerHTML = `<div class="dim small">Leaderboard unavailable right now.</div>`; });
+  }
   /** The Difficulty Obelisk in the hideout: just the tier picker. */
   showDifficulty(p: Profile, H: HubHandlers, onClose: () => void) {
     const c = char(p);
@@ -292,6 +314,7 @@ export class UI {
         <input id="seed" placeholder="rift code (optional)" maxlength="8" autocomplete="off" aria-label="Rift code">
         <button id="weekly">Weekly rift ${week.slice(5)} · T${WEEKLY_TIER} · best ${wbest}</button>
       </div>
+      ${H.coop && !H.coop.direct ? `<div class="wboard" id="wboard"><div class="dim small">Loading this week's leaderboard…</div></div>` : ""}
       <button id="endless" class="endless">Endless waves from tier ${t} · best wave ${c.bestWave ?? 0}</button>
       <div class="dim small">Waves keep coming and get stronger, and faster quickly when you clear them fast. The party shares ${RIFT.endless.lives} lives. Loot comes at the end, more the further you get.</div>
       <button id="vault" class="vault" ${(c.vaultKeys ?? 0) > 0 ? "" : "disabled"}>Open the Gilded Vault (uses 1 Gilded Key · you have ${c.vaultKeys ?? 0})</button>
@@ -352,6 +375,7 @@ export class UI {
       H.enter({ tier: this.tier, seed: Number.isFinite(n) ? n >>> 0 : null, kind: "rift" });
     };
     $("#weekly").onclick = () => H.enter({ tier: WEEKLY_TIER, seed: null, kind: "rift", weekly: true });
+    if (H.coop && !H.coop.direct) this.loadBoard(H.coop.name);
     $("#endless").onclick = () => H.enter({ tier: this.tier, seed: null, kind: "endless" });
     $("#vault").onclick = () => H.enter({ tier: this.tier, seed: null, kind: "vault" });
     $("#trial").onclick = () => H.enter({ tier: trialTarget(c), seed: null, kind: "trial" });

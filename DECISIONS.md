@@ -297,3 +297,8 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 - Renamed on the title screen, page title, installed-app name, privacy page, server log and docs. Save keys, the repo name and the GitHub Pages address stay `rift-arpg`, so existing saves and links keep working.
 - 2026-11-25 (Samuel): co-op own-hero prediction waits for a co-op playtest (brief conflict 1 stays as approved). Saves stay in browser storage with Google Drive sync, no IndexedDB move (brief conflict 2 closed).
 - 2026-11-25 (Samuel): the server keeps item checks only and will never replay runs (brief conflict 3 closed). Levels and clear times stay trusted within limits.
+
+## 2026-11-25: Going online, and the weekly leaderboard (Samuel: "Now", "Build it when we go online")
+- The live build was checked end to end on a local server: two players sign in, the host's layout and other new hub ops save on the server, a room code joins, both enter a co-op rift and return to the hideout. Fixed a crash when a guest's view drew a frame before their hero arrived.
+- **Weekly leaderboard** (live build only, Play tab under the weekly rift button): the 10 fastest solo clears of this week's seeded rift, with class filter chips and your own rank. `GET /api/weekly?week=YYYY-Www` on the server. Times are trusted, not replayed (Samuel chose item checks only), so it suits friends rather than a public ladder.
+- Hosting itself needs Samuel's own Render, Upstash and TURN accounts (DEPLOY.md).

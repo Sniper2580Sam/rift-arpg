@@ -62,6 +62,14 @@ const http = createServer(async (req, res) => {
   }
   if (req.method === "GET" && req.url === "/healthz") return send(res, 200, "ok", "text/plain");
   if (req.method === "GET" && req.url === "/api/ice") return send(res, 200, { iceServers: ICE });
+  if (req.method === "GET" && req.url?.startsWith("/api/weekly")) {
+    // weekly rift leaderboard: everyone's best solo clear of this week's seeded rift (times are trusted, not replayed)
+    const week = new URL(req.url, "http://x").searchParams.get("week") ?? "";
+    if (!/^\d{4}-W\d{2}$/.test(week)) return send(res, 400, { error: "bad week" });
+    const rows = [...profiles].filter(([, p]) => p.weekly?.week === week && p.weekly.best > 0)
+      .map(([name, p]) => ({ name, cls: p.weekly.cls ?? p.active, time: p.weekly.best })).sort((a, b) => a.time - b.time).slice(0, 100);
+    return send(res, 200, { week, rows });
+  }
   if (req.method === "POST" && req.url === "/api/login") {
     const { name, password } = await body(req);
     if (typeof name !== "string" || !NAME_RE.test(name) || typeof password !== "string" || password.length < 4) return send(res, 400, { error: "Name 2–16 letters/numbers, password 4+ characters." });
@@ -195,7 +203,7 @@ wss.on("connection", (ws) => {
         const run = r ? r.run ?? r.lastRun : null;
         const mem = run?.members.get(c.pid!) ?? null;
         const problems = applySave(p, p.active, m.report as SaveReport, mem && mem.account === c.name ? mem : null, run, run?.members.size ?? 1);
-        if (m.weeklyBest && m.week) { if (p.weekly.week !== m.week) p.weekly = { week: m.week, best: 0 }; if (run?.completed && run.inTime && (!p.weekly.best || run.time < p.weekly.best)) p.weekly.best = run.time; }
+        if (m.weeklyBest && m.week) { if (p.weekly.week !== m.week) p.weekly = { week: m.week, best: 0 }; if (run?.completed && run.inTime && (!p.weekly.best || run.time < p.weekly.best)) { p.weekly.best = run.time; p.weekly.cls = p.active; } }
         if (problems.length) console.log(`[save] ${c.name}: ${problems.join("; ")}`);
         putProfile(c.name, p);
         tx(c, { t: "profile", profile: p, saved: true, problems: problems.length });

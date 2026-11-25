@@ -64,7 +64,8 @@ export interface Profile {
   echoCores?: number;
   /** this season's journey counters (reset with the season) */
   journey?: { season: number; stats: Partial<Life> };
-  weekly: { week: string; best: number };
+  /** weekly rift: best clear this week, and the class that set it (shown on the live leaderboard) */
+  weekly: { week: string; best: number; cls?: string };
   settings: { mute: boolean; shake: boolean; autoTier: boolean; hpbar?: boolean; /** show the set you wear 4+ pieces of on your hero (default on) */ setLooks?: boolean };
   /** ms timestamp of the last real change (used to pick the newer of the device and cloud copies) */
   savedAt?: number;

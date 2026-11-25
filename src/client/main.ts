@@ -805,6 +805,7 @@ const heroFrames = (cls: string) => (cls === "gloomstalker" ? bank.ranger : cls 
 function render(alpha: number, dt: number) {
   const s = sim!;
   const p = me();
+  if (!p) return; // joining a room: the host's world arrives before our hero is in it
   const px = lerp(p.px, p.x, alpha), py = lerp(p.py, p.y, alpha);
   const W = wb.width, H = wb.height;
   const k = Math.min(1, dt * 12);
