@@ -6,18 +6,18 @@ const STUN = [{ urls: "stun:stun.cloudflare.com:3478" }];
 
 export const onRequestGet = async ({ env }: { env: Env }): Promise<Response> => {
   const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
-  if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) return json({ iceServers: STUN, relay: false });
+  if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) return json({ iceServers: STUN, relay: false, why: "no key set" });
   const base = `https://rtc.live.cloudflare.com/v1/turn/keys/${env.TURN_KEY_ID}/credentials`;
   const init = { method: "POST", headers: { authorization: `Bearer ${env.TURN_KEY_API_TOKEN}`, "content-type": "application/json" }, body: JSON.stringify({ ttl: 6 * 3600 }) };
   try {
     // newer endpoint returns a ready list; the older one returns a single entry
     let r = await fetch(`${base}/generate-ice-servers`, init);
     if (!r.ok) r = await fetch(`${base}/generate`, init);
-    if (!r.ok) return json({ iceServers: STUN, relay: false });
+    if (!r.ok) return json({ iceServers: STUN, relay: false, why: `relay api ${r.status}` });
     const d: any = await r.json();
     const list = Array.isArray(d.iceServers) ? d.iceServers : d.iceServers ? [d.iceServers] : [];
     return json({ iceServers: [...STUN, ...list], relay: list.length > 0 });
-  } catch {
-    return json({ iceServers: STUN, relay: false });
+  } catch (e) {
+    return json({ iceServers: STUN, relay: false, why: "relay api unreachable" });
   }
 };

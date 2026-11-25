@@ -27,6 +27,6 @@ jobs:
         run: |
           sleep 15
           code=$(curl -s -o /dev/null -w "%{http_code}" https://riftbound-7pq.pages.dev/)
-          relay=$(curl -fsS https://riftbound-7pq.pages.dev/api/turn | jq -r '.relay')
+          t=$(curl -fsS https://riftbound-7pq.pages.dev/api/turn); relay=$(echo "$t" | jq -r '.relay'); echo "why: $(echo "$t" | jq -r '.why // "-"')"
           echo "Site: $code · relay: $relay · https://riftbound-7pq.pages.dev" | tee -a "$GITHUB_STEP_SUMMARY"
           [ "$code" = 200 ] && [ "$relay" = true ]
