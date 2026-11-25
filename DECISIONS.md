@@ -288,3 +288,7 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 - **Skyreach Summit:** a snowy plateau above the clouds at dusk. Clouds drift past below, snow blows across, and any spot near the edge gets its own ledge joined to the summit.
 - **Grand Manor:** six parquet rooms (3 by 2) joined by archways, each with its own rug and chandelier, and sconces along the walls.
 - The lava and summit rooms are open-air: no walls, the void shows a live layer under the map (`MapTheme.open`), and floor edges drop away as rock columns. All three are priced like the other premium themes (data/shop.json).
+
+## 2026-11-25: Shop previews for the hideout (Samuel)
+- **Themes:** "Visit" in the Shop takes you to your hideout in that theme, keeping your layout and decorations. Nothing is saved. A bar at the top offers Buy (tap twice) or Back to my hideout. Starting any run ends the visit. It works only when you're on your own, not in a co-op room.
+- **Decorations:** Preview shows the decoration next to your hero in the Shop's preview box.

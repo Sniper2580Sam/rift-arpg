@@ -15,6 +15,7 @@
   #ui.screen { position:fixed; inset:0; display:flex; align-items:flex-start; justify-content:center; padding:16px; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; box-sizing:border-box; overflow:auto; background:rgba(5,2,10,.55); }
   #ui.hudbtns { position:fixed; display:flex; gap:6px; }
   #ui.hudbtns button { padding:6px 10px; font-size:13px; }
+  .h-preview{position:fixed;left:50%;transform:translateX(-50%);top:calc(48px + env(safe-area-inset-top,0px));display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:center;background:#140c1cdd;border:1px solid #c9a23a;border-radius:6px;padding:6px 8px;font-size:12px;color:#ffe9a8;max-width:calc(100vw - 32px)}
   #ui.hudbtns button.boon-ready { color:#140c1c; background:#ffd23f; border-color:#fff2a8; animation:boonpulse 1s ease-in-out infinite alternate; }
   @keyframes boonpulse { from { box-shadow:0 3px 0 #000, 0 0 0 #ffd23f; } to { box-shadow:0 3px 0 #000, 0 0 12px #ffd23f; } }
   .panel { background:var(--panel); border:2px solid var(--line); padding:16px; max-width:560px; width:100%; box-shadow:0 0 0 2px #000, 0 10px 40px #000a; margin:auto; }

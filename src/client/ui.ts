@@ -1,5 +1,5 @@
 // DOM screens: hub (play / gear / skills / settings), inventory with compare + reroll, boon picker, results.
-import { decorIcon } from "./hideout";
+import { decorIcon, drawDecor } from "./hideout";
 import { AFFIX as AFFIX_DEF } from "../sim/data";
 import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
@@ -113,6 +113,8 @@ export interface HubHandlers {
   setting: (k: string, v: any) => void;
   /** set when the menu is open over the hideout: a button to go back to it */
   close?: () => void;
+  /** walk around your hideout in a premium theme before buying it (not saved) */
+  previewTheme?: (id: string) => void;
   /** any other hub op (storage, arsenal) */
   op?: (op: HubOp) => void;
   newSeason: () => void;
@@ -153,6 +155,8 @@ export class UI {
   tryOn: Partial<Record<CosKind, string>> = {};
   /** a skill effect being previewed in the shop: "skill:style" */
   fxTry = "";
+  /** a decoration being previewed in the shop, shown beside your hero */
+  decorTry = "";
   constructor(private bank: SpriteBank) {}
 
   hide() { this.root.innerHTML = ""; this.root.className = ""; this.invOpen = false; }
@@ -750,14 +754,16 @@ export class UI {
       const other = it.cls && it.cls !== cls ? ` <small class="dim">${esc(CLASSES[it.cls]?.name ?? it.cls)}</small>` : "";
       const fxOn = k === "fx" && this.fxTry === `${kind}:${id}`;
       const tryBtn = k === "cos" && !own && (!it.cls || it.cls === cls) ? `<button class="try${trying ? " on" : ""}" data-try="${kind}:${trying ? "" : id}">${trying ? "Trying on" : "Preview"}</button>`
-        : k === "fx" ? `<button class="try${fxOn ? " on" : ""}" data-try-fx="${fxOn ? "" : `${kind}:${id}`}">${fxOn ? "Playing" : "Preview"}</button>` : "";
+        : k === "fx" ? `<button class="try${fxOn ? " on" : ""}" data-try-fx="${fxOn ? "" : `${kind}:${id}`}">${fxOn ? "Playing" : "Preview"}</button>`
+        : k === "decor" ? `<button class="try${this.decorTry === kind ? " on" : ""}" data-try-decor="${this.decorTry === kind ? "" : kind}">${this.decorTry === kind ? "Showing" : "Preview"}</button>`
+        : k === "theme" && !own && H.previewTheme ? `<button class="try" data-try-theme="${kind}">Visit</button>` : "";
       return `<div class="shop-item${own ? " owned" : ""}">${look(it.key)}<div class="shop-main"><b>★ ${esc(it.name)}</b>${other}${it.desc ? `<div class="dim small">${esc(it.desc)}</div>` : ""}</div>
         <span class="shop-btns">${tryBtn}${own ? `<span class="owned-tag">Owned</span>` : `<button data-buy="${esc(it.key)}" data-price="${it.price}" class="${bal >= it.price ? "" : "poor"}">${SHOP.symbol} ${it.price.toLocaleString("en-US")}</button>`}</span></div>`;
     };
-    const tried = Object.keys(this.tryOn).length + (this.fxTry ? 1 : 0);
+    const tried = Object.keys(this.tryOn).length + (this.fxTry ? 1 : 0) + (this.decorTry ? 1 : 0);
     const fxName = this.fxTry ? (() => { const [a, b] = this.fxTry.split(":"); return `${VFX.styles[b]?.name ?? b} ${SKILL[a]?.name ?? a}`; })() : "";
     return `<div class="shop-top"><div class="look-prev"><canvas id="lookPrev" width="64" height="40"></canvas><div><b class="aether">${SHOP.symbol} ${bal.toLocaleString("en-US")} ${SHOP.currency}</b>
-        <div class="dim small">${fxName ? `Playing ${esc(fxName)}.` : tried ? "Previewing on your hero." : "Tap Preview to try a look or effect."}</div>${tried ? `<button data-try-clear>Stop preview</button>` : ""}</div></div></div>
+        <div class="dim small">${fxName ? `Playing ${esc(fxName)}.` : tried ? "Previewing on your hero." : "Tap Preview to try a look, effect or decoration, or Visit to walk around a theme."}</div>${tried ? `<button data-try-clear>Stop preview</button>` : ""}</div></div></div>
       <div class="dim small">${SHOP.currency} buys looks only, never power. Earn it from feats, the season journey, timed tier ${SHOP.earn.riftFromTier}+ rifts, the Seraph and Endless wave ${SHOP.earn.endlessFromWave}+.</div>
       <div class="opts">${SHOP.packs.map((pk) => `<button class="pack" data-pack="${pk.id}" ${H.coop ? "disabled" : ""}>Get ${SHOP.symbol} ${pk.amount.toLocaleString("en-US")}</button>`).join("")}</div>
       <div class="dim small">${H.coop ? `Buying ${SHOP.currency} isn't switched on yet (no payment provider). Earn it by playing.` : "Test build: packs are free. Real purchases come with a payment provider later."}</div>
@@ -796,7 +802,9 @@ export class UI {
     });
     this.root.querySelectorAll<HTMLElement>("[data-try]").forEach((el) => el.onclick = () => { const [k, v] = el.dataset.try!.split(":"); if (v) this.tryOn[k as CosKind] = v; else delete this.tryOn[k as CosKind]; re(); });
     this.root.querySelectorAll<HTMLElement>("[data-try-fx]").forEach((el) => el.onclick = () => { this.fxTry = el.dataset.tryFx!; re(); });
-    const tc = this.root.querySelector<HTMLElement>("[data-try-clear]"); if (tc) tc.onclick = () => { this.tryOn = {}; this.fxTry = ""; re(); };
+    this.root.querySelectorAll<HTMLElement>("[data-try-decor]").forEach((el) => el.onclick = () => { this.decorTry = el.dataset.tryDecor!; re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-try-theme]").forEach((el) => el.onclick = () => H.previewTheme?.(el.dataset.tryTheme!));
+    const tc = this.root.querySelector<HTMLElement>("[data-try-clear]"); if (tc) tc.onclick = () => { this.tryOn = {}; this.fxTry = ""; this.decorTry = ""; re(); };
     this.root.querySelectorAll<HTMLElement>("[data-pack]").forEach((el) => el.onclick = () => { H.op?.({ t: "buyAether", pack: el.dataset.pack! }); this.toast(`${SHOP.currency} added (free in the test build)`, "#7dff9a"); re(); });
     const cv = this.root.querySelector<HTMLCanvasElement>("#lookPrev");
     if (!cv) return;
@@ -804,7 +812,8 @@ export class UI {
     const cls = char(p).cls, cos = this.tab === "shop" ? { ...(p.cos ?? {}), ...this.tryOn } : p.cos ?? {};
     const fxT = this.tab === "shop" && this.fxTry ? this.fxTry.split(":") : null;
     const fxSt = fxT ? VFX.styles[fxT[1]] : undefined, fxKind = fxT ? SKILL[fxT[0]]?.kind ?? "projectile" : "";
-    const pet = fxSt ? "none" : p.pet === "none" && this.tab === "shop" && this.tryOn.petSkin ? "bat" : p.pet;
+    const decor = this.tab === "shop" && !fxSt ? this.decorTry : "";
+    const pet = fxSt || decor ? "none" : p.pet === "none" && this.tab === "shop" && this.tryOn.petSkin ? "bat" : p.pet;
     const parts: { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string }[] = [];
     const emit: Emit = (x, y, vx, vy, life, color) => { if (parts.length < 120) parts.push({ x, y, vx, vy, life, max: life, color }); };
     const t0 = performance.now(); let last = t0;
@@ -821,6 +830,7 @@ export class UI {
       const fx = turn === 0 ? 1 : turn === 1 ? 0.2 : 0.1, fy = turn === 0 ? 0.2 : turn === 1 ? 1 : -1;
       drawHeroCos(g, this.bank, { pid: 0, cls, cos, fx, fy, moving: true, walk: t * 30, swingK: (t % 1.2) < 0.3 ? 1 - (t % 1.2) / 0.3 : 0 }, 26, 36, t, emit);
       }
+      if (decor) drawDecor(g, decor, 50, 38, t);
       if (pet !== "none") drawPetCos(g, this.bank, pet, cos.petSkin, 48, 36, true, t, emit);
       for (let i = parts.length - 1; i >= 0; i--) {
         const q = parts[i]; q.life -= dt; if (q.life <= 0) { parts.splice(i, 1); continue; }

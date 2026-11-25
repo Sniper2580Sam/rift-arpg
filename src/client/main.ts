@@ -134,6 +134,7 @@ function startRun(o: RunOpts) {
 
 function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   const c = char(profile);
+  if (cfg.kind !== "hideout") themePreview = "";
   sim = existing ?? createSim(cfg);
   run = info;
   const seed = info.seed;
@@ -173,7 +174,20 @@ function hideoutButtons() {
   const n = hideNear;
   const guest = coop?.role === "guest";
   const act = !n ? "" : n.kind ? `<button id="h-act" class="h-act">${guest ? `${esc(n.name)} · host opens` : `Enter ${esc(n.name)}${n.kind === "chase" ? ` (${n.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`})` : n.kind === "trial" ? ` ${trialTarget(char(profile))}` : n.kind === "vault" ? ` (${char(profile).vaultKeys ?? 0} keys)` : n.kind === "rift" || n.kind === "endless" ? ` · T${curTier()}` : ""}`}</button>` : `<button id="h-act" class="h-act">${esc(n.name)}</button>`;
-  root.innerHTML = `${act}<button id="h-menu">Menu</button>${guest ? `<button id="h-leave">Leave room</button>` : ""}`;
+  const pv = themePreview ? hideoutTheme(themePreview) : null;
+  root.innerHTML = `${act}<button id="h-menu">Menu</button>${guest ? `<button id="h-leave">Leave room</button>` : ""}${pv ? `<div class="h-preview"><span>Visiting <b>★ ${esc(pv.name)}</b></span><button id="hp-buy">Buy ${SHOP.symbol} ${SHOP.prices.theme.toLocaleString("en-US")}</button><button id="hp-back">Back to my hideout</button></div>` : ""}`;
+  if (pv) {
+    const buy = document.getElementById("hp-buy")!;
+    buy.onclick = () => {
+      const price = SHOP.prices.theme;
+      if ((profile.aether ?? 0) < price) { ui.toast(`Not enough ${SHOP.currency} (${(price - (profile.aether ?? 0)).toLocaleString("en-US")} more)`, "#ff6a6a"); return; }
+      if (buy.dataset.sure !== "1") { buy.dataset.sure = "1"; buy.textContent = `Buy for ${SHOP.symbol} ${price.toLocaleString("en-US")}?`; return; }
+      hubOp({ t: "buy", key: `theme:${pv.id}` });
+      hubOp({ t: "hideout", theme: pv.id });
+      themePreview = ""; ui.toast(`${pv.name} is yours.`, "#7dff9a"); enterHideout();
+    };
+    document.getElementById("hp-back")!.onclick = () => { themePreview = ""; enterHideout(); };
+  }
   const a = document.getElementById("h-act"); if (a) a.onclick = () => useSpot(n!);
   document.getElementById("h-menu")!.onclick = () => openMenu();
   const l = document.getElementById("h-leave"); if (l) l.onclick = () => { online?.leave(); endRun(); };
@@ -212,7 +226,14 @@ function useSpot(n: HideoutSpot) {
 }
 /** Decorating: a tray of themes and decorations. Walk to a spot and tap an item to place it on your tile. */
 let shareOpen = false, layoutConfirm = "";
+/** a premium theme being visited from the Shop before buying: only the room changes, nothing is saved */
+let themePreview = "";
+function previewTheme(id: string) {
+  if (coop || online?.direct) { ui.toast("Theme visits work when you're on your own.", "#ffd23f"); return; }
+  themePreview = id; menuOpen = false; ui.hide(); enterHideout();
+}
 function startDecorating() {
+  if (themePreview) { ui.toast("Go back to your own hideout to decorate.", "#ffd23f"); return; }
   if (!canFreeze() || coop?.role === "guest") { ui.toast("Decorate when nobody else is in your hideout.", "#ffd23f"); return; }
   decorating = true; hideNear = null;
   decorTray();
@@ -321,7 +342,8 @@ function enterHideout() {
   if (sim) leaveHideout();
   if (online?.direct && online.lobby?.host) { startDirectRun({ kind: "hideout", tier: 1, seed: null }); return; }
   const seed = (Math.random() * 0xffffffff) >>> 0;
-  const cfg: SimConfig = { seed, kind: "hideout", tier: 1, players: [setupFor(profile, ME, online?.name)], hideout: profile.hideout, mods: [] };
+  const own = profile.hideout ?? { theme: HIDEOUT.themes[0].id, decor: [] };
+  const cfg: SimConfig = { seed, kind: "hideout", tier: 1, players: [setupFor(profile, ME, online?.name)], hideout: themePreview ? { ...own, theme: themePreview } : profile.hideout, mods: [] };
   beginRun(cfg, { kind: "hideout", tier: 1, weekly: false, seed });
 }
 function openMenu(tab?: string) {
@@ -528,6 +550,7 @@ function showMenu() {
 function hubHandlers(): HubHandlers {
   return {
     close: sim ? closeMenu : undefined,
+    previewTheme,
     enter: startRun,
     invCmd: (cmd) => hubOp({ t: "inv", cmd }),
     setClass: (cls) => hubOp({ t: "setClass", cls }),
