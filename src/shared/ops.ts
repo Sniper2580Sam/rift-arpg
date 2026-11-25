@@ -1,12 +1,14 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
 import { makeRng } from "../sim/rng";
+import { codeHash } from "./codes";
 import { LootRules, cleanRules } from "../sim/sim";
 import { passiveCanAdd, passiveCanRemove, runeLevel, talentCanAdd, talentPoints, talentRespec, subclassOf, SET, setComplete, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, hideoutPreset, hideoutTheme, presetDecor, HideoutLayout, validLoadout, VFX } from "../sim/data";
 import { uplevelCost, uplevelItem, chiselItem, echoCost, hallowItem, mintItem, Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
 export type HubOp =
+  | { t: "redeem"; code: string }
   | { t: "inv"; cmd: InvCmd }
   | { t: "setClass"; cls: string }
   | { t: "setRune"; skill: string; rune: string }
@@ -241,6 +243,14 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       const L = LEGENDARY[op.id];
       if (!L || !(p.relics ?? []).includes(op.id) || relicSlotOf(L.slot) !== sl || lifeStats(p).bounties < relicUnlock(sl)) return false;
       c.relicSlots = { ...(c.relicSlots ?? {}), [sl]: op.id }; return true;
+    }
+    case "redeem": {
+      // a code adds Aether once per account; codes are kept as hashes (data/shop.json)
+      if (typeof op.code !== "string" || op.code.length > 40) return false;
+      const h = codeHash(op.code), c = (SHOP.codes ?? []).find((x) => x.hash === h);
+      if (!c || (p.redeemed ?? []).includes(c.id)) return false;
+      p.redeemed = [...(p.redeemed ?? []), c.id];
+      p.aether = (p.aether ?? 0) + c.amount; return true;
     }
     case "buyAether": {
       // test build stub: packs are free. The live server refuses this until a payment provider is wired in.

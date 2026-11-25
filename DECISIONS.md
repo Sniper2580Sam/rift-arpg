@@ -326,3 +326,14 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 - Enemy life still doubles every 5 tiers: T50 ×892, T100 about ×900,000 vs T1. Enemy damage +8.45% per tier (T100 about ×3,000). Balance flag: hero power has to grow that far too; untested past T25 with real gear.
 - Ancestral chance: 5% at T30, +1% per tier, Abyssal cap 40% (reached at T65). Primal: 0.5% at T70, +10% of that per tier (2% at T100). Pity counters only count runs on tiers where that quality drops, and now only pay out there. The Pale Seraph still guarantees its two ancestral items at any tier, and Hallows still make an item ancestral.
 - Legendary odds stop growing at T50 (×8.35); without the cap, T100 drops would be about 63% legendary or set.
+
+## 2026-11-25: Cloud saves on Cloudflare (Samuel: "Cloud saves on Cloudflare", "Migrate")
+- Replaces Google Drive sync on the Cloudflare site (GitHub Pages keeps Drive sync). Google's in-browser sign-in lasted an hour and often failed to renew on iPhone, so a device could play for hours without syncing.
+- Sign in with Google once; the backend (functions/api) checks the token with Google and sets a year-long signed cookie. One save per Google account in the R2 bucket riftbound-saves (keyed by a hash of the account id), with a revision number: a write on top of an old revision is refused and the device compares again.
+- One device at a time: the playing device holds a lock (heartbeat every 45 s, free after 90 s quiet). Opening on a second device asks "Take over?"; the first device then stops saving and says so.
+- Migration: the first sign-in compares this device's save with the old Google Drive save (read once with the same sign-in) and keeps the one with progress, or asks if both have some.
+- Earlier choice "keep localStorage + Google sync" is replaced for the hosted site. Tests: test/cloud.test.ts (backend), browser check with two devices on a local stand-in.
+
+## 2026-11-25: Redeem codes (Samuel)
+- Shop → Redeem code adds Aether once per account. Codes live in data/shop.json as hashes only. First code: 100,000 Aether for Samuel (given to him in chat, not stored in the repo).
+- Theme visits were refused on hosted builds even when alone (co-op being available counted as being in a room). Fixed.

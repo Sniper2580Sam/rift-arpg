@@ -47,6 +47,11 @@ jobs:
             -backend-config="endpoints={s3=\"https://$CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com\"}"
           terraform apply -input=false -auto-approve
           echo "Game URL: $(terraform output -raw url)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Session key for cloud saves (made once, stored as a Pages secret)
+        if: steps.ready.outputs.go == '1'
+        run: |
+          if npx --yes wrangler@3 pages secret list --project-name riftbound 2>/dev/null | grep -q SESSION_KEY; then echo "session key already set"; exit 0; fi
+          openssl rand -base64 48 | tr -d '\n' | npx --yes wrangler@3 pages secret put SESSION_KEY --project-name riftbound
       - name: TURN relay key (made once, stored as Pages secrets)
         if: steps.ready.outputs.go == '1'
         run: |

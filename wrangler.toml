@@ -1,0 +1,9 @@
+# Cloudflare Pages settings for Riftbound (deployed by .github/workflows/deploy.yml).
+# Secrets (TURN_KEY_ID, TURN_KEY_API_TOKEN, SESSION_KEY) are set by the Infra workflow, not here.
+name = "riftbound"
+pages_build_output_dir = "docs"
+compatibility_date = "2025-01-01"
+
+[[r2_buckets]]
+binding = "SAVES"
+bucket_name = "riftbound-saves"

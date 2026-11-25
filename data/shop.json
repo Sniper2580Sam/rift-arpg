@@ -3,6 +3,7 @@
  "symbol": "◈",
  "prices": { "armor": 1200, "wings": 1000, "weapon": 700, "petSkin": 500, "dye": 300, "theme": 1500, "decor": 150, "fx": 250 },
  "classArmorDiscount": 0.8,
+ "codes": [ { "id": "dev-100k", "hash": "7ed06a814a4ddec9", "amount": 100000 } ],
  "packs": [ { "id": "small", "amount": 500 }, { "id": "medium", "amount": 1100 }, { "id": "large", "amount": 2400 } ],
  "earn": {
   "chapter": [100, 150, 200, 300],

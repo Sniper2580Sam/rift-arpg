@@ -3,6 +3,7 @@ import { decorIcon, drawDecor } from "./hideout";
 import { AFFIX as AFFIX_DEF, AFFIXES as ALL_AFFIXES, SETS as ALL_SETS } from "../sim/data";
 import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
+import { cloudOn, cloudSignIn, cloudSignOut, cloudStatus } from "./cloudsave";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { drawFxPreview } from "./fxpreview";
 import { setComplete, setFound, PASSIVES, passiveCanAdd, passiveCanRemove, passiveNode, passiveStart, runeLevel, tierHpMult, lootChances, isAbyssal, TALENTS, talentCanAdd, talentPoints, subclassOf, trialTarget, talentSpent, nextTrial, SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
@@ -811,6 +812,7 @@ export class UI {
     return `<div class="shop-top"><div class="look-prev"><canvas id="lookPrev" width="64" height="40"></canvas><div><b class="aether">${SHOP.symbol} ${bal.toLocaleString("en-US")} ${SHOP.currency}</b>
         <div class="dim small">${fxName ? `Playing ${esc(fxName)}.` : tried ? "Previewing on your hero." : "Tap Preview to try a look, effect or decoration, or Visit to walk around a theme."}</div>${tried ? `<button data-try-clear>Stop preview</button>` : ""}</div></div></div>
       <div class="dim small">${SHOP.currency} buys looks only, never power. Earn it from feats, the season journey, timed tier ${SHOP.earn.riftFromTier}+ rifts, the Seraph and Endless wave ${SHOP.earn.endlessFromWave}+.</div>
+      <div class="opts redeem"><input id="redeem-code" placeholder="Redeem code" maxlength="30" autocapitalize="characters" autocomplete="off"><button id="redeem">Redeem</button></div>
       <div class="opts">${SHOP.packs.map((pk) => `<button class="pack" data-pack="${pk.id}" ${H.coop ? "disabled" : ""}>Get ${SHOP.symbol} ${pk.amount.toLocaleString("en-US")}</button>`).join("")}</div>
       <div class="dim small">${H.coop ? `Buying ${SHOP.currency} isn't switched on yet (no payment provider). Earn it by playing.` : "Test build: packs are free. Real purchases come with a payment provider later."}</div>
       ${Object.entries(sections).map(([name, items]) => `<div class="setting"><b>${esc(name)}</b> <span class="dim small">${items.filter((x) => ownsKey(p, x.key)).length}/${items.length} owned</span><div class="shop-list">${items.map(card).join("")}</div></div>`).join("")}`;
@@ -851,6 +853,16 @@ export class UI {
     this.root.querySelectorAll<HTMLElement>("[data-try-decor]").forEach((el) => el.onclick = () => { this.decorTry = el.dataset.tryDecor!; re(); });
     this.root.querySelectorAll<HTMLElement>("[data-try-theme]").forEach((el) => el.onclick = () => H.previewTheme?.(el.dataset.tryTheme!));
     const tc = this.root.querySelector<HTMLElement>("[data-try-clear]"); if (tc) tc.onclick = () => { this.tryOn = {}; this.fxTry = ""; this.decorTry = ""; re(); };
+    const rd = this.root.querySelector<HTMLElement>("#redeem");
+    if (rd) rd.onclick = () => {
+      const inp = this.root.querySelector<HTMLInputElement>("#redeem-code"), code = inp?.value ?? "";
+      if (!code.trim()) return;
+      const before = p.aether ?? 0;
+      H.op?.({ t: "redeem", code });
+      const got = (p.aether ?? 0) - before;
+      this.toast(got > 0 ? `Code redeemed: ${SHOP.symbol} ${got.toLocaleString("en-US")} ${SHOP.currency}` : "That code isn't valid, or it's already been used.", got > 0 ? "#7dff9a" : "#ff6a6a");
+      if (got > 0) re();
+    };
     this.root.querySelectorAll<HTMLElement>("[data-pack]").forEach((el) => el.onclick = () => { H.op?.({ t: "buyAether", pack: el.dataset.pack! }); this.toast(`${SHOP.currency} added (free in the test build)`, "#7dff9a"); re(); });
     const cv = this.root.querySelector<HTMLCanvasElement>("#lookPrev");
     if (!cv) return;
@@ -890,6 +902,12 @@ export class UI {
 
   // ---------------------------------------------------------------- settings
   private driveHtml() {
+    if (cloudOn()) {
+      const c = cloudStatus();
+      return `<div class="setting" id="drive-box"><b>Cloud save</b><div class="dim small">Sign in with Google once and your save follows you to any device. One device plays at a time: opening the game on another device asks to take over.</div>
+      <div class="dim small" id="drive-st">${esc(c.text)}</div>
+      <div class="opts">${c.signedIn ? `<button id="cloud-out">Sign out</button>` : `<button id="cloud-in">Sign in with Google</button>`}</div></div>`;
+    }
     if (!driveAvailable()) return "";
     const st = driveStatus();
     return `<div class="setting" id="drive-box"><b>Google sync</b><div class="dim small">Keeps your save in a hidden folder in your own Google Drive, so it follows you to other devices. Only this game can see that folder.</div>
@@ -907,6 +925,9 @@ export class UI {
     const i = this.root.querySelector<HTMLElement>("#drive-in"), o = this.root.querySelector<HTMLElement>("#drive-out");
     if (i) i.onclick = () => { driveSignIn(); };
     if (o) o.onclick = () => { driveSignOut(); };
+    const ci = this.root.querySelector<HTMLElement>("#cloud-in"), co = this.root.querySelector<HTMLElement>("#cloud-out");
+    if (ci) ci.onclick = () => { cloudSignIn().catch((e) => this.toast(`Sign-in failed: ${(e as Error).message}`, "#ff6a6a")); };
+    if (co) co.onclick = () => { cloudSignOut(); };
   }
   private settingsTab(p: Profile) {
     const filters: [string, string][] = [["common", "Show everything"], ["magic", "Hide commons"], ["rare", "Hide common + magic"], ["legendary", "Only legendary, set, mythic"], ["ancestral", "Only ancestral, primal, mythic"], ["primal", "Only primal and mythic"]];

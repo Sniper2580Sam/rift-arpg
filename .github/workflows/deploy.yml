@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["docs/**", "functions/**", ".github/workflows/deploy.yml"]
+    paths: ["docs/**", "functions/**", "src/cf/**", "wrangler.toml", ".github/workflows/deploy.yml"]
 concurrency: deploy
 jobs:
   pages:

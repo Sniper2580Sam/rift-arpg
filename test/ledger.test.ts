@@ -66,6 +66,11 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   check("premium refused before buying", applyHubOp(p, { t: "setting", k: "cos.wings", v: "ember" }) === false);
   check("can't buy without Aether", applyHubOp(p, { t: "buy", key: "cos:wings:ember" }) === false && !(p.owned ?? []).includes("cos:wings:ember"));
   check("test pack adds Aether", applyHubOp(p, { t: "buyAether", pack: "medium" }) === true && p.aether === 1100);
+  { const { codeHash } = require("../src/shared/codes"); const { SHOP } = require("../src/sim/data");
+    SHOP.codes = [...(SHOP.codes ?? []), { id: "t1", hash: codeHash("test-code"), amount: 50 }];
+    const a0 = p.aether ?? 0;
+    check("redeem code adds Aether once", applyHubOp(p, { t: "redeem", code: " Test-Code " }) === true && p.aether === a0 + 50 && applyHubOp(p, { t: "redeem", code: "TEST-CODE" }) === false && p.aether === a0 + 50);
+    check("wrong code refused", applyHubOp(p, { t: "redeem", code: "nope" }) === false); p.aether = a0; }
   check("shop buy spends Aether and records ownership", applyHubOp(p, { t: "buy", key: "cos:wings:ember" }) === true && p.owned!.includes("cos:wings:ember") && p.aether === 100);
   check("can't buy the same thing twice", applyHubOp(p, { t: "buy", key: "cos:wings:ember" }) === false && p.aether === 100);
   check("cosmetic set after buying", applyHubOp(p, { t: "setting", k: "cos.wings", v: "ember" }) === true && p.cos.wings === "ember");

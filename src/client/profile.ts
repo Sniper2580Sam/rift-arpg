@@ -54,6 +54,8 @@ export interface Profile {
   feats?: string[]; life?: Partial<Life>;
   /** premium currency (cosmetics only) */
   aether?: number;
+  /** redeem codes already used on this account */
+  redeemed?: string[];
   /** the collection: every legendary power and set piece ever found (account-wide, survives seasons) */
   codex?: string[];
   /** reliquary (account-wide): extracted legendary powers and Relic Dust */

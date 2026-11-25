@@ -26,8 +26,11 @@ let client: any = null;
 const store = { get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k: string, v: string | null) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* ignore */ } } };
 
 /** Sync is offered on the hosted https page with a client id, never in the claude.ai artifact (it has its own cloud copy). */
+let disabled = false;
+/** The Cloudflare site keeps saves in its own cloud instead. */
+export function disableDrive() { disabled = true; }
 export function driveAvailable() {
-  return !!CLIENT_ID && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1") && !(window as any).claude;
+  return !disabled && !!CLIENT_ID && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1") && !(window as any).claude;
 }
 export function driveStatus() {
   const t = lastSync ? new Date(lastSync).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
@@ -55,6 +58,30 @@ function getToken(silent: boolean): Promise<void> {
     });
     client.requestAccessToken({ prompt: silent ? "" : "consent" });
   });
+}
+
+/** One Google access token for other uses (cloud sign-in, reading the old Drive save once). Opens Google's window. */
+export async function googleAccess(scope: string): Promise<string> {
+  await loadGis();
+  return new Promise((ok, fail) => {
+    const c = (window as any).google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID, scope,
+      callback: (r: any) => (r.error ? fail(new Error(r.error)) : ok(r.access_token)),
+      error_callback: (e: any) => fail(new Error(e?.type === "popup_closed" ? "sign-in closed" : e?.type ?? "sign-in failed")),
+    });
+    c.requestAccessToken({ prompt: "" });
+  });
+}
+/** The save kept by Google sync, read with a token from googleAccess (null when there isn't one). */
+export async function readDriveSave(tok: string): Promise<Profile | null> {
+  const h = { Authorization: `Bearer ${tok}` };
+  const q = encodeURIComponent(`name='${FILE}'`);
+  const l = await fetch(`${API}/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id)`, { headers: h });
+  if (!l.ok) return null;
+  const id = (await l.json()).files?.[0]?.id;
+  if (!id) return null;
+  const f = await fetch(`${API}/drive/v3/files/${id}?alt=media`, { headers: h });
+  return f.ok ? migrate(await f.json()) : null;
 }
 
 async function api(path: string, init: RequestInit = {}) {
@@ -135,18 +162,18 @@ function summary(p: Profile) {
   return `<div class="dim small">Saved ${when}</div>${rows}<div class="dim small">${p.materials ?? 0} materials · ${(p.stash ?? []).length} in storage</div>`;
 }
 /** The warning card: two saves side by side, keep one. The other is replaced. */
-function askWhich(mine: Profile, remote: Profile, done: (keep: "device" | "drive") => void) {
+export function askWhich(mine: Profile, remote: Profile, done: (keep: "device" | "drive") => void, labels = { mine: "This device", remote: "Google Drive", keepRemote: "Keep Drive", sub: "This device and your Google Drive both have progress the other doesn't." }) {
   document.getElementById("sync-pick")?.remove();
   const el = document.createElement("div");
   el.id = "sync-pick";
   el.innerHTML = `<div class="panel sync-panel"><h2>Two different saves</h2>
-    <div class="sub">This device and your Google Drive both have progress the other doesn't. Pick the one to keep. The other one is replaced and can't be brought back.</div>
-    <div class="sync-cols"><div class="sync-col"><b>This device</b>${summary(mine)}<button data-keep="device">Keep this device</button></div>
-    <div class="sync-col"><b>Google Drive</b>${summary(remote)}<button data-keep="drive">Keep Drive</button></div></div></div>`;
+    <div class="sub">${labels.sub} Pick the one to keep. The other one is replaced and can't be brought back.</div>
+    <div class="sync-cols"><div class="sync-col"><b>${labels.mine}</b>${summary(mine)}<button data-keep="device">Keep this device</button></div>
+    <div class="sync-col"><b>${labels.remote}</b>${summary(remote)}<button data-keep="drive">${labels.keepRemote}</button></div></div></div>`;
   document.body.appendChild(el);
   el.querySelectorAll<HTMLElement>("[data-keep]").forEach((b) => b.onclick = () => {
     const k = b.dataset.keep as "device" | "drive";
-    if (b.dataset.armed !== "1") { el.querySelectorAll<HTMLElement>("[data-keep]").forEach((o) => { o.dataset.armed = ""; o.textContent = o.dataset.keep === "device" ? "Keep this device" : "Keep Drive"; }); b.dataset.armed = "1"; b.textContent = "Tap again to confirm"; return; }
+    if (b.dataset.armed !== "1") { el.querySelectorAll<HTMLElement>("[data-keep]").forEach((o) => { o.dataset.armed = ""; o.textContent = o.dataset.keep === "device" ? "Keep this device" : labels.keepRemote; }); b.dataset.armed = "1"; b.textContent = "Tap again to confirm"; return; }
     el.remove(); done(k);
   });
 }

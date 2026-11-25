@@ -49,4 +49,10 @@ resource "cloudflare_pages_project" "game" {
   lifecycle { ignore_changes = [deployment_configs] }
 }
 
+# Cloud saves: one JSON save per Google account plus a small lock (functions/api, bound as SAVES in wrangler.toml).
+resource "cloudflare_r2_bucket" "saves" {
+  account_id = var.account_id
+  name       = "${var.project_name}-saves"
+}
+
 output "url" { value = "https://${cloudflare_pages_project.game.subdomain}" }

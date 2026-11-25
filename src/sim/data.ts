@@ -309,7 +309,7 @@ export const setFound = (codex: string[] | undefined, id: string) => Object.keys
 export const setComplete = (codex: string[] | undefined, id: string) => !!SET[id] && setFound(codex, id) === Object.keys(SET[id].pieces).length;
 /** All premium shop keys, with a display name and section. Prices are 0 in the test build. */
 // ------------------------------------------------------------------ premium currency (cosmetics only, never power)
-export const SHOP = shopJson as { currency: string; symbol: string; prices: Record<string, number>; classArmorDiscount: number; packs: { id: string; amount: number }[];
+export const SHOP = shopJson as { currency: string; symbol: string; prices: Record<string, number>; classArmorDiscount: number; packs: { id: string; amount: number }[]; codes?: { id: string; hash: string; amount: number }[];
   earn: { chapter: number[]; riftFromTier: number; riftBase: number; riftPerTier: number; seraph: number; endlessFromWave: number; endlessPerWave: number } };
 /** Currency a run earns: only really hard content pays (timed tier 15+, the Seraph, Endless wave 30+). */
 export function aetherForRun(t: RunTally): number {

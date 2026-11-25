@@ -7,7 +7,8 @@ import { sfx, setMuted, unlockAudio } from "./audio";
 import { Input, KEY_LABELS } from "./input";
 import { Profile, char, isoWeek, seasonStats, loadProfile, saveProfile, setLocalSaves, setOnSaved, setupFor, syncFromSim, weeklySeed } from "./profile";
 import { queue as cloudQueue, startCloud } from "./cloud";
-import { driveQueue, driveRecheck, driveStatus, startDrive } from "./gdrive";
+import { disableDrive, driveQueue, driveRecheck, driveStatus, startDrive } from "./gdrive";
+import { cloudSaveQueue, cloudStatus, startCloudSave } from "./cloudsave";
 import { HubOp, applyHubOp } from "../shared/ops";
 import { RARITY_COLOR, Sprite, buildSprites, renderMap } from "./sprites";
 import { allSpots, decorIcon, labels as hideLabels, drawDecor, drawPortal, drawShowcase, drawStation, drawThemeAir, drawThemeFloor, drawThemeUnder, spotPos } from "./hideout";
@@ -229,7 +230,7 @@ let shareOpen = false, layoutConfirm = "";
 /** a premium theme being visited from the Shop before buying: only the room changes, nothing is saved */
 let themePreview = "";
 function previewTheme(id: string) {
-  if (coop || online?.direct) { ui.toast("Theme visits work when you're on your own.", "#ffd23f"); return; }
+  if (coop || online?.lobby) { ui.toast("Theme visits work when you're on your own.", "#ffd23f"); return; }
   themePreview = id; menuOpen = false; ui.hide(); enterHideout();
 }
 function startDecorating() {
@@ -1783,7 +1784,7 @@ else {
     online = d;
   }
   goHub();
-  setOnSaved((p) => { cloudQueue(p); driveQueue(p); });
+  setOnSaved((p) => { cloudQueue(p); driveQueue(p); cloudSaveQueue(p); });
   let pendingRemote: Profile | null = null;
   const useRemote = (p: Profile) => {
     if (sim && !inHideout()) { pendingRemote = p; return; } // mid-run: after it ends
@@ -1796,13 +1797,26 @@ else {
   };
   startCloud(() => profile, useRemote);
   let driveWas = "";
-  startDrive(() => profile, (p) => { useRemote(p); }, () => !sim || inHideout(), () => {
+  const startGoogleSync = () => startDrive(() => profile, (p) => { useRemote(p); }, () => !sim || inHideout(), () => {
     if (menuOpen || mode === "hub") ui.refreshDrive?.();
     // a lost Google connection used to show only in Settings, so saves quietly stopped reaching Drive
     const st = driveStatus();
     if (st.state === "error" && driveWas !== "error") ui.toast(`Google sync stopped (${st.text.replace(/^Not synced: /, "")}). Tap to reconnect.`, "#ffd23f");
     if (st.state === "on" && driveWas === "error") ui.toast("Google sync back on", "#7dff9a");
     driveWas = st.state;
+  });
+  // the Cloudflare site keeps saves in its own cloud; elsewhere (GitHub Pages) Google Drive sync stays
+  let cloudWas = "";
+  startCloudSave(() => profile, useRemote, () => {
+    if (menuOpen || mode === "hub") ui.refreshDrive?.();
+    const st = cloudStatus();
+    if (st.state === "error" && cloudWas !== "error") ui.toast(`Cloud save paused (${st.text.replace(/^Not saved to the cloud: /, "")}). It catches up when you're back online.`, "#ffd23f");
+    if (st.state === "on" && cloudWas === "error") ui.toast("Cloud save back on", "#7dff9a");
+    cloudWas = st.state;
+  }).then((on) => {
+    if (!on) { startGoogleSync(); return; }
+    disableDrive(); ui.refreshDrive?.();
+    if (cloudStatus().state === "out") ui.toast("New: cloud saves. Sign in with Google in Settings to keep your save on every device.", "#ffd23f");
   });
   (window as any).__applyPendingRemote = () => { if (pendingRemote) { const p = pendingRemote; pendingRemote = null; useRemote(p); } };
 }
