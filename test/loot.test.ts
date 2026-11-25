@@ -1,6 +1,6 @@
 // Batch 6 loot: skill-changing legendaries, the Concord Band, generic 2-piece sets, defence, trade-off boons, bag sort.
 import { createSim, step, NO_INPUT, PlayerSetup, refreshAll, damagePlayer as damagePlayerForTest } from "../src/sim/sim";
-import { mintItem, computeStats, Holder, applyInvCmd } from "../src/sim/items";
+import { mintItem, computeStats, Holder, applyInvCmd, capRarity } from "../src/sim/items";
 import { makeRng } from "../src/sim/rng";
 import { CLASSES, LEGENDARY, SET, SlotType, EquipSlot } from "../src/sim/data";
 const proc = (globalThis as any).process;
@@ -57,4 +57,17 @@ function setup(pid: number, cls = "ashknight", level = 1, equipment: Holder["equ
   applyInvCmd(h, { type: "sort" });
   assert(h.bag[0].rarity === "legendary" && h.bag[2].rarity === "common", "sort");
   console.log(`ok   batch 6 loot: circle lances, concord (${king}/3000 King legendaries), 2-piece sets, glass cannon, barrier ${Math.round(full)}, sort`);
+}
+
+// loot by level: no legendaries before 20, no sets before 30, forced rewards drop to the best allowed
+{
+  const count = (level: number) => { const n: Record<string, number> = {}; for (let i = 0; i < 4000; i++) { const it = mintItem(makeRng(50000 + i), "l" + i, { tier: 5, level }); n[it.rarity] = (n[it.rarity] ?? 0) + 1; } return n; };
+  const l1 = count(1), l19 = count(19), l24 = count(24), l30 = count(30);
+  assert(!l1.rare && !l1.legendary && !l1.set, `level 1: ${JSON.stringify(l1)}`);
+  assert(!l19.legendary && !l19.set && (l19.rare ?? 0) > 0, `level 19: ${JSON.stringify(l19)}`);
+  assert((l24.legendary ?? 0) > 0 && !l24.set, `level 24: ${JSON.stringify(l24)}`);
+  assert((l30.set ?? 0) > 0 && (l30.legendary ?? 0) > (l24.legendary ?? 0), `level 30: ${JSON.stringify(l30)}`);
+  assert(capRarity("set", 10) === "rare" && capRarity("set", 22) === "legendary" && capRarity("legendary", 2) === "magic" && capRarity("mythic", 30) === "mythic", "capRarity");
+  assert(mintItem(makeRng(1), "f", { rarity: "legendary", level: 12 }).rarity === "rare", "forced legendary at 12 is a rare");
+  console.log(`ok   loot by level: L1 ${JSON.stringify(l1)} · L19 ${JSON.stringify(l19)} · L24 ${JSON.stringify(l24)} · L30 ${JSON.stringify(l30)}`);
 }

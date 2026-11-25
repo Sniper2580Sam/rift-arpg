@@ -237,6 +237,13 @@
     "fallStun": 5
   },
   "chaseLegendaryWeight": 8,
+  "lootLevels": {
+    "rareFrom": 5,
+    "rareFull": 12,
+    "legendaryFrom": 20,
+    "legendaryFull": 28,
+    "setFrom": 30
+  },
   "defence": {
     "barrierDelay": 4,
     "barrierFill": 2,

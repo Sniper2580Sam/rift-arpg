@@ -168,7 +168,7 @@ export class UI {
     if (this.tab === "gear") {
       const gs = this.gearSub, gear = () => this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
       const intro: Record<GearSub, string> = {
-        items: "Equip, compare, lock and scrap gear.",
+        items: "Equip, compare, lock and scrap gear." + (c.level < RIFT.lootLevels.setFrom ? ` Drops follow your level: rares from level ${RIFT.lootLevels.rareFrom}, legendaries from ${RIFT.lootLevels.legendaryFrom}, sets and mythics at ${RIFT.lootLevels.setFrom}.` : ""),
         smith: "Tap an item to reroll an affix or upgrade its slot. Scrap gives materials (and shards from legendary and set items). Echo Cores and Gilded Chisels are used here too.",
         jewels: "Socket Rift Gems. They level up when you clear a rift in time.",
         relics: "Wear extracted legendary powers, and spend boss trophies.",
@@ -543,9 +543,9 @@ export class UI {
     if (!sh && !ha) return `<div class="setting dim small">Boss trophies: the Ossuary King drops King's Shards (craft any set piece) and the Pale Seraph drops Hallows (make an item ancestral).</div>`;
     const sets = [...SETS].sort((a, b) => classAffinity(c.cls, b.tag) - classAffinity(c.cls, a.tag));
     const cur = SET[this.craftSet] ? this.craftSet : sets[0].id, S = SET[cur];
-    const craft = `<div class="relic-row"><b>Craft a set piece</b> <span class="dim small">${T.craftCost} shards each, at your level</span>
+    const craft = `<div class="relic-row"><b>Craft a set piece</b> <span class="dim small">${T.craftCost} shards each, at your level${c.level < RIFT.lootLevels.setFrom ? ` · opens at level ${RIFT.lootLevels.setFrom}` : ""}</span>
       <div><select data-craft-set>${sets.map((s) => `<option value="${s.id}" ${s.id === cur ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></div>
-      <div class="opts">${(Object.entries(S.pieces) as [string, string][]).map(([sl, name]) => `<button data-craft="${cur}:${sl}" ${sh >= T.craftCost && c.bag.length < BAG_SIZE ? "" : "disabled"}>${esc(name)}</button>`).join("")}</div></div>`;
+      <div class="opts">${(Object.entries(S.pieces) as [string, string][]).map(([sl, name]) => `<button data-craft="${cur}:${sl}" ${sh >= T.craftCost && c.bag.length < BAG_SIZE && c.level >= RIFT.lootLevels.setFrom ? "" : "disabled"}>${esc(name)}</button>`).join("")}</div></div>`;
     const elig = [...Object.entries(c.equipment).map(([sl, it]) => ({ it: it!, key: `slot:${sl}` })), ...c.bag.map((it, i) => ({ it, key: `bag:${i}` }))].filter(({ it }) => it && !it.quality && (it.rarity === "legendary" || it.rarity === "set"));
     const hallow = ha ? `<div class="relic-row"><b>Hallow an item</b> <span class="dim small">${T.hallowCost} Hallow: makes it ancestral (+${Math.round((ITEMS.ancestralMult - 1) * 100)}% to its numbers)</span>
       <div class="opts">${elig.length ? elig.map(({ it, key }) => `<button data-hallow="${key}" style="color:${RARITY_COLOR[it.rarity]}">${esc(it.name)}${key.startsWith("slot") ? " (worn)" : ""}</button>`).join("") : `<span class="dim small">No legendary or set item that isn't ancestral yet.</span>`}</div></div>` : "";

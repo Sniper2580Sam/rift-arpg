@@ -175,7 +175,7 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
     case "craftSet": {
       // King's Shards: craft the set piece you choose, at your level. Seeded from the hero's craft count, so the result is the same on the server.
       const S = SET[op.set], sl = op.slot as SlotType;
-      if (!S || !S.pieces[sl] || (p.kingShards ?? 0) < RIFT.trophies.craftCost || c.bag.length >= BAG_SIZE) return false;
+      if (!S || !S.pieces[sl] || (p.kingShards ?? 0) < RIFT.trophies.craftCost || c.bag.length >= BAG_SIZE || c.level < RIFT.lootLevels.setFrom) return false;
       p.kingShards = (p.kingShards ?? 0) - RIFT.trophies.craftCost;
       const n = (c.crafted ?? 0) + 1; c.crafted = n;
       let h = 2166136261; for (const ch of `${c.cls}:${op.set}:${sl}:${n}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }

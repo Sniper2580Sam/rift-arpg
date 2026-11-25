@@ -23,6 +23,7 @@ export function sanitizeOpts(run: RunInfo, m: RunMember, o: MintOpts, rng: Rng, 
   const t = run.tier, T = RIFT.tiers;
   const out: MintOpts = {
     tier: t, equipment, cls: o.cls && CLASSES[o.cls] ? o.cls : undefined, // smart loot only; gives no power
+    level: m.level, // loot by level: the server's own record, never the client's
     ilvl: Math.max(1, Math.min(RIFT.levels.max, o.ilvl ?? 1, m.level + 6 + Math.floor(t / 4))),
     ancestralChance: lootChances(t).anc, primalChance: lootChances(t).pri,
     legendaryWeightMult: Math.max(1, Math.min(6, o.legendaryWeightMult ?? 1)),

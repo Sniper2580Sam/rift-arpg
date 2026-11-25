@@ -247,3 +247,7 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 ## 2026-11-25: Batch 7, workstation tabs in the hideout (Samuel)
 - **Gear has sub-tabs:** Items (equip, compare, scrap), Blacksmith (rerolls, slot upgrades, scrapping, Echo Cores, Gilded Chisels), Jeweler (rift gems), Reliquary (legendary powers, boss trophies), Stash (storage, Arsenal). **Skills has sub-tabs:** Skills, Talents, Passive tree, Paragon.
 - **Each workstation opens its own sub-tab** (`sub` on the station in hideout.json). Two new stations, Jeweler and Reliquary, with their own art. The Menu button opens wherever you were last.
+
+## 2026-11-25: Loot by level (Samuel)
+- **Drops follow the hero's level** (`RIFT.lootLevels`): rares ramp in from level 5 (full at 12), legendaries from 20 (full at 28), sets and mythics at 30. A forced reward a hero can't get yet becomes the best rarity they can (`capRarity`): a set at level 22 is a legendary, at level 10 a rare. The server uses its own record of the hero's level. Crafting set pieces with King's Shards also opens at 30.
+- Item level already follows the hero's level (level + tier/4, capped at 30), so stats grow as you level.

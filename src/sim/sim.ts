@@ -961,7 +961,7 @@ function grantXp(s: SimState, base: number) {
 function lootOpts(s: SimState, p: Player, extra: MintOpts): MintOpts {
   const t = s.rift.tier, T = RIFT.tiers;
   return {
-    tier: t, ilvl: Math.min(RIFT.levels.max, p.level + Math.floor(t / 4)), equipment: p.equipment, cls: p.cls,
+    tier: t, ilvl: Math.min(RIFT.levels.max, p.level + Math.floor(t / 4)), equipment: p.equipment, cls: p.cls, level: p.level,
     legendaryWeightMult: (s.rift.map && MAP[s.rift.map]?.legendaryWeightMult) || 1,
     ancestralChance: lootChances(t).anc, primalChance: lootChances(t).pri,
     ...extra,

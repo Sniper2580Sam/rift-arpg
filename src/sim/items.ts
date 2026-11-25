@@ -41,8 +41,27 @@ export interface MintOpts {
   cls?: string;
   /** crafting: this exact set (with slot) */
   set?: string;
+  /** the hero's level: rares ramp in from 5, legendaries from 20, sets and mythics at 30 (higher rarities drop to the best allowed) */
+  level?: number;
   /** an Ossuary King reward: chase-only legendaries (the Concord Band) can roll */
   chasePool?: boolean;
+}
+
+/** Loot by level: how much of a rarity's weight a hero of this level gets (0 = it can't drop yet). */
+export function rarityLevelMult(k: Rarity, level: number | undefined): number {
+  if (level === undefined) return 1;
+  const L = RIFT.lootLevels, ramp = (from: number, full: number) => (level < from ? 0 : Math.min(1, 0.25 + (0.75 * (level - from)) / Math.max(1, full - from)));
+  if (k === "rare") return ramp(L.rareFrom, L.rareFull);
+  if (k === "legendary") return ramp(L.legendaryFrom, L.legendaryFull);
+  if (k === "set" || k === "mythic") return level >= L.setFrom ? 1 : 0;
+  return 1;
+}
+/** A forced rarity (guardian reward, chest) a hero isn't high enough for becomes the best one they can get. */
+export function capRarity(k: Rarity, level: number | undefined): Rarity {
+  if (level === undefined || rarityLevelMult(k, level) > 0) return k;
+  if ((k === "mythic" || k === "set") && rarityLevelMult("legendary", level) > 0) return "legendary";
+  if (rarityLevelMult("rare", level) > 0) return "rare";
+  return "magic";
 }
 
 function rollRarity(r: Rng, o: MintOpts): Rarity {
@@ -50,7 +69,7 @@ function rollRarity(r: Rng, o: MintOpts): Rarity {
   const grow = 1 + RIFT.tiers.legendaryGrowth * (tier - 1);
   const table = Object.entries(ITEMS.rarities).map(([k, v]) => ({
     k: k as Rarity,
-    w: k === "legendary" || k === "set" ? v.weight * grow * (o.legendaryWeightMult ?? 1) : k === "common" ? v.weight / Math.max(1, tier * 0.5) : v.weight,
+    w: (k === "legendary" || k === "set" ? v.weight * grow * (o.legendaryWeightMult ?? 1) : k === "common" ? v.weight / Math.max(1, tier * 0.5) : v.weight) * rarityLevelMult(k as Rarity, o.level),
   }));
   let total = 0; for (const t of table) total += t.w;
   let x = next(r) * total;
@@ -66,7 +85,7 @@ function weightedPick<T>(r: Rng, arr: T[], w: (t: T) => number): T {
 }
 
 export function mintItem(r: Rng, id: string, o: MintOpts = {}): Item {
-  const rarity = o.rarity ?? rollRarity(r, o);
+  const rarity = o.rarity ? capRarity(o.rarity, o.level) : rollRarity(r, o);
   const eq = o.equipment ?? {};
   let slot: SlotType = o.slot ?? pick(r, ITEMS.slots);
   let legendary: string | undefined, set: string | undefined, setName = "";
