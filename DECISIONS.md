@@ -215,3 +215,9 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 - **Settings:** "Life over head" draws a small bar over each hero. **Skills:** tags show as coloured chips.
 - **Bosses use the tier picked on the Play tab** (minimum 3, maximum your highest). The hideout portals show it, and the live server honours it.
 - The "Start a new season" button only shows in test builds.
+
+## 2026-11-25: Batch 2, death rework (Samuel)
+- **Timer pauses** while no hero is standing: in solo while you're dead, in co-op only once the whole party is down.
+- **Respawn button** (usable after 1 s): costs 10 s of rift time, +5 s for each further death in the run, up to 30 s. In Endless it costs nothing extra, because Endless spends lives. If nobody presses it for 60 s, it respawns automatically (for disconnected guests).
+- **Revive:** an ally standing on your grave marker for 2 s brings you back at 50% life with no penalty. A ring fills on the marker as they revive you.
+- **Death recap:** the panel shows the killing blow and up to 5 sources of the damage you took in your last 6 s. Melee hits, shots and ground effects are labelled with the enemy's name (and elite), thorns, molten or volatile.

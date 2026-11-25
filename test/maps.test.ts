@@ -8,6 +8,7 @@ const check = (name: string, ok: boolean, extra = "") => { console.log(`${ok ? "
 
 function bot(s: SimState, t: number): PlayerInput {
   const p = s.players[0];
+  if (p.dead) return { ...NO_INPUT, cmds: p.deadT <= 0 ? [{ type: "respawn" }] : undefined };
   let target: { x: number; y: number } | null = null, best = 1e9;
   for (const e of s.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < best) { best = d; target = e; } }
   if (!target) return NO_INPUT;
@@ -62,7 +63,7 @@ for (const [lvl, want] of [[1, true], [30, false]] as [number, boolean][]) {
   for (let i = 1; i <= 40; i++) { const t = createSim({ seed: i * 31, tier: 4, players: [setup] }); if (t.enemies.some((e) => e.kind === "imp")) { found++; if (!sImp) { sImp = t; seed = i * 31; } } }
   check("imps turn up in some rifts", found >= 4 && found <= 24, `(${found}/40)`);
   const s = sImp!, imp = s.enemies.find((e) => e.kind === "imp")!, p = s.players[0];
-  p.x = imp.x - 60; p.y = imp.y; const d0 = 60;
+  p.x = imp.x - 60; p.y = imp.y; p.invuln = 999; const d0 = 60;
   let escaped = false;
   for (let t = 0; t < 30 * 20 && !escaped; t++) { step(s, { 0: NO_INPUT }); for (const e of s.events) if (e.type === "impEscape") escaped = true; }
   check("imp flees and escapes", escaped && imp.dead && p.vaultKeys === 0, `(ran ${Math.hypot(imp.x - p.x, imp.y - p.y).toFixed(0)} from ${d0})`);

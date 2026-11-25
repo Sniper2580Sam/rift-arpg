@@ -12,7 +12,7 @@ export const DT = 1 / TICK_RATE;
 // ------------------------------------------------------------------ types
 export interface PlayerInput { mx: number; my: number; ax: number; ay: number; act: number; cmds?: PlayerCmd[] }
 export const NO_INPUT: PlayerInput = { mx: 0, my: 0, ax: 0, ay: 0, act: 0 };
-export type PlayerCmd = InvCmd | { type: "boon"; id: string } | { type: "setLoadout"; setup: PlayerSetup };
+export type PlayerCmd = InvCmd | { type: "respawn" } | { type: "boon"; id: string } | { type: "setLoadout"; setup: PlayerSetup };
 export type HostCmd =
   | { type: "spawnLoot"; owner: number; item: Item; x: number; y: number }
   | { type: "join"; setup: PlayerSetup; pity?: { ancestral?: boolean; primal?: boolean } }
@@ -51,7 +51,7 @@ export interface Player extends Holder {
   gems: Record<string, number>; gemSlots: string[]; relics: string[]; talents: Record<string, number>;
   /** life-on-hit healed in the current second (capped, so many-hit skills can't out-heal everything) */
   leech: number;
-  invuln: number; deaths?: number; chillT?: number; thornT?: number; dead: boolean; deadT: number; buff: Buff; boons: string[]; cheatT: number;
+  invuln: number; deaths?: number; chillT?: number; thornT?: number; dead: boolean; deadT: number; /** revive progress from a nearby ally (seconds) */ reviveT?: number; /** recent hits for the death recap */ dmgLog?: { src: string; amt: number; t: number }[]; buff: Buff; boons: string[]; cheatT: number;
   stats: Stats; sk: Record<string, ResolvedSkill>; uses: Num; connected: boolean;
   /** class resource (Embers / Focus / Mana) and seconds since the last hit dealt or taken */
   res: number; combatT: number;
@@ -77,7 +77,7 @@ export interface Enemy {
   variant?: string; combo?: number;
 }
 export interface Projectile {
-  id: number; team: 0 | 1; kind: "lance" | "wave" | "arrow" | "bone" | "bolt";
+  id: number; team: 0 | 1; kind: "lance" | "wave" | "arrow" | "bone" | "bolt"; /** who fired it (enemy shots, for the death recap) */ src?: string;
   x: number; y: number; px: number; py: number; vx: number; vy: number; r: number;
   pid: number; skill: string; mult: number; dmg: number; tags: string[]; pierce: boolean; life: number; hit: number[];
   returning: boolean; kb: number; dead: boolean; trailT: number; cold: boolean; fire: boolean;
@@ -87,7 +87,7 @@ export interface Projectile {
 export interface Summon { id: number; pid: number; skill: string; x: number; y: number; px: number; py: number; r: number; life: number; atkT: number; fx: number; dead: boolean; ox: number; oy: number; size: number; kind: string;
   /** constructs (Bonewright): stationary; 1 turret, 2 mortar, 3 totem, 4 lantern, 5 battery turret */ build?: number; boostT?: number; boostPct?: number }
 export interface Hazard { id: number; pid: number; skill: string; x: number; y: number; r: number; mult: number; life: number; max: number; tickT: number; tags: string[]; slowPct: number; slowT: number; dead: boolean; kind: string }
-export interface Zone { id: number; x: number; y: number; r: number; delay: number; life: number; dmg: number; kind: "blast" | "pool" | "frost" | "mire"; tickT: number; dead: boolean }
+export interface Zone { id: number; x: number; y: number; r: number; delay: number; life: number; dmg: number; kind: "blast" | "pool" | "frost" | "mire"; tickT: number; dead: boolean; src?: string }
 export interface Loot { id: number; x: number; y: number; item: Item; age: number; owner: number }
 interface Pending { t: number; pid: number; skill: string }
 
@@ -103,7 +103,7 @@ export type SimEvent =
   | { type: "swing"; pid: number; skill?: string; x: number; y: number; fx: number; fy: number; ring: boolean; range: number; hits: number; arcCos: number }
   | { type: "cast"; pid: number; skill: string; x: number; y: number; r?: number }
   | { type: "playerHurt"; pid: number; amount: number }
-  | { type: "playerDeath"; pid: number } | { type: "respawn"; pid: number } | { type: "cheatDeath"; pid: number }
+  | { type: "playerDeath"; pid: number; killer: string; recap: [string, number][]; penalty: number } | { type: "respawn"; pid: number; penalty: number } | { type: "revived"; pid: number; by: number } | { type: "cheatDeath"; pid: number }
   | { type: "slam"; x: number; y: number; r: number; big: boolean }
   | { type: "explosion"; x: number; y: number; r: number; cold?: boolean; pid?: number; skill?: string }
   | { type: "paragonUp"; pid: number; level: number } | { type: "gem"; pid: number; id: string } | { type: "gemUp"; pid: number; id: string; level: number }
@@ -404,6 +404,16 @@ function offerBoon(s: SimState, p: Player) {
 export function playerById(s: SimState, pid: number) { return s.players.find((p) => p.pid === pid); }
 
 export function applyPlayerCmd(s: SimState, p: Player, c: PlayerCmd): boolean {
+  if (c.type === "respawn") {
+    // the Respawn button: costs rift time (none in Endless, which spends lives instead)
+    if (!p.dead || p.deadT > 0) return false;
+    const pen = deathPenalty(s, p);
+    if (s.rift.kind !== "endless" && !s.rift.done) s.rift.time += pen;
+    const ally = s.players.find((q) => q !== p && !q.dead);
+    p.dead = false; p.hp = p.stats.maxHp; p.reviveT = 0; p.x = ally ? ally.x : s.startX; p.y = ally ? ally.y : s.startY; p.px = p.x; p.py = p.y; p.invuln = 2;
+    s.events.push({ type: "respawn", pid: p.pid, penalty: s.rift.kind === "endless" ? 0 : pen });
+    return true;
+  }
   if (c.type === "boon") {
     const offer = s.boonOffers[p.pid];
     if (!offer || !offer.includes(c.id)) return false;
@@ -454,12 +464,15 @@ function updatePlayer(s: SimState, p: Player, inp: PlayerInput) {
   if (p.cheatT > 0) p.cheatT -= DT;
   if ((p.colossusT ?? 0) > 0) { p.colossusT! -= DT; if (p.colossusT! <= 0 || p.dead) { p.colossusT = 0; s.events.push({ type: "cast", pid: p.pid, skill: "colossus_end", x: p.x, y: p.y }); } }
   if (p.dead) {
+    // wait for the Respawn button (a time penalty) or an ally standing over you (free)
     p.deadT -= DT;
-    if (p.deadT <= 0) {
-      const ally = s.players.find((q) => q !== p && !q.dead);
-      p.dead = false; p.hp = p.stats.maxHp; p.x = ally ? ally.x : s.startX; p.y = ally ? ally.y : s.startY; p.px = p.x; p.py = p.y; p.invuln = 2;
-      s.events.push({ type: "respawn", pid: p.pid });
-    }
+    const D = RIFT.deathPenalty;
+    const helper = s.players.find((q) => q !== p && !q.dead && len(q.x - p.x, q.y - p.y) <= D.reviveRange);
+    p.reviveT = helper ? (p.reviveT ?? 0) + DT : Math.max(0, (p.reviveT ?? 0) - DT * 2);
+    if (helper && p.reviveT >= D.reviveTime) {
+      p.dead = false; p.hp = Math.round(p.stats.maxHp * D.reviveHp); p.reviveT = 0; p.invuln = 2; p.deadT = 0;
+      s.events.push({ type: "revived", pid: p.pid, by: helper.pid });
+    } else if (p.deadT <= -D.autoRespawn) applyPlayerCmd(s, p, { type: "respawn" }); // nobody pressed it (a disconnected guest)
     return;
   }
   if (p.stats.regen > 0) p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.regen * DT);
@@ -850,7 +863,7 @@ function hitEnemy(s: SimState, e: Enemy, mult: number, p: Player | undefined, sk
   const amount = Math.max(1, Math.round(dmg));
   // Thorns elites hurt whoever hits them (at most twice a second)
   // thorns: a small sting at most once a second, capped at 4% of your life, so it can't race you to death
-  if (e.elite && e.affixes.includes("thorns") && (p.thornT ?? 0) <= 0) { p.thornT = 1; damagePlayer(s, p, Math.min((ENEMIES[e.kind]?.damage ?? 10) * e.dmgMult * 0.12, p.stats.maxHp * 0.04)); }
+  if (e.elite && e.affixes.includes("thorns") && (p.thornT ?? 0) <= 0) { p.thornT = 1; damagePlayer(s, p, Math.min((ENEMIES[e.kind]?.damage ?? 10) * e.dmgMult * 0.12, p.stats.maxHp * 0.04), `Thorns (${enemyName(e)})`); }
   if (o.kb && e.kind !== "guardian" && e.kind !== "king" && e.kind !== "pylon") {
     const res = e.kind === "brute" ? 0.35 : e.elite ? 0.5 : 1;
     e.kbx += (o.kx ?? 0) * o.kb * res; e.kby += (o.ky ?? 0) * o.kb * res;
@@ -908,8 +921,8 @@ function killEnemy(s: SimState, e: Enemy, pid: number, P: Num) {
     }
   }
   if (P.explodeOnKill) { const p = playerById(s, pid); explosion(s, e.x, e.y, 40, e.maxHp * P.explodeOnKill, 0, p, undefined); }
-  if (s.rift.mods.includes("volatile")) s.zones.push({ id: s.nextId++, x: e.x, y: e.y, r: 22, delay: 0.8, life: 0, dmg: ENEMIES[e.kind].damage * 1.2 * e.dmgMult, kind: "blast", tickT: 0, dead: false });
-  if (e.affixes.includes("molten")) s.zones.push({ id: s.nextId++, x: e.x, y: e.y, r: 40, delay: 1.0, life: 0, dmg: ENEMIES[e.kind].damage * 2 * e.dmgMult, kind: "blast", tickT: 0, dead: false });
+  if (s.rift.mods.includes("volatile")) s.zones.push({ id: s.nextId++, x: e.x, y: e.y, r: 22, delay: 0.8, life: 0, dmg: ENEMIES[e.kind].damage * 1.2 * e.dmgMult, kind: "blast", tickT: 0, dead: false, src: "Volatile (death blast)" });
+  if (e.affixes.includes("molten")) s.zones.push({ id: s.nextId++, x: e.x, y: e.y, r: 40, delay: 1.0, life: 0, dmg: ENEMIES[e.kind].damage * 2 * e.dmgMult, kind: "blast", tickT: 0, dead: false, src: `Molten (${enemyName(e)})` });
 }
 
 function grantXp(s: SimState, base: number) {
@@ -971,7 +984,12 @@ function dropFor(s: SimState, p: Player, x: number, y: number, extra: MintOpts) 
   s.events.push({ type: "drop", x, y, rarity: item.rarity, name: item.name, owner: p.pid, quality: item.quality });
 }
 
-function damagePlayer(s: SimState, p: Player, raw: number) {
+/** Who is hurting the hero right now: set while each enemy acts, so melee hits are labelled for the death recap. */
+let aiSrc = "";
+const enemyName = (e: Enemy) => (e.variant === "seraph" ? RIFT.seraph.name : e.variant ? guardianDef(e.variant).name : ENEMIES[e.kind]?.name ?? e.kind) + (e.elite ? " (elite)" : "");
+/** Respawn time cost: grows with each death in this run. */
+export const deathPenalty = (s: SimState, p: Player) => { const D = RIFT.deathPenalty; return Math.min(D.max, D.base + D.perDeath * Math.max(0, (p.deaths ?? 1) - 1)); };
+function damagePlayer(s: SimState, p: Player, raw: number, src = aiSrc) {
   if (p.dead || p.invuln > 0) return;
   const st = p.stats;
   const armor = st.armor * (1 + (p.buff.t > 0 ? p.buff.armorPct : 0) / 100);
@@ -981,6 +999,9 @@ function damagePlayer(s: SimState, p: Player, raw: number) {
   if ((p.colossusT ?? 0) > 0 && p.colossusSkill) dmg *= 1 - Math.min(90, p.sk[p.colossusSkill]?.p.takenPct ?? 0) / 100;
   dmg = Math.max(1, Math.round(dmg));
   p.hp -= dmg;
+  const log = (p.dmgLog ??= []);
+  log.push({ src: src || "Unknown", amt: dmg, t: s.rift.time });
+  while (log.length && (log.length > 40 || log[0].t < s.rift.time - RIFT.deathPenalty.recapSecs)) log.shift();
   p.combatT = 0; if (CLASSES[p.cls].resource.onHurt || st.flags.resOnHurt) gainRes(p, CLASSES[p.cls].resource.onHurt + (st.flags.resOnHurt ?? 0));
   s.events.push({ type: "playerHurt", pid: p.pid, amount: dmg });
   if (p.hp <= 0) {
@@ -989,11 +1010,14 @@ function damagePlayer(s: SimState, p: Player, raw: number) {
       s.events.push({ type: "cheatDeath", pid: p.pid });
       return;
     }
-    // each death in this rift waits longer before respawning: 4 s, 8 s, 12 s… up to 20 s
+    // dead: the run timer pauses while nobody is standing; respawning costs time, an ally's revive doesn't
     p.deaths = (p.deaths ?? 0) + 1;
-    const D = RIFT.deathPenalty;
-    p.hp = 0; p.dead = true; p.deadT = Math.min(D.max, D.base + D.perDeath * (p.deaths - 1)); p.dashT = 0;
-    s.events.push({ type: "playerDeath", pid: p.pid });
+    p.hp = 0; p.dead = true; p.deadT = RIFT.deathPenalty.minWait; p.reviveT = 0; p.dashT = 0;
+    const by: Record<string, number> = {};
+    for (const h of log) by[h.src] = (by[h.src] ?? 0) + h.amt;
+    const recap = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    s.events.push({ type: "playerDeath", pid: p.pid, killer: src || "Unknown", recap, penalty: s.rift.kind === "endless" ? 0 : deathPenalty(s, p) });
+    p.dmgLog = [];
     // Endless: the run ends when the whole party is down at once
     // Endless: the party shares a pool of lives (3, +1 per extra player); the run ends when it runs out
     if (s.rift.kind === "endless" && !s.rift.done && endlessLivesLeft(s) <= 0) endEndless(s);
@@ -1040,6 +1064,8 @@ function updateEnemies(s: SimState) {
     if (!e.aggro) continue;
     e.atkCd -= DT; e.t -= DT; e.age += DT;
     const def = ENEMIES[e.kind];
+    aiSrc = enemyName(e);
+    const z0 = s.zones.length, p0 = s.projectiles.length;
     if (e.elite) eliteAffixes(s, e, tgt, dist);
     const spd = (def?.speed ?? 0) * e.speedMult * (e.slowT > 0 ? 1 - e.slowPct / 100 : 1);
     switch (e.kind) {
@@ -1054,7 +1080,10 @@ function updateEnemies(s: SimState) {
       case "imp": aiImp(s, e, spd, dx, dy); break;
       case "pylon": break;
     }
+    for (let i = z0; i < s.zones.length; i++) s.zones[i].src ??= aiSrc;
+    for (let i = p0; i < s.projectiles.length; i++) if (s.projectiles[i].team === 1) s.projectiles[i].src ??= aiSrc;
   }
+  aiSrc = "";
   // separation: with many active enemies (Good Luck hordes) only pairs in nearby grid cells are checked
   const CELL = 24, gw = Math.ceil((s.map.w * s.map.ts) / CELL) + 3, useGrid = active.length >= 120;
   const grid = new Map<number, number[]>();
@@ -1528,7 +1557,7 @@ function updateProjectiles(s: SimState) {
       }
     } else if (pr.team === 1) {
       if (wall || pr.life <= 0) { pr.dead = true; continue; }
-      for (const p of s.players) if (!p.dead && p.invuln <= 0 && len(p.x - pr.x, p.y - pr.y) < p.r + pr.r) { damagePlayer(s, p, pr.dmg); pr.dead = true; break; }
+      for (const p of s.players) if (!p.dead && p.invuln <= 0 && len(p.x - pr.x, p.y - pr.y) < p.r + pr.r) { damagePlayer(s, p, pr.dmg, pr.src ?? "A projectile"); pr.dead = true; break; }
     }
   }
 }
@@ -1557,12 +1586,12 @@ function updateZones(s: SimState) {
       z.delay -= DT;
       if (z.delay > 0) continue;
       z.dead = true;
-      for (const p of s.players) if (!p.dead && len(p.x - z.x, p.y - z.y) < z.r + p.r) { damagePlayer(s, p, z.dmg); if (z.kind === "frost") p.chillT = 2; }
+      for (const p of s.players) if (!p.dead && len(p.x - z.x, p.y - z.y) < z.r + p.r) { damagePlayer(s, p, z.dmg, z.src ?? "A blast"); if (z.kind === "frost") p.chillT = 2; }
       s.events.push({ type: "slam", x: z.x, y: z.y, r: z.r, big: false });
     } else {
       z.life -= DT; z.tickT -= DT;
       if (z.life <= 0) { z.dead = true; continue; }
-      if (z.tickT <= 0) { z.tickT = 0.5; for (const p of s.players) if (!p.dead && len(p.x - z.x, p.y - z.y) < z.r + p.r) { damagePlayer(s, p, z.dmg * 0.5); if (z.kind === "mire") p.chillT = Math.max(p.chillT ?? 0, 0.8); } }
+      if (z.tickT <= 0) { z.tickT = 0.5; for (const p of s.players) if (!p.dead && len(p.x - z.x, p.y - z.y) < z.r + p.r) { damagePlayer(s, p, z.dmg * 0.5, z.src ?? "A pool"); if (z.kind === "mire") p.chillT = Math.max(p.chillT ?? 0, 0.8); } }
     }
   }
 }
@@ -1721,7 +1750,8 @@ function completeBounty(s: SimState) {
 function updateRift(s: SimState) {
   const r = s.rift;
   if (r.done) return;
-  r.time += DT;
+  // the clock stops while the whole party is down (solo: while you're dead)
+  if (r.kind === "hideout" || s.players.some((q) => !q.dead)) r.time += DT;
   if (!r.timeUpSent && r.time >= r.limit) { r.timeUpSent = true; s.events.push({ type: "timeUp" }); }
   if (r.kind === "hideout") return;
   if (r.kind === "endless") { updateEndless(s); return; }

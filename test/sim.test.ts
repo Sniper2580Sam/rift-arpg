@@ -10,6 +10,7 @@ function setup(pid: number, cls = "ashknight", level = 1, equipment: Holder["equ
 }
 function bot(s: SimState, pid: number, t: number): PlayerInput {
   const p = s.players.find((q) => q.pid === pid)!;
+  if (p.dead) return { ...NO_INPUT, cmds: p.deadT <= 0 ? [{ type: "respawn" }] : undefined };
   let target: { x: number; y: number } | null = null, best = 1e9;
   for (const e of s.enemies) { if (e.dead || (e.kind === "king" && e.state === "tomb" && s.enemies.some((o) => o.kind === "pylon" && !o.dead))) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < best) { best = d; target = e; } }
   for (const l of s.loot) { if (l.owner !== pid) continue; const d = Math.hypot(l.x - p.x, l.y - p.y); if (d < 80 && d < best) { best = d; target = l; } }
@@ -254,4 +255,29 @@ console.log("all legendaries, mythics and sets ran", Object.keys(CLASSES).length
   ok = ok && rollModifiers(7, 16).length === 4 && rollModifiers(7, 15).length === 3;
   ok = ok && lootChances(30).anc > lootChances(15).anc && lootChances(25).pri > lootChances(10).pri;
   if (!ok) { console.log("FAIL abyssal tiers"); proc.exit(1); } else console.log(`abyssal tiers ok (T20 life ×${Math.round(tierHpMult(20))}, T30 ×${Math.round(tierHpMult(30))})`);
+}
+
+{ // Death: the timer pauses while you're down (solo), Respawn costs time, an ally's revive is free, and the recap names the killer
+  const base: PlayerSetup = { pid: 0, name: "a", cls: "ashknight", level: 10, xp: 0, equipment: {}, bag: [], materials: 0, sigils: 0, runes: {}, pet: "none", filter: "common" };
+  const s = createSim({ seed: 4, tier: 3, players: [base] });
+  const p = s.players[0], e = s.enemies[0];
+  e.x = p.x + 8; e.y = p.y; e.aggro = true; p.hp = 1;
+  let death: any = null;
+  for (let t = 0; t < 30 * 10 && !death; t++) { step(s, { 0: NO_INPUT }); for (const ev of s.events) if (ev.type === "playerDeath") death = ev; }
+  const t0 = s.rift.time;
+  for (let t = 0; t < 30 * 3; t++) step(s, { 0: NO_INPUT });
+  const paused = s.rift.time === t0;
+  step(s, { 0: { ...NO_INPUT, cmds: [{ type: "respawn" }] } });
+  const penal = Math.round(s.rift.time - t0);
+  const s2 = createSim({ seed: 4, tier: 3, players: [base, { ...base, pid: 1, name: "b" }] });
+  const [a, b] = s2.players; for (const q of s2.enemies) q.dead = true;
+  a.hp = 1; a.invuln = 0; (s2 as any).enemies.push({ ...s.enemies[0] });
+  b.x = a.x; b.y = a.y;
+  // kill a directly through a hit
+  a.dead = true; a.deadT = 1; a.deaths = 1;
+  const tb = s2.rift.time;
+  let revived = false;
+  for (let t = 0; t < 30 * 3 && !revived; t++) { step(s2, { 0: NO_INPUT, 1: NO_INPUT }); for (const ev of s2.events) if (ev.type === "revived") revived = true; }
+  const ok = !!death && death.recap.length > 0 && death.killer !== "Unknown" && paused && penal === 10 && revived && !a.dead && s2.rift.time > tb;
+  if (!ok) { console.log("FAIL death rework", JSON.stringify({ death, paused, penal, revived })); proc.exit(1); } else console.log(`death rework ok (killed by ${death.killer}, respawn −${penal}s, revive free)`);
 }

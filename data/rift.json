@@ -261,9 +261,15 @@
     0.8
   ],
   "deathPenalty": {
-    "base": 4,
-    "perDeath": 4,
-    "max": 20
+    "base": 10,
+    "perDeath": 5,
+    "max": 30,
+    "minWait": 1,
+    "reviveTime": 2,
+    "reviveRange": 26,
+    "reviveHp": 0.5,
+    "recapSecs": 6,
+    "autoRespawn": 60
   },
   "tierJumps": [
     [

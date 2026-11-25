@@ -140,7 +140,7 @@ function beginRun(cfg: SimConfig, info: RunInfo, existing?: SimState) {
   const md = sim.rift.map ? MAP[sim.rift.map] : undefined;
   const hth = sim.rift.kind === "hideout" ? hideoutTheme(sim.rift.hideout?.theme) : undefined;
   mapCanvas = renderMap(sim.map.tiles, sim.map.w, sim.map.h, sim.map.ts, seed, hth ? { ...hth.map, pattern: hth.pattern } : md?.theme);
-  menuOpen = false; decorating = false; hideNear = null;
+  menuOpen = false; decorating = false; hideNear = null; hideDeath();
   miniCanvas = document.createElement("canvas");
   miniCanvas.width = sim.map.w; miniCanvas.height = sim.map.h;
   const m = miniCanvas.getContext("2d")!;
@@ -308,6 +308,22 @@ function openBoons() {
 function resume() { paused = false; input.enabled = true; riftButtons(); }
 function pause() { if (canFreeze()) paused = true; input.enabled = false; }
 /** Inventory and boon picks: applied directly when nobody else shares the sim, otherwise sent as a tick input. */
+/** Death panel: what killed you, the damage in your last seconds, and a Respawn button that costs rift time. */
+function showDeath(killer: string, recap: [string, number][], penalty: number) {
+  hideDeath();
+  const el = document.createElement("div"); el.id = "death"; el.className = "death";
+  const total = recap.reduce((a, [, n]) => a + n, 0) || 1, coopRun = !!sim && sim.players.length > 1;
+  const pen = run?.kind === "endless" ? "uses a life" : `−${penalty} s`;
+  el.innerHTML = `<b class="death-title">You fell</b><div class="dim small">Killing blow: ${esc(killer)}</div>
+    <div class="recap">${recap.map(([src, n]) => `<div class="rc-row"><span>${esc(src)}</span><span class="rc-bar"><i style="width:${Math.round((n / total) * 100)}%"></i></span><b>${n.toLocaleString("en-US")}</b></div>`).join("")}</div>
+    <div class="dim small">${coopRun ? "The timer runs while an ally is standing. An ally can revive you for free by standing on your marker." : "The timer is paused while you're down."}</div>
+    <button id="d-respawn" class="big" disabled>Respawn (${pen})</button>`;
+  document.body.appendChild(el);
+  const b = el.querySelector<HTMLButtonElement>("#d-respawn")!;
+  setTimeout(() => { b.disabled = false; }, RIFT.deathPenalty.minWait * 1000 + 50);
+  b.onclick = () => { b.disabled = true; playerCmd({ type: "respawn" }); if (sim && !me().dead) { hideDeath(); if (penalty && run?.kind !== "endless") showBanner("BACK IN", `−${penalty} s on the timer`, "#ffb0b0", 1.6); } };
+}
+function hideDeath() { document.getElementById("death")?.remove(); }
 function playerCmd(c: PlayerCmd) {
   if (!sim) return;
   if (canFreeze()) { if (applyPlayerCmd(sim, me(), c)) syncFromSim(profile, sim, ME); return; }
@@ -322,6 +338,7 @@ function openRiftInventory() {
 
 function endRun() {
   if (!sim || !run) return;
+  hideDeath();
   if (run.kind === "hideout") { saveProfile(profile); finishOnline(); leaveHideout(); goHub(); return; }
   const s = sim, p = me(), c = char(profile), T = RIFT.tiers;
   syncFromSim(profile, s, ME);
@@ -558,7 +575,9 @@ function handleEvent(e: SimEvent) {
       addShake(3); hurtFlash = 0.35; sfx.hurt();
       if (sim && nums.length < 70) { const p = me(); nums.push({ x: p.x, y: p.y - 14, text: "-" + e.amount, color: "#ff4a4a", size: 1, t: 0, vx: 0 }); }
       break;
-    case "playerDeath": if (mine(e.pid)) { sfx.death(); { const p = me(); showBanner("You fell", `Death ${p.deaths ?? 1} · back in ${Math.ceil(p.deadT)} s (each death adds 4 s)`, "#ff4a4a", Math.min(4, p.deadT)); } } break;
+    case "playerDeath": if (mine(e.pid)) { sfx.death(); showDeath(e.killer, e.recap, e.penalty); } else if (sim && sim.players.length > 1) showBanner(`${sim.players.find((q) => q.pid === e.pid)?.name ?? "An ally"} fell`, "Stand on their marker to revive them", "#ff8a8a", 2); break;
+    case "respawn": if (mine(e.pid)) { hideDeath(); if (e.penalty) showBanner("BACK IN", `−${e.penalty} s on the timer`, "#ffb0b0", 1.6); } break;
+    case "revived": if (mine(e.pid)) { hideDeath(); showBanner("REVIVED", `${sim?.players.find((q) => q.pid === e.by)?.name ?? "An ally"} picked you up · no penalty`, "#7dff9a", 2); } else if (mine(e.by)) showBanner("REVIVED", "No penalty for them", "#7dff9a", 1.4); break;
     case "cheatDeath": if (mine(e.pid)) { showBanner("THE LAST EMBER", "Death refused", "#ff3b6b", 2); flash = 0.4; flashColor = "#ff3b6b"; } break;
     case "slam": rings.push({ x: e.x, y: e.y, r: e.r, t: 0, max: 0.35, color: e.big ? "#ffd23f" : "#ff6a6a" }); addShake(e.big ? 6 : 3); sfx.slam(); burst(e.x, e.y, 12, ["#5c4a6e", "#8a7f66"], 90, 1, 0.5); break;
     case "explosion": { const v = fxOf(e.pid, e.skill); if (v) { rings.push({ x: e.x, y: e.y, r: e.r, t: 0, max: 0.35, color: v.main, fill: true }); fxParticles(v, e.x, e.y, 20, 120); addShake(2.5); sfx.explosion(); break; } }
@@ -822,7 +841,7 @@ function render(alpha: number, dt: number) {
     for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `T${bossTier()} · ${char(profile).feathers ?? 0} feathers` : `T${bossTier()} · ${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : po.kind === "trial" ? `trial ${nextTrial(char(profile).trialBest)}` : po.kind === "vault" ? `${char(profile).vaultKeys ?? 0} keys` : `tier ${Math.min(ui.tier, char(profile).highestTier)}`) }); }
   }
   for (const q of s.players) {
-    if (q.dead) continue;
+    if (q.dead) { list.push({ y: q.y, f: () => drawFallen(g, q, q.x, q.y, t) }); continue; }
     const qx = lerp(q.px, q.x, alpha), qy = lerp(q.py, q.y, alpha);
     list.push({ y: qy, f: () => drawHero(g, q, qx, qy, t) });
     const pt = pets.get(q.pid);
@@ -1075,6 +1094,19 @@ function hpOverHead(g: CanvasRenderingContext2D, p: Player, x: number, y: number
   g.fillStyle = k > 0.5 ? "#5ee06a" : k > 0.25 ? "#ffd23f" : "#ff4a4a"; g.fillRect(bx, by, Math.round(w * k), 2);
 }
 
+/** A fallen hero: a grave marker, and in co-op a ring that fills while an ally stands on it to revive them. */
+function drawFallen(g: CanvasRenderingContext2D, p: Player, x: number, y: number, t: number) {
+  shadow(g, x, y, 5);
+  g.fillStyle = "#140c1c"; g.fillRect(Math.round(x) - 3, Math.round(y) - 11, 6, 11); g.fillRect(Math.round(x) - 5, Math.round(y) - 8, 10, 3);
+  g.fillStyle = "#c9b8ff"; g.fillRect(Math.round(x) - 2, Math.round(y) - 10, 4, 9); g.fillRect(Math.round(x) - 4, Math.round(y) - 7, 8, 1);
+  if (sim && sim.players.length > 1) {
+    const D = RIFT.deathPenalty, k = Math.min(1, (p.reviveT ?? 0) / D.reviveTime);
+    g.globalAlpha = 0.35 + 0.2 * Math.sin(t * 5); g.strokeStyle = "#7dff9a"; g.beginPath(); g.ellipse(x, y, D.reviveRange, D.reviveRange * 0.5, 0, 0, Math.PI * 2); g.stroke();
+    if (k > 0) { g.globalAlpha = 0.9; g.lineWidth = 2; g.beginPath(); g.ellipse(x, y, D.reviveRange, D.reviveRange * 0.5, 0, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke(); g.lineWidth = 1; }
+    g.globalAlpha = 1;
+  }
+}
+
 function drawPet(g: CanvasRenderingContext2D, q: Player, pt: { x: number; y: number; flip: boolean }, t: number) {
   shadow(g, pt.x, pt.y, 3);
   drawPetCos(g, bank, q.pet, q.cos?.petSkin, pt.x, pt.y, pt.flip, t, emitFx);
@@ -1280,7 +1312,7 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
     }
     c.globalAlpha = 1;
   }
-  if (p.dead) { c.fillStyle = "rgba(60,0,0,0.35)"; c.fillRect(0, 0, W, H); c.textAlign = "center"; c.fillStyle = "#ffb0b0"; c.font = font(16); c.fillText(`Respawn in ${Math.ceil(p.deadT)}`, W / 2, H * 0.62); c.textAlign = "left"; }
+  if (p.dead) { c.fillStyle = "rgba(60,0,0,0.35)"; c.fillRect(0, 0, W, H); }
   if (hurtFlash > 0) {
     const gr = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
     gr.addColorStop(0, "rgba(255,0,0,0)"); gr.addColorStop(1, `rgba(255,0,0,${hurtFlash})`);
