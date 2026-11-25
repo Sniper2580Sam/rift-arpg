@@ -130,7 +130,7 @@ export const TALENTS = talentsJson as unknown as { note: string; classes: Record
 // ------------------------------------------------------------------ tier scaling (shared by the sim, the server and the menus)
 /** Abyssal tiers (16+): a 4th rift modifier, more elites, better ancestral and primal odds. */
 export const isAbyssal = (t: number) => t >= RIFT.tiers.abyssFrom;
-/** Enemy life multiplier: steep to tier 20, gentler from 21 to 30. */
+/** Enemy life multiplier: doubles every 5 tiers up to steepUntil (the top tier, 50), gentler past it. */
 export function tierHpMult(t: number) {
   const T = RIFT.tiers, a = Math.min(t, T.steepUntil) - 1, b = Math.max(0, t - T.steepUntil);
   return Math.pow(T.hpGrowth, a) * Math.pow(T.hpGrowthHigh, b) * (t === 1 ? T.tier1Hp ?? 1 : 1);

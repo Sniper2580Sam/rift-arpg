@@ -148,8 +148,8 @@
     "inTimeLegendary": true
   },
   "tiers": {
-    "max": 30,
-    "steepUntil": 30,
+    "max": 50,
+    "steepUntil": 50,
     "hpGrowthHigh": 1.2,
     "dmgGrowthHigh": 1.08,
     "abyssFrom": 16,

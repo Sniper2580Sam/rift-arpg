@@ -316,3 +316,7 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 ## 2026-11-25: Co-op playtest fixes (Samuel: boss didn't spawn after a full clear; leaving the app drops players)
 - **Guardian progress**: small maps (Catacombs) spawned only about 60% of the progress needed, so the rest had to come from ambush waves. The need is now capped at 85% of what spawns (`progressCap`), and if nothing that counts is left alive the guardian opens anyway. Test: a full clear fills the bar on every map, tier and mod set.
 - **Rejoin**: when the link drops (a phone sends the app to the background), a guest keeps retrying the same room for 2 minutes and gets its old seat back (matched by a per-session token), rejoining the run from a snapshot. The host re-registers its room code when the app comes back. Hosting on Cloudflare doesn't change this: the TURN relay only helps phones on different networks connect.
+
+## 2026-11-25: Tiers to 50 (Samuel: "Extend to T50, same curve")
+- Samuel was clearing T20 at level 24, and T30 was only about 4x T20's enemy life, so a geared hero would run out of tiers. Tiers now go to 50, with enemy life still doubling every 5 tiers (T30 ×56, T50 ×892 vs T1) and damage still +8.45% per tier.
+- Abyssal rewards keep growing: primal chance keeps rising per tier (about 3.9% at T50), ancestral reaches its 40% Abyssal cap around T35. Untested with a fully geared hero.
