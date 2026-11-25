@@ -66,7 +66,7 @@ export function capRarity(k: Rarity, level: number | undefined): Rarity {
 
 function rollRarity(r: Rng, o: MintOpts): Rarity {
   const tier = o.tier ?? 1;
-  const grow = 1 + RIFT.tiers.legendaryGrowth * (tier - 1);
+  const grow = 1 + RIFT.tiers.legendaryGrowth * (Math.min(tier, RIFT.tiers.legendaryGrowthUntil ?? tier) - 1); // stops growing at T50: past it, ancestrals and primals are the reward
   const table = Object.entries(ITEMS.rarities).map(([k, v]) => ({
     k: k as Rarity,
     w: (k === "legendary" || k === "set" ? v.weight * grow * (o.legendaryWeightMult ?? 1) : k === "common" ? v.weight / Math.max(1, tier * 0.5) : v.weight) * rarityLevelMult(k as Rarity, o.level),

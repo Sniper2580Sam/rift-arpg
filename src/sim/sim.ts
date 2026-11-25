@@ -1700,6 +1700,9 @@ function updateLoot(s: SimState) {
 const ITEMS_EQUIP_SLOTS: string[] = (ITEMS as any).equipSlots;
 /** Packs that can appear on this tier (Bone Hounds join from tier 4). */
 const packsFor = (tier: number) => RIFT.packs.filter((p) => ((p as { minTier?: number }).minTier ?? 1) <= tier);
+/** Pity only pays out on tiers where that quality can drop. */
+const pityAnc = (s: SimState, p: { ancestral?: boolean }) => !!p.ancestral && s.rift.tier >= RIFT.tiers.ancestralFrom;
+const pityPri = (s: SimState, p: { primal?: boolean }) => !!p.primal && s.rift.tier >= RIFT.tiers.primalFrom;
 function tierDensity(tier: number) { const d = (RIFT as any).densityByTier as number[] | undefined; return d?.[tier - 1] ?? 1; }
 
 function ambush(s: SimState) {
@@ -1796,7 +1799,7 @@ function completeBounty(s: SimState) {
     const pity = s.pity[p.pid] ?? {};
     for (let i = 0; i < B.items; i++) {
       const d = DIR_TABLE[Math.floor((i * 32) / B.items) % 32];
-      dropFor(s, p, p.x + d[0] * 20, p.y + d[1] * 20, i === 0 ? { rarity: chance(s.rng, 0.3) ? "set" : "legendary", forceAncestral: !!pity.ancestral, forcePrimal: !!pity.primal } : { legendaryWeightMult: 4 });
+      dropFor(s, p, p.x + d[0] * 20, p.y + d[1] * 20, i === 0 ? { rarity: chance(s.rng, 0.3) ? "set" : "legendary", forceAncestral: pityAnc(s, pity), forcePrimal: pityPri(s, pity) } : { legendaryWeightMult: 4 });
     }
   }
   for (const e of s.enemies) if (!e.dead) { e.dead = true; s.events.push({ type: "kill", x: e.x, y: e.y, kind: e.kind, elite: e.elite }); }
@@ -1962,7 +1965,7 @@ function endEndless(s: SimState) {
     const legs = Math.min(n, Math.floor(w / R.legendaryPerWaves));
     for (let i = 0; i < n; i++) {
       const d = DIR_TABLE[Math.floor((i * 32) / n) % 32];
-      const extra: MintOpts = i < legs ? { rarity: chance(s.rng, 0.3) ? "set" : "legendary", forceAncestral: i === 0 && !!pity.ancestral, forcePrimal: i === 0 && !!pity.primal } : { legendaryWeightMult: 2 + w / 5 };
+      const extra: MintOpts = i < legs ? { rarity: chance(s.rng, 0.3) ? "set" : "legendary", forceAncestral: i === 0 && pityAnc(s, pity), forcePrimal: i === 0 && pityPri(s, pity) } : { legendaryWeightMult: 2 + w / 5 };
       dropFor(s, p, p.x + d[0] * 20, p.y + d[1] * 20, extra);
     }
     if (w >= R.sigilFromWave && chance(s.rng, RIFT.tiers.sigilChance * 2)) { p.sigils++; s.events.push({ type: "sigil", pid: p.pid }); }
@@ -2008,7 +2011,7 @@ function completeRift(s: SimState, g: Enemy) {
       let x = g.x + d[0] * 22, y = g.y + d[1] * 22;
       if (isWall(s.map, x, y)) { x = g.x; y = g.y; }
       const first = i === 0 && inTime && gr.inTimeLegendary;
-      const extra: MintOpts = first ? { rarity: chance(s.rng, 0.3) ? "set" : "legendary", forceAncestral: !!pity.ancestral, forcePrimal: !!pity.primal } : { legendaryWeightMult: 4 };
+      const extra: MintOpts = first ? { rarity: chance(s.rng, 0.3) ? "set" : "legendary", forceAncestral: pityAnc(s, pity), forcePrimal: pityPri(s, pity) } : { legendaryWeightMult: 4 };
       dropFor(s, p, x, y, extra);
     }
     if (r.tier >= RIFT.tiers.sigilFrom && chance(s.rng, RIFT.tiers.sigilChance)) { p.sigils++; s.events.push({ type: "sigil", pid: p.pid }); }

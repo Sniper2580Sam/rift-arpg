@@ -252,7 +252,7 @@ export class UI {
   /** The difficulty picker: one tier for rifts, bounties, Endless, bosses and the Vault (saved on the character). */
   tierRowHtml(c: CharSave) {
     const t = this.tier, T = RIFT.tiers;
-    const hp = tierHpMult(t), leg = 1 + T.legendaryGrowth * (t - 1);
+    const hp = tierHpMult(t), leg = 1 + T.legendaryGrowth * (Math.min(t, T.legendaryGrowthUntil) - 1);
     const anc = lootChances(t).anc;
     return `<div class="tier-row">
         <button id="t-down" aria-label="Lower tier">−</button>

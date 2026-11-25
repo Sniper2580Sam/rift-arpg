@@ -130,7 +130,7 @@ export const TALENTS = talentsJson as unknown as { note: string; classes: Record
 // ------------------------------------------------------------------ tier scaling (shared by the sim, the server and the menus)
 /** Abyssal tiers (16+): a 4th rift modifier, more elites, better ancestral and primal odds. */
 export const isAbyssal = (t: number) => t >= RIFT.tiers.abyssFrom;
-/** Enemy life multiplier: doubles every 5 tiers up to steepUntil (the top tier, 50), gentler past it. */
+/** Enemy life multiplier: doubles every 5 tiers up to steepUntil (the top tier, 100), gentler past it. */
 export function tierHpMult(t: number) {
   const T = RIFT.tiers, a = Math.min(t, T.steepUntil) - 1, b = Math.max(0, t - T.steepUntil);
   return Math.pow(T.hpGrowth, a) * Math.pow(T.hpGrowthHigh, b) * (t === 1 ? T.tier1Hp ?? 1 : 1);
@@ -143,7 +143,7 @@ export function tierDmgMult(t: number) {
 export function lootChances(t: number) {
   const T = RIFT.tiers;
   const anc = t >= T.ancestralFrom ? Math.min(isAbyssal(t) ? T.abyssAncestralCap : T.ancestralCap, T.ancestralBase + T.ancestralPerTier * (t - T.ancestralFrom)) : 0;
-  const pri = t >= T.primalFrom ? T.primalChance * (1 + T.abyssPrimalPerTier * Math.max(0, t - T.abyssFrom + 1)) : 0;
+  const pri = t >= T.primalFrom ? T.primalChance * (1 + T.primalPerTier * (t - T.primalFrom)) : 0;
   return { anc, pri };
 }
 /** Runes unlock by character level: the first when the skill unlocks, the last at the level cap, the rest spread between. */

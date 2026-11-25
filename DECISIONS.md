@@ -320,3 +320,9 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 ## 2026-11-25: Tiers to 50 (Samuel: "Extend to T50, same curve")
 - Samuel was clearing T20 at level 24, and T30 was only about 4x T20's enemy life, so a geared hero would run out of tiers. Tiers now go to 50, with enemy life still doubling every 5 tiers (T30 ×56, T50 ×892 vs T1) and damage still +8.45% per tier.
 - Abyssal rewards keep growing: primal chance keeps rising per tier (about 3.9% at T50), ancestral reaches its 40% Abyssal cap around T35. Untested with a fully geared hero.
+
+## 2026-11-25: Tiers to 100, ancestrals from T30, primals from T70 (Samuel)
+- Samuel: "go up to T100 with the same curve. Primal should only start dropping around 70 with ancestral somewhere between max level of character and primal." Read as: ancestrals from T30 (the level cap), primals from T70.
+- Enemy life still doubles every 5 tiers: T50 ×892, T100 about ×900,000 vs T1. Enemy damage +8.45% per tier (T100 about ×3,000). Balance flag: hero power has to grow that far too; untested past T25 with real gear.
+- Ancestral chance: 5% at T30, +1% per tier, Abyssal cap 40% (reached at T65). Primal: 0.5% at T70, +10% of that per tier (2% at T100). Pity counters only count runs on tiers where that quality drops, and now only pay out there. The Pale Seraph still guarantees its two ancestral items at any tier, and Hallows still make an item ancestral.
+- Legendary odds stop growing at T50 (×8.35); without the cap, T100 drops would be about 63% legendary or set.

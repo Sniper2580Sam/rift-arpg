@@ -249,16 +249,17 @@ console.log("all legendaries, mythics and sets ran", Object.keys(CLASSES).length
   if (bad.length) { console.log("FAIL runes:", bad.join(", ")); proc.exit(1); } else console.log(`all ${runs} runes ran`);
 }
 
-{ // Abyssal tiers: life keeps doubling every 5 tiers up to 50, 4 modifiers from 16, better ancestral odds
+{ // Tiers to 100: life keeps doubling every 5 tiers, 4 modifiers from 16, ancestrals from T30, primals from T70
   const { tierHpMult, lootChances, RIFT } = require("../src/sim/data");
   const { rollModifiers } = require("../src/sim/sim");
   const T = RIFT.tiers;
-  let ok = T.max === 50;
-  for (let t = 2; t <= 50; t++) if (!(tierHpMult(t) > tierHpMult(t - 1))) ok = false;
-  ok = ok && Math.abs(tierHpMult(11) / tierHpMult(6) - 2) < 0.01 && Math.abs(tierHpMult(50) / tierHpMult(45) - 2) < 0.01; // doubles every 5 tiers
+  let ok = T.max === 100;
+  for (let t = 2; t <= 100; t++) if (!(tierHpMult(t) > tierHpMult(t - 1)) || !isFinite(tierHpMult(t))) ok = false;
+  ok = ok && Math.abs(tierHpMult(11) / tierHpMult(6) - 2) < 0.01 && Math.abs(tierHpMult(100) / tierHpMult(95) - 2) < 0.01; // doubles every 5 tiers
   ok = ok && rollModifiers(7, 16).length === 4 && rollModifiers(7, 15).length === 3;
-  ok = ok && lootChances(30).anc > lootChances(15).anc && lootChances(25).pri > lootChances(10).pri && lootChances(50).pri > lootChances(30).pri;
-  if (!ok) { console.log("FAIL abyssal tiers"); proc.exit(1); } else console.log(`abyssal tiers ok (T20 life ×${Math.round(tierHpMult(20))}, T30 ×${Math.round(tierHpMult(30))}, T50 ×${Math.round(tierHpMult(50))})`);
+  ok = ok && lootChances(29).anc === 0 && lootChances(30).anc > 0 && lootChances(60).anc > lootChances(30).anc;
+  ok = ok && lootChances(69).pri === 0 && lootChances(70).pri > 0 && lootChances(100).pri > lootChances(70).pri;
+  if (!ok) { console.log("FAIL tier ladder"); proc.exit(1); } else console.log(`tier ladder ok (T30 life ×${Math.round(tierHpMult(30))}, T50 ×${Math.round(tierHpMult(50))}, T100 ×${Math.round(tierHpMult(100))}; ancestral T30 ${lootChances(30).anc}, T65 ${lootChances(65).anc}; primal T70 ${lootChances(70).pri}, T100 ${lootChances(100).pri.toFixed(3)})`);
 }
 
 { // Death: the timer pauses while you're down (solo), Respawn costs time, an ally's revive is free, and the recap names the killer
