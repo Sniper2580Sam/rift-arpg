@@ -43,7 +43,16 @@ jobs:
           terraform init -input=false \
             -backend-config="bucket=$STATE_BUCKET" \
             -backend-config="endpoints={s3=\"https://$CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com\"}"
-          # the relay key only exists after the relay app is created, and Pages needs it as a known value
-          terraform apply -input=false -auto-approve -target=cloudflare_calls_turn_app.relay
           terraform apply -input=false -auto-approve
           echo "Game URL: $(terraform output -raw url)" >> "$GITHUB_STEP_SUMMARY"
+      - name: TURN relay key (made once, stored as Pages secrets)
+        if: steps.ready.outputs.go == '1'
+        run: |
+          if npx --yes wrangler@3 pages secret list --project-name riftbound 2>/dev/null | grep -q TURN_KEY_API_TOKEN; then echo "relay key already set"; exit 0; fi
+          r=$(curl -fsS -X POST -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" \
+            -d '{"name":"riftbound-relay"}' https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/calls/turn_keys)
+          uid=$(echo "$r" | jq -r .result.uid); key=$(echo "$r" | jq -r .result.key)
+          echo "::add-mask::$key"
+          printf %s "$uid" | npx --yes wrangler@3 pages secret put TURN_KEY_ID --project-name riftbound
+          printf %s "$key" | npx --yes wrangler@3 pages secret put TURN_KEY_API_TOKEN --project-name riftbound
+          echo "Relay key set." >> "$GITHUB_STEP_SUMMARY"
