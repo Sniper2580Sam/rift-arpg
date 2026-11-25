@@ -2,7 +2,7 @@
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
 import { isAbyssal, lootChances, tierDmgMult, tierHpMult, GEM, GEMS, gemCap, BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , GUARDIANS, ParagonStat, paragonXp, GuardianDef, guardianDef, MAP, MAPS, MapDef, ITEMS, HideoutLayout, hideoutTheme } from "./data";
 import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, equipTarget, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue, shardValue } from "./items";
-import { TileMap, flowField, genArena, genCave, genHideout, genLinear, genOpen, genRing, genRooms, moveWithWalls, unstick } from "./map";
+import { TileMap, flowField, flowFieldWide, genArena, genCave, genHideout, genLinear, genOpen, genRing, genRooms, moveWithWalls, unstick } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
 import { DIR_TABLE, len, norm, rotFine } from "./vec";
 
@@ -53,7 +53,7 @@ export interface Player extends Holder {
   gems: Record<string, number>; gemSlots: string[]; relics: string[]; talents: Record<string, number>; passives: string[];
   /** life-on-hit healed in the current second (capped, so many-hit skills can't out-heal everything) */
   leech: number;
-  invuln: number; deaths?: number; chillT?: number; thornT?: number; dead: boolean; deadT: number; /** revive progress from a nearby ally (seconds) */ reviveT?: number; /** recent hits for the death recap */ dmgLog?: { src: string; amt: number; t: number }[]; buff: Buff; boons: string[]; cheatT: number;
+  invuln: number; deaths?: number; chillT?: number; thornT?: number; dead: boolean; deadT: number; /** revive progress from a nearby ally (seconds) */ reviveT?: number; /** a self-buff skill that is running (visual only) */ aura?: string; auraT?: number; /** recent hits for the death recap */ dmgLog?: { src: string; amt: number; t: number }[]; buff: Buff; boons: string[]; cheatT: number;
   stats: Stats; sk: Record<string, ResolvedSkill>; uses: Num; connected: boolean;
   /** class resource (Embers / Focus / Mana) and seconds since the last hit dealt or taken */
   res: number; combatT: number;
@@ -156,7 +156,7 @@ export interface SimState {
   nextId: number; itemCounter: number; startX: number; startY: number;
   rift: RiftState; boonOffers: Record<number, string[]>; /** offers earned while another was still unopened */ boonPending: Record<number, number>; pity: NonNullable<SimConfig["pity"]>;
   events: SimEvent[];
-  _flows: Int16Array[]; _flowTick: number;
+  _flows: Int16Array[]; _flowTick: number; /** wall-shy fields for bosses, built only while one is active */ _wide?: Int16Array[];
 }
 
 // ------------------------------------------------------------------ setup
@@ -362,7 +362,8 @@ export function step(s: SimState, inputs: Record<number, PlayerInput>, host?: Ho
   for (const p of s.players) updatePlayer(s, p, inputs[p.pid] ?? NO_INPUT);
   updatePending(s);
   if (s._flowTick + 8 <= s.tick) {
-    s._flows = s.players.map((p) => flowField(s.map, p.x, p.y, 40));
+    s._flows = s.players.map((p) => flowField(s.map, p.x, p.y, 60));
+    s._wide = s.enemies.some((e) => !e.dead && e.aggro && e.r >= 10) ? s.players.map((p) => flowFieldWide(s.map, p.x, p.y)) : undefined;
     s._flowTick = s.tick;
   }
   updateEnemies(s);
@@ -463,6 +464,7 @@ function updatePlayer(s: SimState, p: Player, inp: PlayerInput) {
     } else p.chargeT[id] = sk.p.cooldown * cm;
   }
   if (p.buff.t > 0) p.buff.t -= DT;
+  if ((p.auraT ?? 0) > 0) { p.auraT! -= DT; if (p.auraT! <= 0) p.aura = undefined; }
   if (p.cheatT > 0) p.cheatT -= DT;
   if ((p.colossusT ?? 0) > 0) { p.colossusT! -= DT; if (p.colossusT! <= 0 || p.dead) { p.colossusT = 0; s.events.push({ type: "cast", pid: p.pid, skill: "colossus_end", x: p.x, y: p.y }); } }
   if (p.dead) {
@@ -633,6 +635,7 @@ function castShout(s: SimState, p: Player, sk: ResolvedSkill) {
       t: Math.max(q.buff.t, P.duration),
     };
     if (P.healPct) heal(q, q.stats.maxHp * P.healPct);
+    if (P.selfOnly && q === p && P.duration) { q.aura = sk.id; q.auraT = P.duration; }
   }
   for (const e of s.enemies) {
     if (e.dead || len(e.x - p.x, e.y - p.y) > P.radius + e.r) continue;
@@ -1154,15 +1157,29 @@ function eliteAffixes(s: SimState, e: Enemy, p: Player, dist: number) {
   }
 }
 
+/** Can a body of radius r walk straight from a to b without touching a wall? */
+function clearLine(m: TileMap, ax: number, ay: number, bx: number, by: number, r: number) {
+  const d = len(bx - ax, by - ay), n = Math.ceil(d / (m.ts / 2));
+  for (let i = 1; i <= n; i++) {
+    const x = ax + ((bx - ax) * i) / n, y = ay + ((by - ay) * i) / n;
+    if (isWall(m, x, y) || isWall(m, x + r * 0.7, y) || isWall(m, x - r * 0.7, y) || isWall(m, x, y + r * 0.7) || isWall(m, x, y - r * 0.7)) return false;
+  }
+  return true;
+}
 function chase(s: SimState, e: Enemy, p: Player, speed: number, dx: number, dy: number, dist: number) {
   let mx = dx, my = dy;
-  const f = s._flows[s.players.indexOf(p)], m = s.map;
-  if (f && dist > 36) {
+  const big = e.r >= 10, m = s.map, pi = s.players.indexOf(p);
+  const wide = big ? s._wide?.[pi] : undefined;
+  const f = wide && wide[Math.floor(e.y / m.ts) * m.w + Math.floor(e.x / m.ts)] > 0 ? wide : s._flows[pi];
+  // bosses follow the path even up close unless they can walk straight at you
+  if (f && (dist > 36 || (big && !clearLine(m, e.x, e.y, p.x, p.y, e.r)))) {
     const tx = Math.floor(e.x / m.ts), ty = Math.floor(e.y / m.ts);
     const here = f[ty * m.w + tx];
     if (here > 0) {
       let best = here, bx = 0, by = 0;
-      for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      // 8 directions (a diagonal only when both sides are open), so paths round corners instead of zig-zagging
+      for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
+        if (ox && oy && (f[ty * m.w + tx + ox] < 0 || f[(ty + oy) * m.w + tx] < 0)) continue;
         const v = f[(ty + oy) * m.w + tx + ox];
         if (v >= 0 && v < best) { best = v; bx = ox; by = oy; }
       }
@@ -1985,7 +2002,7 @@ function gemRewards(s: SimState, p: Player, inTime: boolean) {
 
 /** Stable hash of the gameplay state (determinism test; later netcode desync checks). */
 export function stateHash(s: SimState): string {
-  const { events, _flows, _flowTick, ...rest } = s;
+  const { events, _flows, _flowTick, _wide, ...rest } = s;
   const str = JSON.stringify(rest, (k, v) => (k === "stats" || k === "sk" ? undefined : v));
   let h = 2166136261;
   for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }

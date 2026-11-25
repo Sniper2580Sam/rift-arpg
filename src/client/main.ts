@@ -1082,10 +1082,49 @@ function drawHero(g: CanvasRenderingContext2D, p: Player, x: number, y: number, 
   if (p.buff.t > 0) { g.globalAlpha = 0.3 + 0.1 * Math.sin(t * 8); g.strokeStyle = p.buff.armorPct ? "#ffd23f" : "#7dff9a"; g.beginPath(); g.ellipse(x, y, 9, 4, 0, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1; }
   if (p.invuln > 0 && p.dashT <= 0 && Math.floor(t * 15) % 2 === 0) g.globalAlpha = 0.5;
   const swingK = p.cls === "ashknight" ? Math.max(0, p.swingT / (p.sk.cleave?.p.interval || 0.38)) : 0;
+  const au = p.aura ? AURA[p.aura] : undefined, ending = (p.auraT ?? 0) < 1.5 && Math.floor(t * 8) % 2 === 0;
+  if (au && !ending) auraBack(g, au, x, y, t);
+  // a running self-buff makes the hero bigger (drawn scaled around the feet)
+  const sc = au && !ending ? au.scale : 1;
+  if (sc !== 1) { g.save(); g.translate(x, y); g.scale(sc, sc); g.translate(-x, -y); }
+  if (au?.fade && !ending) g.globalAlpha = Math.min(g.globalAlpha, au.fade);
   const fr = drawHeroCos(g, bank, { pid: p.pid, cls: p.cls, cos: p.cos ?? {}, fx: p.fx, fy: p.fy, moving: p.moving, walk: p.walk, swingK }, x, y, t, emitFx);
+  if (au?.tint && !ending) { g.globalAlpha = 0.25 + 0.12 * Math.sin(t * 10); drawSprite(g, fr, x, y, p.fx < 0, true); g.globalAlpha = 1; }
   if (p.pid === ME && hurtFlash > 0.2) { g.globalAlpha = 0.6; drawSprite(g, fr, x, y, p.fx < 0, true); }
+  if (sc !== 1) g.restore();
   g.globalAlpha = 1;
+  if (au && !ending) auraFront(g, au, x, y - fr.h * sc / 2, t);
   if (profile.settings.hpbar && !p.dead) hpOverHead(g, p, x, y - fr.h - 3);
+}
+/** Self-buff looks: each buff skill changes the hero while it runs (size, glow, particles) in its own theme. */
+type Aura = { color: string; glow: string; scale: number; tint?: boolean; fade?: number; ring?: boolean; bubble?: boolean; sparks?: "bolt" | "ember" | "smoke" | "steel" | "spark" | "bone" };
+const AURA: Record<string, Aura> = {
+  storm_avatar: { color: "#5fb0ff", glow: "#bfe8ff", scale: 1.3, tint: true, sparks: "bolt" },
+  phoenix_form: { color: "#ff8a1f", glow: "#ffd23f", scale: 1.2, tint: true, sparks: "ember" },
+  iron_skin: { color: "#c9ced8", glow: "#ffffff", scale: 1.1, tint: true, ring: true, sparks: "steel" },
+  mana_shield: { color: "#7a8cff", glow: "#c9b8ff", scale: 1, bubble: true, sparks: "spark" },
+  smoke_veil: { color: "#5a4e6a", glow: "#9a8aaa", scale: 1, fade: 0.55, sparks: "smoke" },
+  overcharge: { color: "#ffd23f", glow: "#fff0a0", scale: 1.1, tint: true, sparks: "spark" },
+  night_hunt: { color: "#7dff9a", glow: "#c8ffd0", scale: 1.1, tint: true, sparks: "spark" },
+};
+function auraBack(g: CanvasRenderingContext2D, a: Aura, x: number, y: number, t: number) {
+  const r = 10 * a.scale;
+  const gr = g.createRadialGradient(x, y - r, 1, x, y - r, r * 1.8);
+  gr.addColorStop(0, a.glow + "88"); gr.addColorStop(1, a.color + "00");
+  g.fillStyle = gr; g.beginPath(); g.arc(x, y - r, r * 1.8, 0, Math.PI * 2); g.fill();
+  if (a.ring) { g.globalAlpha = 0.5 + 0.2 * Math.sin(t * 6); g.strokeStyle = a.glow; g.beginPath(); g.ellipse(x, y, 11, 4.5, 0, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1; }
+}
+function auraFront(g: CanvasRenderingContext2D, a: Aura, x: number, cy: number, t: number) {
+  if (a.bubble) { g.globalAlpha = 0.35 + 0.15 * Math.sin(t * 4); g.strokeStyle = a.glow; g.lineWidth = 1.5; g.beginPath(); g.arc(x, cy, 13, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 0.12; g.fillStyle = a.color; g.fill(); g.lineWidth = 1; g.globalAlpha = 1; }
+  if (particles.length > 300) return;
+  const rnd = Math.random;
+  if (a.sparks === "bolt" && rnd() < 0.35) { // little lightning forks around the body
+    const a0 = rnd() * Math.PI * 2, r0 = 8 + rnd() * 6; g.strokeStyle = rnd() < 0.5 ? a.glow : "#ffffff"; g.beginPath(); g.moveTo(x + Math.cos(a0) * r0, cy + Math.sin(a0) * r0);
+    g.lineTo(x + Math.cos(a0 + 0.3) * (r0 + 5) + (rnd() - 0.5) * 4, cy + Math.sin(a0 + 0.3) * (r0 + 5)); g.lineTo(x + Math.cos(a0 + 0.1) * (r0 + 10), cy + Math.sin(a0 + 0.1) * (r0 + 10)); g.stroke();
+  }
+  if (a.sparks === "ember" && rnd() < 0.6) particles.push({ x: x + (rnd() - 0.5) * 14, y: cy + 6, vx: (rnd() - 0.5) * 10, vy: -30 - rnd() * 20, life: 0.6, max: 0.6, color: rnd() < 0.5 ? a.color : a.glow, size: 1, grav: 0 });
+  if (a.sparks === "smoke" && rnd() < 0.4) particles.push({ x: x + (rnd() - 0.5) * 16, y: cy + 4, vx: (rnd() - 0.5) * 8, vy: -8, life: 0.9, max: 0.9, color: rnd() < 0.5 ? a.color : a.glow, size: 2, grav: 0 });
+  if ((a.sparks === "spark" || a.sparks === "steel") && rnd() < 0.3) particles.push({ x: x + (rnd() - 0.5) * 18, y: cy + (rnd() - 0.5) * 18, vx: 0, vy: -6, life: 0.4, max: 0.4, color: a.glow, size: 1, grav: 0 });
 }
 /** Optional life bar over each hero's head (Settings). */
 function hpOverHead(g: CanvasRenderingContext2D, p: Player, x: number, y: number) {
@@ -1353,13 +1392,14 @@ function afterStep() {
   if (sim) for (const q of sim.players) if (q.dashT > 0) ghosts.push({ x: q.x, y: q.y, t: 0, flip: q.fx < 0, cls: q.cls });
 }
 function snapOf(s: SimState) {
-  const { map, events, _flows, ...rest } = s;
-  return { ...rest, _flows: _flows.map((f) => Array.from(f)) };
+  const { map, events, _flows, _wide, ...rest } = s;
+  return { ...rest, _flows: _flows.map((f) => Array.from(f)), _wide: _wide?.map((f) => Array.from(f)) };
 }
 function restoreSim(cfg: SimConfig, snap: any): SimState {
   const s = createSim(cfg);
   Object.assign(s, snap);
   s._flows = (snap._flows as number[][]).map((a) => Int16Array.from(a));
+  s._wide = (snap._wide as number[][] | undefined)?.map((a) => Int16Array.from(a));
   s.events = [];
   return s;
 }

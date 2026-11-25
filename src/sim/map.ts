@@ -246,6 +246,36 @@ export function flowField(m: TileMap, px: number, py: number, maxDist = 40): Int
   return d;
 }
 
+/** Flow field for big bodies (bosses): tiles next to a wall cost 4 steps instead of 1, so paths keep clear of
+ * corners and pillars instead of hugging them. A small bucket queue keeps it cheap. */
+export function flowFieldWide(m: TileMap, px: number, py: number, maxCost = 160): Int16Array {
+  const N = m.w * m.h, d = new Int16Array(N).fill(-1);
+  const s = Math.floor(py / m.ts) * m.w + Math.floor(px / m.ts);
+  if (m.tiles[s] !== 0) return d;
+  const cost = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (m.tiles[i] !== 0) continue;
+    const x = i % m.w, y = (i / m.w) | 0; let near = false;
+    for (let oy = -1; oy <= 1 && !near; oy++) for (let ox = -1; ox <= 1; ox++) { const xx = x + ox, yy = y + oy; if (xx < 0 || yy < 0 || xx >= m.w || yy >= m.h || m.tiles[yy * m.w + xx] !== 0) { near = true; break; } }
+    cost[i] = near ? 4 : 1;
+  }
+  const buckets: number[][] = Array.from({ length: maxCost + 5 }, () => []);
+  d[s] = 0; buckets[0].push(s);
+  for (let c = 0; c <= maxCost; c++) {
+    const b = buckets[c];
+    for (let k = 0; k < b.length; k++) {
+      const i = b[k]; if (d[i] !== c) continue;
+      const x = i % m.w;
+      for (const j of [x > 0 ? i - 1 : -1, x < m.w - 1 ? i + 1 : -1, i - m.w, i + m.w]) {
+        if (j < 0 || j >= N || m.tiles[j] !== 0) continue;
+        const nd = c + cost[j];
+        if (nd <= maxCost && (d[j] < 0 || nd < d[j])) { d[j] = nd; buckets[nd].push(j); }
+      }
+    }
+  }
+  return d;
+}
+
 /** Chase boss arena: a big round hall with a few pillars to break line of sight and charges. */
 export function genArena(r: Rng, w: number, h: number, ts: number): TileMap {
   const t = new Array(w * h).fill(1);

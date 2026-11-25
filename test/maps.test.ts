@@ -85,6 +85,18 @@ for (const [lvl, want] of [[1, true], [30, false]] as [number, boolean][]) {
   }
   check("vault seals at 90 s with loot", done && Math.abs(s.rift.time - 90) < 1 && drops >= 5 && s.rift.map === "vault", `(${drops} drops, ${s.rift.kills} kills)`);
 }
+// Boss pathing: with the hero behind a wall, the King walks around it instead of pushing into it
+{
+  const s = createSim({ seed: 2, kind: "chase", tier: 5, players: [{ ...setup, level: 30 }] });
+  const m = s.map, k = s.enemies.find((e) => e.kind === "king")!, p = s.players[0];
+  const cx = Math.floor(m.w / 2), cy = Math.floor(m.h / 2);
+  for (let y = cy - 1; y <= cy + 1; y++) for (let x = cx - 7; x <= cx + 7; x++) m.tiles[y * m.w + x] = 1; // a long wall between them
+  k.x = k.px = (cx + 0.5) * m.ts; k.y = k.py = (cy - 5) * m.ts; k.state = "idle"; k.t = 0;
+  p.x = p.px = (cx + 0.5) * m.ts; p.y = p.py = (cy + 4) * m.ts; p.invuln = 1e9;
+  let best = 1e9;
+  for (let t = 0; t < 30 * 20; t++) { step(s, { 0: NO_INPUT }); p.x = (cx + 0.5) * m.ts; p.y = (cy + 4) * m.ts; best = Math.min(best, Math.hypot(k.x - p.x, k.y - p.y)); }
+  check("King walks around a wall to reach you", best < 60, `(closest ${best.toFixed(0)} px)`);
+}
 // how often each map comes up from rift codes
 const counts: Record<string, number> = {};
 for (let i = 0; i < 20000; i++) { const m = pickMap(i * 7919 + 13); counts[m.id] = (counts[m.id] ?? 0) + 1; }
