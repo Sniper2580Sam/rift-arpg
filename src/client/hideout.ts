@@ -77,6 +77,8 @@ const STATION: Record<string, { rows: string[]; pal: Pal }> = {
   wardrobe: { rows: ["kkkkkkkkkk", "kbbbbkbbbk", "kbBBbkbBbk", "kbBBbkbBbk", "kbBBykyBbk", "kbBBbkbBbk", "kbBBbkbBbk", "kbbbbkbbbk", "kkkkkkkkkk", "k........k"], pal: { k: K, b: "#5a3f73", B: "#8a68a8", y: "#ffd23f" } },
   shop: { rows: ["yRyRyRyRyRyRy", "RyRyRyRyRyRyR", "k...........k", "k.....g.....k", "k....gGg....k", "kkkkkkkkkkkkk", "kbBbBbBbBbBbk", "kkkkkkkkkkkkk"], pal: { k: K, y: "#ffd23f", R: "#c4334a", g: "#e8c050", G: "#fff0a0", b: "#6b4a2a", B: "#8a6238" } },
   journey: { rows: ["..kkkkkkkk..", ".kyyyyyyyyk.", "kykyOOOOykyk", "kyk.yOOy.kyk", ".kk.yyyy.kk.", "....kyyk....", ".....kk.....", "....kyyk....", "...kkkkkk...", "..kWWWWWWk..", "..kWwwwwWk..", "..kkkkkkkk.."], pal: { k: K, y: "#ffd23f", O: "#fff0a0", W: "#8a7f66", w: "#c9bf9f" } },
+  jeweler: { rows: ["....kk....", "...kcCk...", "..kcCCck..", "...kcck...", "....kk....", "kkkkkkkkkk", "kbBbBbBbBk", "kkkkkkkkkk", ".kb....bk.", ".kb....bk.", ".kk....kk."], pal: { k: K, c: "#5ad1a8", C: "#d8fff0", b: "#6b4a2a", B: "#8a6238" } },
+  reliquary: { rows: ["...kkkk...", "..kyOOyk..", "..kOooOk..", "..kyOOyk..", "...kkkk...", "..kwwwwk..", ".kwWWWWwk.", ".kwWyyWwk.", ".kwWWWWwk.", "kkkkkkkkkk"], pal: { k: K, y: "#ffd23f", O: "#ff8a1f", o: "#fff0a0", w: "#9a96a8", W: "#c8c4d4" } },
   decorate: { rows: ["...kk....", "..kaak...", "..kaak...", "...kk....", "...nn....", "...nn.kk.", "...nnkyyk", "...nnkyyk", "..kkkkkk."], pal: { k: K, a: "#8d93ab", n: "#6b4a2a", y: "#7ad06a" } },
 };
 

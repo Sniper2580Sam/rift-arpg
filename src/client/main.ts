@@ -11,7 +11,7 @@ import { driveQueue, driveRecheck, startDrive } from "./gdrive";
 import { HubOp, applyHubOp } from "../shared/ops";
 import { RARITY_COLOR, Sprite, buildSprites, renderMap } from "./sprites";
 import { allSpots, decorIcon, labels as hideLabels, drawDecor, drawPortal, drawStation, drawThemeAir, drawThemeFloor, spotPos } from "./hideout";
-import { UI, fmtTime, modsLine } from "./ui";
+import { UI, fmtTime, modsLine, GearSub, SkillSub } from "./ui";
 import { Online, onlineAvailable, signIn, signOut } from "./net";
 import { Direct } from "./direct";
 
@@ -192,6 +192,9 @@ function useSpot(n: HideoutSpot) {
     return;
   }
   if (n.tab === "decorate") return startDecorating();
+  // each workstation opens its own sub-tab (Blacksmith -> rerolls and upgrades, Jeweler -> gems, ...)
+  if (n.sub && n.tab === "gear") ui.gearSub = n.sub as GearSub;
+  if (n.sub && n.tab === "skills") ui.skillSub = n.sub as SkillSub;
   openMenu(n.tab);
 }
 /** Decorating: a tray of themes and decorations. Walk to a spot and tap an item to place it on your tile. */

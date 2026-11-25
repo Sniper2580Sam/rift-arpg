@@ -98,6 +98,11 @@ function isUpgrade(h: Holder, it: Item, ctx: { cls: string; level: number }): bo
 }
 
 type Tab = "play" | "gear" | "skills" | "looks" | "shop" | "journey" | "settings";
+/** Sub-tabs: each hideout workstation opens its own one (Blacksmith, Jeweler, Reliquary, Stash; the Skill Shrine's parts). */
+export type GearSub = "items" | "smith" | "jewels" | "relics" | "stash";
+export type SkillSub = "skills" | "talents" | "tree" | "paragon";
+const GEAR_SUBS: [GearSub, string][] = [["items", "Items"], ["smith", "Blacksmith"], ["jewels", "Jeweler"], ["relics", "Reliquary"], ["stash", "Stash"]];
+const SKILL_SUBS: [SkillSub, string][] = [["skills", "Skills"], ["talents", "Talents"], ["tree", "Passive tree"], ["paragon", "Paragon"]];
 export interface HubHandlers {
   enter: (o: { tier: number; seed: number | null; kind: RunKind; weekly?: boolean; boss?: "king" | "seraph" }) => void;
   invCmd: (c: InvCmd) => void;
@@ -132,6 +137,8 @@ const TAG_COLOR: Record<string, string> = { fire: "#ff8a1f", cold: "#7dd8ff", li
 export class UI {
   root = $("#ui");
   tab: Tab = "play";
+  gearSub: GearSub = "items";
+  skillSub: SkillSub = "skills";
   sel: { where: "bag"; i: number } | { where: "eq"; slot: EquipSlot } | { where: "stash"; i: number } | null = null;
   buildSel = -1;
   rerollState: { idx: number; options: Affix[] } | null = null;
@@ -157,8 +164,23 @@ export class UI {
     const tabs = (["play", "gear", "skills", "looks", "shop", "journey", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}"${t === "settings" ? ` aria-label="Settings"` : ""}>${t === "settings" ? "⚙" : t[0].toUpperCase() + t.slice(1)}</button>`).join("");
     let body = "";
     if (this.tab === "play") body = this.playTab(p, c, H);
-    if (this.tab === "gear") body = this.gemsHtml(c) + this.relicsHtml(p, c) + this.trophiesHtml(p, c) + this.echoHtml(p, c) + this.chiselHtml(p, c) + this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
-    if (this.tab === "skills") body = this.skillsTab(c);
+    const subBar = (subs: [string, string][], cur: string, attr: string) => `<nav class="subtabs">${subs.map(([k, n]) => `<button class="${cur === k ? "on" : ""}" ${attr}="${k}">${n}</button>`).join("")}</nav>`;
+    if (this.tab === "gear") {
+      const gs = this.gearSub, gear = () => this.gearTab(p, { cls: c.cls, level: c.level, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {} }, true);
+      const intro: Record<GearSub, string> = {
+        items: "Equip, compare, lock and scrap gear.",
+        smith: "Tap an item to reroll an affix or upgrade its slot. Scrap gives materials (and shards from legendary and set items). Echo Cores and Gilded Chisels are used here too.",
+        jewels: "Socket Rift Gems. They level up when you clear a rift in time.",
+        relics: "Wear extracted legendary powers, and spend boss trophies.",
+        stash: "Storage is shared by all your characters. The Arsenal saves whole builds.",
+      };
+      body = subBar(GEAR_SUBS, gs, "data-gsub") + `<div class="dim small sub-intro">${intro[gs]}</div>` + (
+        gs === "smith" ? gear() + this.echoHtml(p, c) + this.chiselHtml(p, c)
+        : gs === "jewels" ? this.gemsHtml(c)
+        : gs === "relics" ? this.relicsHtml(p, c) + this.trophiesHtml(p, c)
+        : gear());
+    }
+    if (this.tab === "skills") body = subBar(SKILL_SUBS, this.skillSub, "data-ssub") + this.skillsTab(c);
     if (this.tab === "looks") body = this.looksTab(p);
     if (this.tab === "shop") body = this.shopTab(p, H);
     if (this.tab !== "shop") { this.tryOn = {}; this.fxTry = ""; }
@@ -174,6 +196,8 @@ export class UI {
         <div class="tab-body">${body}</div>
       </div>`;
     this.root.querySelectorAll<HTMLElement>("[data-tab]").forEach((el) => el.onclick = () => { this.tab = el.dataset.tab as Tab; this.sel = null; this.rerollState = null; this.showHub(p, H); });
+    this.root.querySelectorAll<HTMLElement>("[data-gsub]").forEach((el) => el.onclick = () => { this.gearSub = el.dataset.gsub as GearSub; this.sel = null; this.rerollState = null; this.showHub(p, H); });
+    this.root.querySelectorAll<HTMLElement>("[data-ssub]").forEach((el) => el.onclick = () => { this.skillSub = el.dataset.ssub as SkillSub; this.showHub(p, H); });
     const re = () => this.showHub(p, H);
     const cl = this.root.querySelector<HTMLElement>("#hub-close"); if (cl) cl.onclick = () => H.close!();
     if (this.tab === "play") this.bindPlay(p, c, H, re);
@@ -336,8 +360,9 @@ export class UI {
         detail += `<button id="from-stash" ${h.bag.length >= BAG_SIZE ? "disabled" : ""}>Take to bag</button>${lockBtn}`;
       } else detail += `<button id="unequip">Unequip</button>${lockBtn}`;
       detail += `</div>`;
-      if (allowReroll && p && this.sel!.where !== "stash") detail += this.rerollHtml(selItem, p.materials);
-      if (allowReroll && p && this.sel!.where === "eq") detail += this.slotHtml(this.sel!.slot, h, p);
+      if (allowReroll && p && this.gearSub === "smith" && this.sel!.where !== "stash") detail += this.rerollHtml(selItem, p.materials);
+      if (allowReroll && p && this.gearSub === "smith" && this.sel!.where === "eq") detail += this.slotHtml(this.sel!.slot, h, p);
+      if (allowReroll && p && this.gearSub === "items" && this.sel!.where !== "stash") detail += `<div class="dim small">Reroll an affix or upgrade a slot at the Blacksmith.</div>`;
     }
     const sets = Object.entries(st.setCounts).filter(([, n]) => n >= 2).map(([id, n]) => `${SET[id].name} ${n}/6`).join(", ");
     void sets;
@@ -347,7 +372,7 @@ export class UI {
       <div class="bag-head"><span>Bag ${h.bag.length}/${BAG_SIZE}</span><span><button class="tiny-btn" data-scrapbelow="rare">Scrap common+magic</button><button class="tiny-btn" data-scrapbelow="legendary">Scrap all but legendary/set</button><button class="tiny-btn warn" data-scrapbelow="all">Scrap all (not ★ locked)</button><button class="tiny-btn" id="bag-sort">Sort</button></span></div>
       <div class="bag">${bag}</div>
       <div class="detail">${detail}</div>
-      ${allowReroll && p ? this.arsenalHtml(p, char(p)) + this.stashHtml(p) : ""}`;
+      ${allowReroll && p && this.gearSub === "stash" ? this.stashHtml(p) + this.arsenalHtml(p, char(p)) : ""}`;
   }
 
   private stashHtml(p: Profile) {
@@ -485,7 +510,10 @@ export class UI {
       return `<div class="skill ${locked ? "locked" : ""} ${at >= 0 ? "inbar" : ""}"><div class="sk-head"><b>${esc(d.name)}</b>${at >= 0 ? ` <span class="eq">${KEY_LABELS[at]}</span>` : ""} <span class="dim">${esc(costText(id))}</span> ${btn}</div><div class="tags">${d.tags.map((t) => `<span class="tag" style="--c:${TAG_COLOR[t] ?? "#b8a8d0"}">${esc(TAG_NAME[t] ?? t)}</span>`).join("")}</div><div class="dim small">${esc(d.desc)}</div>${runes ? `<div class="runes">${runes}</div>` : `<div class="dim small">Runes for this skill come in a later update.</div>`}</div>`;
     }).join("");
     const groups = ([["generator", "Generators: build " + R.name], ["core", "Core: spend " + R.name], ["support", "Support"], ["ultimate", "Ultimate (one at a time)"]] as const).map(([t, title]) => `<h3 class="sk-type">${title}</h3>${group(t, title)}`).join("");
-    return `${this.passivesHtml(c)}${this.talentsHtml(c)}${this.paragonHtml(c)}<div class="dim small">Pick any 4 skills, with at most one ultimate. Tap a slot, then a skill to put there. ${esc(R.name)}: ${R.regen ? `refills ${R.regen} per second` : `built by hits, fades after ${R.decayAfter}s out of combat`}, max ${R.max}. Runes unlock as you level up; everything is open by level ${RIFT.levels.max}.</div><div class="sk-bar">${slots}</div>${groups}`;
+    if (this.skillSub === "tree") return this.passivesHtml(c);
+    if (this.skillSub === "talents") return this.talentsHtml(c);
+    if (this.skillSub === "paragon") return this.paragonHtml(c) || `<div class="setting dim small">Paragon opens at level ${RIFT.levels.max}: every level after that gives a Paragon point and a passive tree point.</div>`;
+    return `<div class="dim small">Pick any 4 skills, with at most one ultimate. Tap a slot, then a skill to put there. ${esc(R.name)}: ${R.regen ? `refills ${R.regen} per second` : `built by hits, fades after ${R.decayAfter}s out of combat`}, max ${R.max}. Runes unlock as you level up; everything is open by level ${RIFT.levels.max}.</div><div class="sk-bar">${slots}</div>${groups}`;
   }
 
   /** Paragon: shown once you hit max level. Points go into four capped stats; respec is free. */

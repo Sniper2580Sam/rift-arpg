@@ -243,3 +243,7 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 - **Defence:** barrier (% of life as an overshield, refills after 4 s without a hit), block chance (halves a hit), and "less damage taken" affixes. Caps: 60% barrier, 50% block, 50% less damage.
 - **Boons:** 10 new, 6 of them trade-offs (Glass Cannon, Berserker, Juggernaut, Overclock, Daredevil, Ruthless); the upside is bigger than the downside. Trade-off boons show a red border.
 - **Looks:** each set has its own colour on its icon, border, name and bonus box, plus a letter badge. The bag has a Sort button (rarity, quality, set, slot). A brainstorm on making looks feel special went to Samuel as a doc.
+
+## 2026-11-25: Batch 7, workstation tabs in the hideout (Samuel)
+- **Gear has sub-tabs:** Items (equip, compare, scrap), Blacksmith (rerolls, slot upgrades, scrapping, Echo Cores, Gilded Chisels), Jeweler (rift gems), Reliquary (legendary powers, boss trophies), Stash (storage, Arsenal). **Skills has sub-tabs:** Skills, Talents, Passive tree, Paragon.
+- **Each workstation opens its own sub-tab** (`sub` on the station in hideout.json). Two new stations, Jeweler and Reliquary, with their own art. The Menu button opens wherever you were last.

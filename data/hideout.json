@@ -7,7 +7,8 @@
    "tab": "gear",
    "fx": 0.16,
    "fy": 0.22,
-   "desc": "Gear, rerolls and slot upgrades"
+   "desc": "Rerolls, slot upgrades, scrapping, echoes and chisels",
+   "sub": "smith"
   },
   {
    "id": "stash",
@@ -15,7 +16,8 @@
    "tab": "gear",
    "fx": 0.32,
    "fy": 0.2,
-   "desc": "Storage and arsenal"
+   "desc": "Storage and arsenal",
+   "sub": "stash"
   },
   {
    "id": "board",
@@ -31,7 +33,8 @@
    "tab": "skills",
    "fx": 0.68,
    "fy": 0.2,
-   "desc": "Skills and runes"
+   "desc": "Skills and runes",
+   "sub": "skills"
   },
   {
    "id": "wardrobe",
@@ -64,6 +67,24 @@
    "fx": 0.5,
    "fy": 0.42,
    "desc": "Feats and the season journey"
+  },
+  {
+   "id": "jeweler",
+   "name": "Jeweler",
+   "tab": "gear",
+   "sub": "jewels",
+   "fx": 0.3,
+   "fy": 0.5,
+   "desc": "Rift gems"
+  },
+  {
+   "id": "reliquary",
+   "name": "Reliquary",
+   "tab": "gear",
+   "sub": "relics",
+   "fx": 0.7,
+   "fy": 0.5,
+   "desc": "Legendary powers and boss trophies"
   }
  ],
  "portals": [

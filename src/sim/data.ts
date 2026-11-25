@@ -337,7 +337,7 @@ export type CosChoice = Partial<Record<CosKind, string>> & { fx?: Record<string,
 /** Premium skill effects: a style re-colours one skill's projectiles, casts, blasts and trails. Visual only. */
 export interface VfxStyle { name: string; main: string; accent: string; core: string; trail: string }
 export interface HideoutTheme { id: string; name: string; premium: boolean; w: number; h: number; shape: "rect" | "rough" | "hall" | "round"; desc: string; pattern?: string; carpet?: string; trim?: string; light?: string; rune?: string; motes?: string[]; map: MapTheme }
-export interface HideoutSpot { id: string; name: string; fx: number; fy: number; tab?: string; desc?: string; kind?: string; color?: string; glow?: string }
+export interface HideoutSpot { id: string; name: string; fx: number; fy: number; tab?: string; /** the sub-tab a workstation opens */ sub?: string; desc?: string; kind?: string; color?: string; glow?: string }
 /** A player's hideout: theme and placed decorations (tile coordinates). Visual only. */
 export interface HideoutLayout { theme: string; decor: { id: string; x: number; y: number }[] }
 export const HIDEOUT = hideoutJson as unknown as { maxDecor: number; stations: HideoutSpot[]; portals: HideoutSpot[]; themes: HideoutTheme[]; decor: { id: string; name: string; premium: boolean }[] };
