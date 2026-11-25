@@ -1740,7 +1740,7 @@ function wireOnline(o: Online | Direct) {
     mode = "blocked";
     const root = document.getElementById("ui")!;
     root.className = "screen";
-    root.innerHTML = `<div class="panel hub"><h1>RIFT ARPG</h1><p>Lost the connection to the server.</p><button class="big" onclick="location.reload()">Reconnect</button></div>`;
+    root.innerHTML = `<div class="panel hub"><h1>RIFTBOUND</h1><p>Lost the connection to the server.</p><button class="big" onclick="location.reload()">Reconnect</button></div>`;
   };
 }
 function hostDropPeer(pid: number) {
@@ -1754,7 +1754,7 @@ async function bootLive() {
   mode = "blocked";
   if (!onlineAvailable()) {
     root.className = "screen";
-    root.innerHTML = `<div class="panel hub"><h1>RIFT ARPG</h1><p>Live build: sign-in is required. Start the server with <code>npm run server</code> and open the page it serves.</p></div>`;
+    root.innerHTML = `<div class="panel hub"><h1>RIFTBOUND</h1><p>Live build: sign-in is required. Start the server with <code>npm run server</code> and open the page it serves.</p></div>`;
     return;
   }
   let msg = "";

@@ -16,7 +16,7 @@ export function signIn(root: HTMLElement, msg = ""): Promise<string> {
   if (saved && !msg) return Promise.resolve(saved);
   return new Promise((done) => {
     root.className = "screen";
-    root.innerHTML = `<div class="panel hub signin"><h1>RIFT ARPG</h1><div class="sub">live test build</div>
+    root.innerHTML = `<div class="panel hub signin"><h1>RIFTBOUND</h1><div class="sub">live test build</div>
       <p class="dim small">New name = new account. Your items are created and stored by the server.</p>
       <input id="nm" placeholder="name" maxlength="16" autocomplete="username" aria-label="Name">
       <input id="pw" placeholder="password" type="password" autocomplete="current-password" aria-label="Password">
