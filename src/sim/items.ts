@@ -170,6 +170,22 @@ export function hallowItem(it: Item): Item {
     affixes: it.affixes.map((a) => ({ ...a, value: scaleVal(a.value, m) })),
   };
 }
+/** Scrap workshop: what it costs to bring an item up to a level (per level gained, by rarity). */
+export function uplevelCost(it: Item, level: number): number {
+  return Math.max(0, level - it.ilvl) * ((ITEMS.workshop.uplevel as Num)[it.rarity] ?? 1) * (it.quality ? 2 : 1);
+}
+/** Raise an item's level: its base damage or armour and its flat affixes grow as if it had dropped at that level. */
+export function uplevelItem(it: Item, level: number): boolean {
+  const to = Math.min(RIFT.levels.max, level);
+  if (to <= it.ilvl) return false;
+  const k = ilvlMult(to) / ilvlMult(it.ilvl);
+  if (it.dmgMin !== undefined) it.dmgMin = Math.round(it.dmgMin * k);
+  if (it.dmgMax !== undefined) it.dmgMax = Math.round(it.dmgMax * k);
+  if (it.armor !== undefined) it.armor = Math.round(it.armor * k);
+  for (const a of it.affixes) if (AFFIX[a.id]?.flat) { a.value = Math.round(a.value * k); a.min = Math.round(a.min * k); a.max = Math.round(a.max * k); }
+  it.ilvl = to;
+  return true;
+}
 export function scaledItem(it: Item, plus = 0, crit?: string): Item {
   const m = slotMult(plus);
   if (m === 1 && !(crit && it.affixes.some((a) => a.id === crit))) return it;

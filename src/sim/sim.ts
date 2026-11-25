@@ -1,6 +1,6 @@
 // Pure deterministic simulation for 1–6 players. No DOM, no Math.random, no wall-clock time.
 // The host runs it authoritatively; clients run it for prediction; the backend can replay it to validate.
-import { isAbyssal, lootChances, tierDmgMult, tierHpMult, GEM, GEMS, gemCap, BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , GUARDIANS, ParagonStat, paragonXp, GuardianDef, guardianDef, MAP, MAPS, MapDef, ITEMS, HideoutLayout, hideoutTheme, hideoutStart, hideoutPads } from "./data";
+import { SET, AFFIX, SlotType, isAbyssal, lootChances, tierDmgMult, tierHpMult, GEM, GEMS, gemCap, BOONS, CosChoice, BOON, CLASSES, validLoadout, ELITES, ENEMIES, EnemyDef, MODIFIER, MODIFIERS, Num, RARITY_ORDER, RIFT, Rarity, SKILL, levelPower, xpForLevel , GUARDIANS, ParagonStat, paragonXp, GuardianDef, guardianDef, MAP, MAPS, MapDef, ITEMS, HideoutLayout, hideoutTheme, hideoutStart, hideoutPads } from "./data";
 import { Holder, InvCmd, Item, MintOpts, ResolvedSkill, Stats, applyInvCmd, equipTarget, computeStats, mintItem, resolveSkill, BAG_SIZE, scrapValue, shardValue } from "./items";
 import { TileMap, flowField, flowFieldWide, genArena, genCave, genHideout, genLinear, nearestOpen, genOpen, genRing, genRooms, moveWithWalls, unstick } from "./map";
 import { Rng, chance, int, makeRng, next, range, weighted } from "./rng";
@@ -26,7 +26,7 @@ export interface PlayerSetup {
   /** Gilded Keys (from Gilded Imps) open the Gilded Vault */
   vaultKeys?: number;
   shards?: number; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"];
-  runes: Record<string, string>; pet: string; filter: LootFilter;
+  runes: Record<string, string>; pet: string; filter: LootFilter; rules?: LootRules;
   loadout?: string[];
   /** paragon levels, XP toward the next one, and points spent */
   paragon?: number; pxp?: number; pAlloc?: Partial<Record<ParagonStat, number>>;
@@ -46,7 +46,7 @@ export interface PlayerSetup {
 export interface Buff { armorPct: number; dmgPct: number; cdrPct: number; t: number }
 export interface Player extends Holder {
   pid: number; name: string; cls: string; level: number; xp: number; sigils: number; feathers: number; vaultKeys: number;
-  runes: Record<string, string>; pet: string; filter: LootFilter; cos: CosChoice;
+  runes: Record<string, string>; pet: string; filter: LootFilter; rules?: LootRules; cos: CosChoice;
   x: number; y: number; px: number; py: number; r: number; hp: number; fx: number; fy: number; moving: boolean; walk: number;
   skills: string[]; cds: Num; charges: Num; chargeT: Num; swingT: number; swingCount: number;
   dashT: number; dashDx: number; dashDy: number; dashHit: number[]; dashSkill: string; trailT: number;
@@ -295,7 +295,7 @@ export function addPlayer(s: SimState, ps: PlayerSetup): Player {
   const p: Player = {
     paragon: ps.paragon ?? 0, pxp: ps.pxp ?? 0, pAlloc: { ...(ps.pAlloc ?? {}) },
     relics: (ps.relics ?? []).slice(0, 3), talents: { ...(ps.talents ?? {}) }, subclass: ps.subclass, passives: [...(ps.passives ?? [])], gems: { ...(ps.gems ?? {}) }, gemSlots: (ps.gemSlots ?? []).filter((g) => ps.gems?.[g] && GEM[g]).slice(0, GEMS.slots),
-    pid: ps.pid, name: ps.name, cls, level: ps.level, xp: ps.xp, sigils: ps.sigils, feathers: ps.feathers ?? 0, vaultKeys: ps.vaultKeys ?? 0, runes: { ...ps.runes }, pet: ps.pet, filter: ps.filter, cos: { ...ps.cos },
+    pid: ps.pid, name: ps.name, cls, level: ps.level, xp: ps.xp, sigils: ps.sigils, feathers: ps.feathers ?? 0, vaultKeys: ps.vaultKeys ?? 0, runes: { ...ps.runes }, pet: ps.pet, filter: ps.filter, rules: ps.rules && cleanRules(ps.rules), cos: { ...ps.cos },
     equipment: clone(ps.equipment), bag: clone(ps.bag), materials: ps.materials, shards: ps.shards ?? 0, slotPlus: { ...(ps.slotPlus ?? {}) }, slotCrit: { ...(ps.slotCrit ?? {}) },
     x: s.startX + (s.players.length % 2) * 12 - 6, y: s.startY + Math.floor(s.players.length / 2) * 12, px: 0, py: 0, r: 5, hp: 1, fx: 1, fy: 0, moving: false, walk: 0,
     skills: [], cds: {}, charges: {}, chargeT: {}, swingT: 0, swingCount: 0,
@@ -428,7 +428,7 @@ export function applyPlayerCmd(s: SimState, p: Player, c: PlayerCmd): boolean {
     return true;
   }
   if (c.type === "setLoadout") {
-    p.equipment = clone(c.setup.equipment); p.runes = { ...c.setup.runes }; p.filter = c.setup.filter; p.pet = c.setup.pet; p.cos = { ...c.setup.cos };
+    p.equipment = clone(c.setup.equipment); p.runes = { ...c.setup.runes }; p.filter = c.setup.filter; p.rules = c.setup.rules && cleanRules(c.setup.rules); p.pet = c.setup.pet; p.cos = { ...c.setup.cos };
     p.skills = validLoadout(p.cls, c.setup.loadout); for (const id of p.skills) if (p.charges[id] === undefined) p.charges[id] = 1;
     refreshAll(s); s.events.push({ type: "equipChanged", pid: p.pid });
     return true;
@@ -1630,11 +1630,34 @@ function updateZones(s: SimState) {
 export function pickupRadius(p: Player) { return p.pet && p.pet !== "none" ? (p.level >= 15 ? 70 : 42) : 14; }
 /** Loot filter: a minimum rarity, or "ancestral"/"primal" to keep only items of that quality (and mythics). */
 export type LootFilter = Rarity | "ancestral" | "primal";
-export function hiddenByFilter(p: Player, it: Item) {
-  if (p.filter === "ancestral") return !(it.quality || it.rarity === "mythic");
-  if (p.filter === "primal") return !(it.quality === "primal" || it.rarity === "mythic");
-  if (RARITY_ORDER.indexOf(it.rarity) >= RARITY_ORDER.indexOf(p.filter)) return false;
-  return true;
+/** Extra loot rules on top of the rarity filter: hide whole slots, keep only chosen sets, and ask rares and
+ *  legendaries for affixes you want (at least `need` of them). Mythics and primals always show. */
+export interface LootRules { hideSlots?: SlotType[]; sets?: string[]; affixes?: string[]; need?: number }
+const SLOT_TYPES: SlotType[] = ["weapon", "offhand", "helm", "shoulders", "chest", "bracers", "gloves", "belt", "pants", "boots", "amulet", "ring"];
+/** Drops anything unknown, so a saved or remote rule set can't do anything odd. */
+export function cleanRules(r: LootRules): LootRules {
+  const uniq = <T,>(a: unknown, ok: (x: any) => boolean): T[] => (Array.isArray(a) ? [...new Set(a.filter(ok))] : []) as T[];
+  return {
+    hideSlots: uniq<SlotType>(r?.hideSlots, (x) => SLOT_TYPES.includes(x)),
+    sets: uniq<string>(r?.sets, (x) => typeof x === "string" && !!SET[x]),
+    affixes: uniq<string>(r?.affixes, (x) => typeof x === "string" && !!AFFIX[x]),
+    need: Math.max(1, Math.min(3, Math.round(Number(r?.need) || 1))),
+  };
+}
+export function hiddenByFilter(p: Pick<Player, "filter" | "rules">, it: Item) {
+  if (it.rarity === "mythic" || it.quality === "primal") return false;
+  if (p.filter === "ancestral") { if (!it.quality) return true; }
+  else if (p.filter === "primal") return true;
+  else if (RARITY_ORDER.indexOf(it.rarity) < RARITY_ORDER.indexOf(p.filter)) return true;
+  const r = p.rules;
+  if (!r) return false;
+  if (r.hideSlots?.includes(it.slot)) return true;
+  if (it.set) return !!r.sets?.length && !r.sets.includes(it.set);
+  if (r.affixes?.length && (it.rarity === "rare" || it.rarity === "legendary")) {
+    const hits = it.affixes.filter((a) => r.affixes!.includes(a.id)).length;
+    if (hits < (r.need ?? 1)) return true;
+  }
+  return false;
 }
 
 function updateLoot(s: SimState) {

@@ -302,3 +302,13 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 - The live build was checked end to end on a local server: two players sign in, the host's layout and other new hub ops save on the server, a room code joins, both enter a co-op rift and return to the hideout. Fixed a crash when a guest's view drew a frame before their hero arrived.
 - **Weekly leaderboard** (live build only, Play tab under the weekly rift button): the 10 fastest solo clears of this week's seeded rift, with class filter chips and your own rank. `GET /api/weekly?week=YYYY-Www` on the server. Times are trusted, not replayed (Samuel chose item checks only), so it suits friends rather than a public ladder.
 - Hosting itself needs Samuel's own Render, Upstash and TURN accounts (DEPLOY.md).
+
+## 2026-11-25: Loot filter rules and presets (Samuel: "Yes: slot, set, affix, presets")
+- On top of the rarity filter (Settings → Loot filter): **hide slots**, **sets to keep** (pick any and other sets are hidden; none picked keeps every set), and **wanted affixes** (rares and legendaries must have at least 1, 2 or 3 of them). Mythics and primals always show. Hidden items are auto-scrapped as before.
+- **Presets:** save up to 5 named filter + rule sets and switch with one tap.
+- The rules ride in the player setup, so co-op runs agree on them; the server cleans unknown values (`cleanRules`).
+
+## 2026-11-25: Scrap workshop (Samuel: "Upgrades and crafting")
+- **Bring an item up to your level** (Blacksmith, select an item): base damage or armour and flat affixes grow as if it had dropped at your level. Cost per level gained: common 1, magic 2, rare 4, legendary/set 10, mythic 25 materials; ancestral or primal costs double.
+- **Random rare (60) or legendary (300) for a slot you pick**, at your level. Rares from level 5, legendaries from level 20, following loot by level. Seeded from the craft count, so the server makes the same item.
+- Balance guess: a scrapped legendary gives 20 materials, so about 15 scrapped legendaries buy one targeted legendary. Untested in real play.

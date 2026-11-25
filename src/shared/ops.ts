@@ -1,8 +1,9 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
 import { makeRng } from "../sim/rng";
+import { LootRules, cleanRules } from "../sim/sim";
 import { passiveCanAdd, passiveCanRemove, runeLevel, talentCanAdd, talentPoints, talentRespec, subclassOf, SET, setComplete, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, hideoutPreset, hideoutTheme, presetDecor, HideoutLayout, validLoadout, VFX } from "../sim/data";
-import { chiselItem, echoCost, hallowItem, mintItem, Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
+import { uplevelCost, uplevelItem, chiselItem, echoCost, hallowItem, mintItem, Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
 export type HubOp =
@@ -33,6 +34,9 @@ export type HubOp =
   | { t: "echo"; bag?: number; slot?: string }
   | { t: "chisel"; bag?: number; slot?: string; mode: "add" | "reroll" }
   | { t: "relic"; slot: string; id: string | null }
+  | { t: "uplevel"; bag?: number; slot?: string }
+  | { t: "craftRandom"; slot: string; rarity: "rare" | "legendary" }
+  | { t: "lootRules"; rules?: LootRules; save?: string; load?: number; del?: number }
   | { t: "hideout"; theme?: string; place?: { id: string; x: number; y: number }; remove?: number; layout?: string; props?: boolean; design?: HideoutLayout }
   | { t: "newSeason" }
   | { t: "reset" };
@@ -243,6 +247,44 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       const pack = SHOP.packs.find((x) => x.id === op.pack);
       if (!pack) return false;
       p.aether = (p.aether ?? 0) + pack.amount; return true;
+    }
+    case "uplevel": {
+      // scrap workshop: bring an item up to your level for materials
+      const it = op.bag !== undefined ? c.bag[op.bag] : op.slot ? c.equipment[op.slot as EquipSlot] : undefined;
+      if (!it) return false;
+      const cost = uplevelCost(it, c.level);
+      if (cost <= 0 || p.materials < cost) return false;
+      if (!uplevelItem(it, c.level)) return false;
+      p.materials -= cost; return true;
+    }
+    case "craftRandom": {
+      // scrap workshop: a random rare or legendary for a slot you choose, at your level (legendaries from the legendary level).
+      // Seeded from the hero's craft count, like set crafting, so the server makes the same item.
+      const sl = op.slot as SlotType, cost = (ITEMS.workshop.craft as Record<string, number>)[op.rarity];
+      if (!ITEMS.slots.includes(sl) || !cost || p.materials < cost || c.bag.length >= BAG_SIZE) return false;
+      if (op.rarity === "legendary" && c.level < RIFT.lootLevels.legendaryFrom) return false;
+      if (op.rarity === "rare" && c.level < RIFT.lootLevels.rareFrom) return false;
+      p.materials -= cost;
+      const n = (c.crafted ?? 0) + 1; c.crafted = n;
+      let h = 2166136261; for (const ch of `${c.cls}:${op.rarity}:${sl}:${n}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+      c.bag.push(mintItem(makeRng(h >>> 0), `craft-${c.cls}-${n}-${(h >>> 0).toString(36)}`, { rarity: op.rarity, slot: sl, ilvl: c.level, level: c.level, cls: c.cls, equipment: c.equipment }));
+      return true;
+    }
+    case "lootRules": {
+      // extra loot rules, and up to 5 named presets of rarity filter + rules
+      if (op.rules) { p.rules = cleanRules(op.rules); return true; }
+      const list = p.filterPresets ?? [];
+      if (typeof op.save === "string") {
+        const name = op.save.trim().slice(0, 20);
+        if (!name) return false;
+        const entry = { name, filter: p.filter, rules: cleanRules(p.rules ?? {}) };
+        const i = list.findIndex((x) => x.name === name);
+        if (i >= 0) list[i] = entry; else { if (list.length >= 5) return false; list.push(entry); }
+        p.filterPresets = list; return true;
+      }
+      if (op.load !== undefined) { const e = list[op.load]; if (!e || !FILTERS.has(e.filter)) return false; p.filter = e.filter; p.rules = cleanRules(e.rules); return true; }
+      if (op.del !== undefined) { if (!list[op.del]) return false; p.filterPresets = list.filter((_, i) => i !== op.del); return true; }
+      return false;
     }
     case "hideout": {
       const h = p.hideout ?? { theme: HIDEOUT.themes[0].id, decor: [] };

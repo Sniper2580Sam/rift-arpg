@@ -1,12 +1,12 @@
 // DOM screens: hub (play / gear / skills / settings), inventory with compare + reroll, boon picker, results.
 import { decorIcon, drawDecor } from "./hideout";
-import { AFFIX as AFFIX_DEF } from "../sim/data";
+import { AFFIX as AFFIX_DEF, AFFIXES as ALL_AFFIXES, SETS as ALL_SETS } from "../sim/data";
 import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { drawFxPreview } from "./fxpreview";
 import { setComplete, setFound, PASSIVES, passiveCanAdd, passiveCanRemove, passiveNode, passiveStart, runeLevel, tierHpMult, lootChances, isAbyssal, TALENTS, talentCanAdd, talentPoints, subclassOf, trialTarget, talentSpent, nextTrial, SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
-import { echoCost, BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
+import { uplevelCost, echoCost, BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, WEEKLY_TIER, char, isoWeek, seasonStats, xpProgress } from "./profile";
@@ -182,7 +182,7 @@ export class UI {
         stash: "Storage is shared by all your characters. The Arsenal saves whole builds.",
       };
       body = subBar(GEAR_SUBS, gs, "data-gsub") + `<div class="dim small sub-intro">${intro[gs]}</div>` + (
-        gs === "smith" ? gear() + this.echoHtml(p, c) + this.chiselHtml(p, c)
+        gs === "smith" ? gear() + this.workshopHtml(p, c) + this.echoHtml(p, c) + this.chiselHtml(p, c)
         : gs === "jewels" ? this.gemsHtml(c)
         : gs === "relics" ? this.relicsHtml(p, c) + this.trophiesHtml(p, c)
         : gear());
@@ -420,6 +420,11 @@ export class UI {
       } else detail += `<button id="unequip">Unequip</button>${lockBtn}`;
       detail += `</div>`;
       if (allowReroll && p && this.gearSub === "smith" && this.sel!.where !== "stash") detail += this.rerollHtml(selItem, p.materials);
+      if (allowReroll && p && this.gearSub === "smith" && this.sel!.where !== "stash" && selItem.ilvl < c.level) {
+        const cost = uplevelCost(selItem, c.level);
+        detail += `<div class="reroll"><b>Bring up to level ${c.level}:</b> item level ${selItem.ilvl} → ${c.level}, so its base stats and flat affixes grow. <span class="mats ${p.materials < cost ? "short" : ""}">${cost} materials · you have ${p.materials}</span>
+          <div class="opts"><button id="uplevel" ${p.materials < cost ? "disabled" : ""}>⇧ Level up for ${cost}</button></div></div>`;
+      }
       if (allowReroll && p && this.gearSub === "smith" && this.sel!.where === "eq") detail += this.slotHtml(this.sel!.slot, h, p);
       if (allowReroll && p && this.gearSub === "items" && this.sel!.where !== "stash") detail += `<div class="dim small">Reroll an affix or upgrade a slot at the Blacksmith.</div>`;
     }
@@ -528,6 +533,12 @@ export class UI {
     bind("#slot-crit", () => { if (this.sel?.where !== "eq") return; H.op?.({ t: "slotCrit", slot: this.sel.slot }); this.toast("Masterwork crit rerolled", "#ffd23f"); re(); });
     const target = this.sel?.where === "bag" ? { bag: this.sel.i } : this.sel?.where === "eq" ? { slot: this.sel.slot } : null;
     const it = this.sel?.where === "bag" ? c.bag[this.sel.i] : this.sel?.where === "eq" ? c.equipment[this.sel.slot] : undefined;
+    bind("#uplevel", () => { if (!target) return; H.op?.(this.sel?.where === "bag" ? { t: "uplevel", bag: this.sel.i } : { t: "uplevel", slot: (target as { slot: string }).slot }); this.toast("Item brought up to your level", "#7dff9a"); re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-wcraft]").forEach((el) => el.onclick = () => {
+      const [rarity, slot] = el.dataset.wcraft!.split(":");
+      if (el.dataset.sure !== "1") { el.dataset.sure = "1"; el.textContent = "Tap again"; return; }
+      H.op?.({ t: "craftRandom", slot, rarity: rarity as "rare" | "legendary" }); this.toast("Crafted. It's in your bag.", "#7dff9a"); re();
+    });
     this.root.querySelectorAll<HTMLElement>("[data-reroll]").forEach((el) => el.onclick = () => {
       if (!it) return;
       const idx = +el.dataset.reroll!;
@@ -579,6 +590,17 @@ export class UI {
 
   /** Paragon: shown once you hit max level. Points go into four capped stats; respec is free. */
   /** Echo Cores (Endless): strengthen worn items a step at a time. */
+  /** Scrap workshop: spend materials on a random rare or legendary for a slot you pick (at your level). */
+  private workshopHtml(p: Profile, c: CharSave) {
+    const W = ITEMS.workshop.craft, L = RIFT.lootLevels, full = c.bag.length >= BAG_SIZE;
+    const slots = ITEMS.slots as string[];
+    const row = (rar: "rare" | "legendary", from: number) => {
+      const cost = (W as Record<string, number>)[rar], locked = c.level < from;
+      return `<div class="relic-row"><b style="color:${RARITY_COLOR[rar]}">Random ${rar}</b> <span class="dim small">${cost} materials · any slot you pick · at your level${locked ? ` · opens at level ${from}` : ""}</span>
+        <div class="opts">${slots.map((sl) => `<button data-wcraft="${rar}:${sl}" ${locked || full || p.materials < cost ? "disabled" : ""}>${SLOT_NAME[sl]}</button>`).join("")}</div></div>`;
+    };
+    return `<div class="setting"><b>Scrap workshop</b> <span class="dim small">${p.materials} materials${full ? " · bag full" : ""}. Select an item above to bring it up to your level.</span>${row("rare", L.rareFrom)}${row("legendary", L.legendaryFrom)}</div>`;
+  }
   private echoHtml(p: Profile, c: CharSave) {
     const n = p.echoCores ?? 0, E = RIFT.echo;
     if (!n) return `<div class="setting dim small">Echo Cores: reach Endless wave ${E.fromWave}+ to earn them. Each one adds ${E.dmgPct}% damage and ${E.lifePct}% life to an item, up to ${E.maxPerItem} per item.</div>`;
@@ -890,14 +912,54 @@ export class UI {
     const filters: [string, string][] = [["common", "Show everything"], ["magic", "Hide commons"], ["rare", "Hide common + magic"], ["legendary", "Only legendary, set, mythic"], ["ancestral", "Only ancestral, primal, mythic"], ["primal", "Only primal and mythic"]];
     return `${this.driveHtml()}
       <div class="setting"><b>Loot filter</b><div class="dim small">Hidden items are auto-scrapped into materials when you walk over them.</div>
-        <div class="opts">${filters.map(([r, l]) => `<button class="${p.filter === r ? "on" : ""}" data-filter="${r}">${l}</button>`).join("")}</div></div>
+        <div class="opts">${filters.map(([r, l]) => `<button class="${p.filter === r ? "on" : ""}" data-filter="${r}">${l}</button>`).join("")}</div>
+        ${this.rulesHtml(p)}</div>
       <div class="setting"><b>Pet</b><div class="dim small">Cosmetic. Any pet picks up your loot in a radius (bigger from level 15).</div>
         <div class="opts">${PETS.map((pt) => `<button class="${p.pet === pt.id ? "on" : ""}" data-pet="${pt.id}">${esc(pt.name)}</button>`).join("")}</div></div>
       <div class="setting"><b>Sound</b> <button data-toggle="mute">${p.settings.mute ? "Off" : "On"}</button> <b>Screen shake</b> <button data-toggle="shake">${p.settings.shake ? "On" : "Off"}</button> <b>Life over head</b> <button data-toggle="hpbar">${p.settings.hpbar ? "On" : "Off"}</button> <b>Set looks on hero</b> <button data-toggle="setLooks">${p.settings.setLooks !== false ? "On" : "Off"}</button></div>
       ${!OFFLINE_TEST ? "" : `<div class="setting"><b>Season ${p.season.n}</b> <span class="dim small">started ${p.season.started}. Test builds only: simulates a season reset. Levels and gear reset on every hero; cosmetics, feats, Aether, pets and settings carry over.</span><br><button id="season" class="warn">Start a new season</button></div>`}
       <div class="setting"><button id="reset" class="warn">Reset save</button> <span class="dim small">Saved in this browser only (offline test build).</span></div>`;
   }
+  /** Loot filter extras: presets, hidden slots, wanted sets, wanted affixes. */
+  private rulesHtml(p: Profile) {
+    const r = p.rules ?? {}, presets = p.filterPresets ?? [];
+    const chip = (attr: string, v: string, on: boolean, label: string, style = "") => `<button class="${on ? "on" : ""}" data-${attr}="${v}"${style}>${label}</button>`;
+    const slots = ["weapon", "offhand", "helm", "shoulders", "chest", "bracers", "gloves", "belt", "pants", "boots", "amulet", "ring"];
+    const cls = CLASSES[char(p).cls], mine = (s: (typeof ALL_SETS)[number]) => s.skill.split(/\s*\/\s*/).some((k) => cls.skills.includes(k));
+    const sets = [...ALL_SETS].sort((a, b) => Number(mine(b)) - Number(mine(a)) || Number(!!b.generic) - Number(!!a.generic));
+    const aff = (id: string) => (AFFIX_DEF[id]?.text ?? id).replace(/[+]?\{v\}%?\s*/, "").trim();
+    const kept = [r.hideSlots?.length ? `hides ${r.hideSlots.length} slot${r.hideSlots.length > 1 ? "s" : ""}` : "", r.sets?.length ? `keeps sets: ${r.sets.map((s) => esc(SET[s]?.name ?? s)).join(", ")}` : "", r.affixes?.length ? `rares and legendaries need ${r.need ?? 1}+ of ${r.affixes.length} wanted affixes` : ""].filter(Boolean);
+    return `<div class="rules">
+      <div class="rule-h"><b>Presets</b> <span class="dim small">save the filter and rules below, up to 5</span></div>
+      <div class="opts">${presets.map((x, i) => `<span class="preset"><button data-preset="${i}">${esc(x.name)}</button><button class="x" data-preset-del="${i}" aria-label="Delete ${esc(x.name)}">✕</button></span>`).join("") || `<span class="dim small">No presets yet.</span>`}</div>
+      <div class="row"><input id="preset-name" maxlength="20" placeholder="Preset name, e.g. Speed farm" autocomplete="off" aria-label="Preset name"><button id="preset-save">Save preset</button></div>
+      <div class="dim small">${kept.length ? `Now: ${kept.join("; ")}. Mythics and primals always show.` : "No extra rules. Mythics and primals always show."}</div>
+      <div class="rule-h"><b>Hide slots</b> <span class="dim small">tap a slot to hide it</span></div>
+      <div class="opts">${slots.map((s) => chip("rslot", s, !!r.hideSlots?.includes(s as any), SLOT_NAME[s])).join("")}</div>
+      <div class="rule-h"><b>Sets to keep</b> <span class="dim small">pick any, and other sets are hidden. None picked keeps every set.</span></div>
+      <div class="opts">${sets.map((s) => chip("rset", s.id, !!r.sets?.includes(s.id), esc(s.name), ` style="border-color:${s.color}"`)).join("")}</div>
+      <div class="rule-h"><b>Wanted affixes</b> <span class="dim small">rares and legendaries must have at least</span> <span class="opts need">${[1, 2, 3].map((n) => chip("rneed", String(n), (r.need ?? 1) === n, String(n))).join("")}</span></div>
+      <div class="opts">${ALL_AFFIXES.map((a) => chip("raff", a.id, !!r.affixes?.includes(a.id), esc(aff(a.id)))).join("")}</div>
+      ${r.hideSlots?.length || r.sets?.length || r.affixes?.length ? `<button id="rules-clear">Clear rules</button>` : ""}
+    </div>`;
+  }
   private bindSettings(p: Profile, H: HubHandlers, re: () => void) {
+    const r = { ...(p.rules ?? {}) };
+    const tog = (k: "hideSlots" | "sets" | "affixes", v: string) => { const a = new Set<string>((r[k] as string[] | undefined) ?? []); if (a.has(v)) a.delete(v); else a.add(v); (r as any)[k] = [...a]; H.op?.({ t: "lootRules", rules: r }); re(); };
+    this.root.querySelectorAll<HTMLElement>("[data-rslot]").forEach((el) => el.onclick = () => tog("hideSlots", el.dataset.rslot!));
+    this.root.querySelectorAll<HTMLElement>("[data-rset]").forEach((el) => el.onclick = () => tog("sets", el.dataset.rset!));
+    this.root.querySelectorAll<HTMLElement>("[data-raff]").forEach((el) => el.onclick = () => tog("affixes", el.dataset.raff!));
+    this.root.querySelectorAll<HTMLElement>("[data-rneed]").forEach((el) => el.onclick = () => { r.need = +el.dataset.rneed!; H.op?.({ t: "lootRules", rules: r }); re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-preset]").forEach((el) => el.onclick = () => { H.op?.({ t: "lootRules", load: +el.dataset.preset! }); this.toast(`Filter preset "${el.textContent}" on`, "#7dff9a"); re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-preset-del]").forEach((el) => el.onclick = () => { if (el.dataset.armed) { H.op?.({ t: "lootRules", del: +el.dataset.presetDel! }); re(); } else { el.dataset.armed = "1"; el.textContent = "Delete?"; } });
+    const ps = this.root.querySelector<HTMLElement>("#preset-save");
+    if (ps) ps.onclick = () => {
+      const name = (this.root.querySelector<HTMLInputElement>("#preset-name")?.value ?? "").trim();
+      if (!name) { this.toast("Give the preset a name first", "#ffd23f"); return; }
+      if ((p.filterPresets ?? []).length >= 5 && !(p.filterPresets ?? []).some((x) => x.name === name)) { this.toast("5 presets max. Delete one first.", "#ffd23f"); return; }
+      H.op?.({ t: "lootRules", save: name }); this.toast(`Saved "${name}"`, "#7dff9a"); re();
+    };
+    const rc = this.root.querySelector<HTMLElement>("#rules-clear"); if (rc) rc.onclick = () => { H.op?.({ t: "lootRules", rules: {} }); re(); };
     this.root.querySelectorAll<HTMLElement>("[data-filter]").forEach((el) => el.onclick = () => { H.setting("filter", el.dataset.filter); re(); });
     this.root.querySelectorAll<HTMLElement>("[data-pet]").forEach((el) => el.onclick = () => { H.setting("pet", el.dataset.pet); re(); });
     this.root.querySelectorAll<HTMLElement>("[data-toggle]").forEach((el) => el.onclick = () => { const k = el.dataset.toggle as "mute" | "shake" | "hpbar" | "setLooks"; H.setting(k, k === "setLooks" ? p.settings.setLooks === false : !p.settings[k]); re(); });

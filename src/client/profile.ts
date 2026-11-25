@@ -2,7 +2,7 @@
 import { AFFIX, CLASSES, TALENTS, CosChoice, EquipSlot, HideoutLayout, Life, RIFT, Rarity, lifeStats, paragonXp, xpForLevel } from "../sim/data";
 import { Holder, Item, mintItem, noteFinds } from "../sim/items";
 import { makeRng } from "../sim/rng";
-import type { LootFilter, PlayerSetup, SimState } from "../sim/sim";
+import type { LootFilter, LootRules, PlayerSetup, SimState } from "../sim/sim";
 
 export const SAVE_KEY = "rift-arpg-save";
 export const SAVE_VERSION = 2;
@@ -39,6 +39,8 @@ export const BUILD_SLOTS = 5;
 export interface Profile {
   version: number; active: string; chars: Record<string, CharSave>;
   materials: number; pet: string; filter: LootFilter; cos: CosChoice;
+  /** extra loot rules (slots, sets, wanted affixes) and up to 5 saved filter presets */
+  rules?: LootRules; filterPresets?: { name: string; filter: LootFilter; rules: LootRules }[];
   /** premium things this account owns (shop keys like "cos:armor:gilded"); free in the test build */
   owned?: string[];
   /** hideout theme and placed decorations */
@@ -165,7 +167,7 @@ export function holderOf(p: Profile): Holder {
 
 export function setupFor(p: Profile, pid = 0, name = "You"): PlayerSetup {
   const c = char(p);
-  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, feathers: c.feathers ?? 0, vaultKeys: c.vaultKeys ?? 0, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, pAlloc: c.pAlloc ?? {}, gems: c.gems ?? {}, gemSlots: c.gemSlots ?? [], talents: c.talents ?? {}, subclass: c.subclass, passives: c.passives ?? [], relics: Object.values(c.relicSlots ?? {}).filter((id): id is string => !!id && (p.relics ?? []).includes(id)) };
+  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, feathers: c.feathers ?? 0, vaultKeys: c.vaultKeys ?? 0, runes: c.runes, pet: p.pet, filter: p.filter, rules: p.rules, loadout: c.loadout, cos: p.cos, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, pAlloc: c.pAlloc ?? {}, gems: c.gems ?? {}, gemSlots: c.gemSlots ?? [], talents: c.talents ?? {}, subclass: c.subclass, passives: c.passives ?? [], relics: Object.values(c.relicSlots ?? {}).filter((id): id is string => !!id && (p.relics ?? []).includes(id)) };
 }
 
 /** Pull the player's persistent state back out of a running sim (items picked up, XP, levels). Boons are not kept. */
@@ -206,7 +208,7 @@ export function xpProgress(c: CharSave) { return c.level >= RIFT.levels.max ? (c
 export function startNewSeason(p: Profile): Profile {
   const n = newProfile();
   n.season = { n: p.season.n + 1, started: new Date().toISOString().slice(0, 10) };
-  n.unlockedPets = p.unlockedPets; n.pet = p.pet; n.cos = p.cos; n.settings = p.settings; n.filter = p.filter;
+  n.unlockedPets = p.unlockedPets; n.pet = p.pet; n.cos = p.cos; n.settings = p.settings; n.filter = p.filter; n.rules = p.rules; n.filterPresets = p.filterPresets;
   // account-wide things carry over: purchases, the hideout, feats and the lifetime counters (baked from the old heroes)
   n.owned = p.owned; n.hideout = p.hideout; n.feats = p.feats; n.codex = p.codex; n.life = lifeStats(p); n.aether = p.aether; // the reliquary resets with the season, like gear
   try { localStorage.setItem(`${SAVE_KEY}-season-${p.season.n}`, JSON.stringify(p)); } catch { /* ignore */ }

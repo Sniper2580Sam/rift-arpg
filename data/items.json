@@ -321,5 +321,19 @@
     "mythic": 5,
     "ancestralMult": 2,
     "primalMult": 5
+  },
+  "workshop": {
+    "uplevel": {
+      "common": 1,
+      "magic": 2,
+      "rare": 4,
+      "legendary": 10,
+      "set": 10,
+      "mythic": 25
+    },
+    "craft": {
+      "rare": 60,
+      "legendary": 300
+    }
   }
 }

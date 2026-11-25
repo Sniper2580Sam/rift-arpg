@@ -1,4 +1,4 @@
-# Putting co-op online (free)
+# Putting Riftbound online (free to start)
 
 The co-op server runs on **Render** (free web service). Saves go to **Upstash Redis** (free database), because Render's free disk is wiped on every restart. Friends on other networks connect through a **TURN relay** (free tier, optional but recommended).
 
@@ -19,7 +19,8 @@ Without it, co-op usually works on the same Wi-Fi but often fails between a phon
 4. Apply. The first build takes a few minutes. Your link is `https://rift-arpg-XXXX.onrender.com`.
 
 ## Good to know
-- The free server sleeps after about 15 minutes without players. The first visit after that takes about a minute to wake it.
+- The free server sleeps after about 15 minutes without players. The first visit after that takes about a minute to wake it. To stop that, switch the service to Render's **Starter** plan (about US$7 a month) under Settings → Instance type.
+- Send friends the `onrender.com` link. They make an account (name + password) on the first screen. The weekly leaderboard shows on the Play tab (Rift Board).
 - Every push to `main` redeploys it automatically. Saves survive, because they're in the database.
 - Accounts are name + password, stored hashed. Anyone with the link can make an account.
 - Local play is unchanged: `npm run server` still uses files in `server-data/`.

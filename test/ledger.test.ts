@@ -105,6 +105,22 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   const big = { theme: "crypt", decor: [...Array(80)].map((_, i) => ({ id: "barrel", x: 1 + (i % 20), y: 1 + Math.floor(i / 20) })).concat([{ id: "barrel", x: 1, y: 1 }, { id: "barrel", x: 99, y: 2 }, { id: "nope", x: 3, y: 9 }]) };
   check("import is capped and cleaned", applyHubOp(q, { t: "hideout", design: big }) === true && q.hideout!.decor.length === HIDEOUT.maxDecor && q.hideout!.layout === "classic");
 }
+{ // scrap workshop: bring an item up to your level, and craft a random rare/legendary for a slot
+  const p = newProfile(); const c = p.chars.ashknight; c.level = 25; p.materials = 1000;
+  const it = mintItem(makeRng(5), "w1", { rarity: "rare", slot: "chest", ilvl: 5 }); const arm0 = it.armor ?? 0;
+  c.bag = [it];
+  check("uplevel raises ilvl and base stats", applyHubOp(p, { t: "uplevel", bag: 0 }) === true && c.bag[0].ilvl === 25 && (c.bag[0].armor ?? 0) > arm0 && p.materials === 1000 - 20 * 4);
+  check("uplevel twice refused", applyHubOp(p, { t: "uplevel", bag: 0 }) === false);
+  const m0 = p.materials;
+  check("craft a legendary for a slot", applyHubOp(p, { t: "craftRandom", slot: "gloves", rarity: "legendary" }) === true && c.bag.length === 2 && c.bag[1].rarity === "legendary" && c.bag[1].slot === "gloves" && c.bag[1].ilvl === 25 && p.materials === m0 - 300);
+  const q = newProfile(); q.chars.ashknight.level = 25; q.materials = 1000; q.chars.ashknight.bag = [mintItem(makeRng(5), "w1", { rarity: "rare", slot: "chest", ilvl: 5 })];
+  applyHubOp(q, { t: "uplevel", bag: 0 }); applyHubOp(q, { t: "craftRandom", slot: "gloves", rarity: "legendary" });
+  check("crafting is deterministic (server makes the same item)", JSON.stringify(q.chars.ashknight.bag[1]) === JSON.stringify(c.bag[1]));
+  c.level = 12;
+  check("legendary craft needs level 20", applyHubOp(p, { t: "craftRandom", slot: "ring", rarity: "legendary" }) === false);
+  p.materials = 10;
+  check("craft needs materials", applyHubOp(p, { t: "craftRandom", slot: "ring", rarity: "rare" }) === false);
+}
 { // hub "scrap common+magic" really empties them from the character's bag
   const p = newProfile(); const c = p.chars.ashknight; const r = makeRng(3);
   c.bag = [mintItem(r, "a", { rarity: "common" }), mintItem(r, "b", { rarity: "magic" }), mintItem(r, "c", { rarity: "rare" })];

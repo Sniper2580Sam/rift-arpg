@@ -1,5 +1,7 @@
 // Batch 6 loot: skill-changing legendaries, the Concord Band, generic 2-piece sets, defence, trade-off boons, bag sort.
-import { createSim, step, NO_INPUT, PlayerSetup, refreshAll, damagePlayer as damagePlayerForTest } from "../src/sim/sim";
+import { cleanRules, hiddenByFilter, createSim, step, NO_INPUT, PlayerSetup, refreshAll, damagePlayer as damagePlayerForTest } from "../src/sim/sim";
+import { applyHubOp } from "../src/shared/ops";
+import { newProfile } from "../src/client/profile";
 import { mintItem, computeStats, Holder, applyInvCmd, capRarity, resolveSkill } from "../src/sim/items";
 import { makeRng } from "../src/sim/rng";
 import { CLASSES, LEGENDARY, SET, TALENTS, SlotType, EquipSlot } from "../src/sim/data";
@@ -86,4 +88,29 @@ function setup(pid: number, cls = "ashknight", level = 1, equipment: Holder["equ
     n++;
   }
   console.log(`ok   ${n} subclasses: every skill resolves and fights`);
+}
+{ // loot filter rules: slots, sets, wanted affixes; mythic and primal always show; presets
+  const it = (o: any) => ({ id: "x", slot: "helm", rarity: "rare", name: "x", ilvl: 30, affixes: [], ...o });
+  const P = (rules: any, filter: any = "common") => ({ filter, rules: cleanRules(rules) });
+  assert(hiddenByFilter(P({ hideSlots: ["helm"] }), it({})) && !hiddenByFilter(P({ hideSlots: ["helm"] }), it({ slot: "ring" })), "hide slots");
+  const set = Object.keys(SET)[0], other = Object.keys(SET)[1];
+  assert(!hiddenByFilter(P({ sets: [set] }), it({ rarity: "set", set })) && hiddenByFilter(P({ sets: [set] }), it({ rarity: "set", set: other })), "keep chosen sets only");
+  assert(!hiddenByFilter(P({}), it({ rarity: "set", set: other })), "no set rule keeps every set");
+  const want = P({ affixes: ["crit_chance", "crit_dmg"], need: 2 });
+  assert(hiddenByFilter(want, it({ affixes: [{ id: "crit_chance", value: 5, min: 1, max: 9 }] })), "needs 2 wanted affixes");
+  assert(!hiddenByFilter(want, it({ rarity: "legendary", affixes: [{ id: "crit_chance", value: 5, min: 1, max: 9 }, { id: "crit_dmg", value: 5, min: 1, max: 9 }] })), "2 wanted affixes kept");
+  assert(!hiddenByFilter(want, it({ rarity: "magic" })), "affix rule only for rares and legendaries");
+  assert(!hiddenByFilter(P({ hideSlots: ["helm"] }, "primal"), it({ rarity: "mythic" })) && !hiddenByFilter(P({ hideSlots: ["helm"] }), it({ rarity: "legendary", quality: "primal" })), "mythic and primal always show");
+  assert(hiddenByFilter(P({}, "rare"), it({ rarity: "magic" })) && hiddenByFilter(P({}, "ancestral"), it({ rarity: "legendary" })), "rarity filter still works");
+  assert(JSON.stringify(cleanRules({ hideSlots: ["helm", "nope", "helm"] as any, sets: ["zzz"], affixes: ["life", "bogus"], need: 9 })) === JSON.stringify({ hideSlots: ["helm"], sets: [], affixes: ["life"], need: 3 }), "rules are cleaned");
+  const p = newProfile();
+  assert(applyHubOp(p, { t: "lootRules", rules: { hideSlots: ["belt"] } }) === true && p.rules!.hideSlots![0] === "belt", "rules op");
+  applyHubOp(p, { t: "setting", k: "filter", v: "rare" });
+  assert(applyHubOp(p, { t: "lootRules", save: "Farm" }) === true && p.filterPresets!.length === 1, "save preset");
+  applyHubOp(p, { t: "lootRules", rules: {} }); applyHubOp(p, { t: "setting", k: "filter", v: "common" });
+  assert(applyHubOp(p, { t: "lootRules", load: 0 }) === true && p.filter === "rare" && p.rules!.hideSlots![0] === "belt", "load preset");
+  for (const n of ["a", "b", "c", "d"]) applyHubOp(p, { t: "lootRules", save: n });
+  assert(applyHubOp(p, { t: "lootRules", save: "e" }) === false, "5 presets max");
+  assert(applyHubOp(p, { t: "lootRules", del: 0 }) === true && p.filterPresets!.length === 4, "delete preset");
+  console.log("ok   loot filter rules and presets");
 }
