@@ -43,5 +43,7 @@ jobs:
           terraform init -input=false \
             -backend-config="bucket=$STATE_BUCKET" \
             -backend-config="endpoints={s3=\"https://$CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com\"}"
+          # the relay key only exists after the relay app is created, and Pages needs it as a known value
+          terraform apply -input=false -auto-approve -target=cloudflare_calls_turn_app.relay
           terraform apply -input=false -auto-approve
           echo "Game URL: $(terraform output -raw url)" >> "$GITHUB_STEP_SUMMARY"
