@@ -78,11 +78,13 @@ const STATION: Record<string, { rows: string[]; pal: Pal }> = {
   shop: { rows: ["yRyRyRyRyRyRy", "RyRyRyRyRyRyR", "k...........k", "k.....g.....k", "k....gGg....k", "kkkkkkkkkkkkk", "kbBbBbBbBbBbk", "kkkkkkkkkkkkk"], pal: { k: K, y: "#ffd23f", R: "#c4334a", g: "#e8c050", G: "#fff0a0", b: "#6b4a2a", B: "#8a6238" } },
   journey: { rows: ["..kkkkkkkk..", ".kyyyyyyyyk.", "kykyOOOOykyk", "kyk.yOOy.kyk", ".kk.yyyy.kk.", "....kyyk....", ".....kk.....", "....kyyk....", "...kkkkkk...", "..kWWWWWWk..", "..kWwwwwWk..", "..kkkkkkkk.."], pal: { k: K, y: "#ffd23f", O: "#fff0a0", W: "#8a7f66", w: "#c9bf9f" } },
   jeweler: { rows: ["....kk....", "...kcCk...", "..kcCCck..", "...kcck...", "....kk....", "kkkkkkkkkk", "kbBbBbBbBk", "kkkkkkkkkk", ".kb....bk.", ".kb....bk.", ".kk....kk."], pal: { k: K, c: "#5ad1a8", C: "#d8fff0", b: "#6b4a2a", B: "#8a6238" } },
+  altar: { rows: ["....kk....", "...kOOk...", "..kOooOk..", "...kOOk...", "....kk....", "kkkkkkkkkk", "kpPPPPPPpk", "kpPyyyyPpk", ".kpPPPPpk.", ".kpppppk..", "kkkkkkkkk."], pal: { k: K, O: "#ff8a1f", o: "#ffd23f", p: "#4a3366", P: "#6a4a8a", y: "#c9a23a" } },
+  starchart: { rows: ["..kkkkkkkk..", ".kbbbbbbbbk.", "kbbwbbbbybbk", "kbbbbwbbbbbk", "kbybbbbbwbbk", "kbbbbybbbbbk", "kbwbbbbbbybk", ".kbbbbbbbbk.", "..kkkkkkkk..", ".....kk.....", "....knnk....", "...kkkkkk..."], pal: { k: K, b: "#1e2a5a", w: "#e0e8ff", y: "#ffd23f", n: "#6b4a2a" } },
   reliquary: { rows: ["...kkkk...", "..kyOOyk..", "..kOooOk..", "..kyOOyk..", "...kkkk...", "..kwwwwk..", ".kwWWWWwk.", ".kwWyyWwk.", ".kwWWWWwk.", "kkkkkkkkkk"], pal: { k: K, y: "#ffd23f", O: "#ff8a1f", o: "#fff0a0", w: "#9a96a8", W: "#c8c4d4" } },
   decorate: { rows: ["...kk....", "..kaak...", "..kaak...", "...kk....", "...nn....", "...nn.kk.", "...nnkyyk", "...nnkyyk", "..kkkkkk."], pal: { k: K, a: "#8d93ab", n: "#6b4a2a", y: "#7ad06a" } },
 };
 
-export function drawStation(g: CanvasRenderingContext2D, s: HideoutSpot, x: number, y: number, t: number, near: boolean) {
+export function drawStation(g: CanvasRenderingContext2D, s: HideoutSpot, x: number, y: number, t: number, near: boolean, sub = "") {
   const d = STATION[s.id];
   if (!d) return;
   const img = art("s:" + s.id, d.rows, d.pal);
@@ -90,6 +92,8 @@ export function drawStation(g: CanvasRenderingContext2D, s: HideoutSpot, x: numb
   g.drawImage(img, Math.round(x - img.width / 2), Math.round(y - img.height));
   if (s.id === "blacksmith" && Math.random() < 0.15) { g.fillStyle = Math.random() < 0.5 ? "#ffd23f" : "#ff8a1f"; g.fillRect(Math.round(x - 2 + Math.random() * 4), Math.round(y - img.height - Math.random() * 4), 1, 1); }
   label(g, s.name, x, y - img.height - 4, near ? "#ffd23f" : "#c9b8ff", near);
+  // unspent points: a gold note under the station, and a pulsing spark above it
+  if (sub) { label(g, sub, x, y + 7, "#ffd23f", false, 7); if (Math.floor(t * 2) % 2) { g.fillStyle = "#ffd23f"; g.fillRect(Math.round(x), Math.round(y - img.height - 12), 1, 1); } }
 }
 
 export function drawPortal(g: CanvasRenderingContext2D, s: HideoutSpot, x: number, y: number, t: number, near: boolean, sub: string) {

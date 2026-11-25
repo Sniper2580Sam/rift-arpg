@@ -95,6 +95,24 @@
    "fx": 0.5,
    "fy": 0.6,
    "desc": "Your collection, and your hero on show"
+  },
+  {
+   "id": "altar",
+   "name": "Talent Altar",
+   "tab": "skills",
+   "sub": "talents",
+   "fx": 0.2,
+   "fy": 0.36,
+   "desc": "Your subclass and talents (points from Trials)"
+  },
+  {
+   "id": "starchart",
+   "name": "Star Chart",
+   "tab": "skills",
+   "sub": "tree",
+   "fx": 0.8,
+   "fy": 0.36,
+   "desc": "The passive tree and Paragon (points from Paragon levels)"
   }
  ],
  "portals": [

@@ -269,3 +269,6 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 - **Each subclass tree has 8 nodes:** 5 stat nodes (5 ranks each), 2 notables that change skills (for example Wildfire: fire skills ignite; Shield Wall: Shield Bash hits all around), and a capstone (for example Living Pyre: fire skills +50% damage; Undying: once a minute, survive a killing blow). Nodes open at 0, 6, 12 and 20 points spent. With all 30 Trial points you can fill the tree, so the choice is which subclass you pick.
 - **Respec rules (Samuel):** the passive tree stays free to change. Talents can't be refunded one at a time. A respec, or switching subclass, clears the tree, and the points come back when you beat your best Trial again (`trialRe`). Until then the Trial portal offers your best Trial instead of the next one. Picking your first subclass is free.
 - Old talent ranks from the previous class trees are refunded on load.
+
+## 2026-11-25: Hideout stations for each tree (Samuel)
+- **Talent Altar** (opens Skills → Talents) and **Star Chart** (opens Skills → Passive tree; Paragon is the next sub-tab). Each shows your unspent points under it ("3 points to spend", "pick a subclass"). The Skill Shrine now opens only skills and runes.

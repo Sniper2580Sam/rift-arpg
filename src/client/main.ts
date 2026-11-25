@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { runeLevel, chiselsForRun, nextTrial, talentPoints, trialPassed, trialTarget, coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SET, SKILL, xpForLevel } from "../sim/data";
+import { runeLevel, chiselsForRun, nextTrial, talentPoints, talentSpent, paragonSpent, trialPassed, trialTarget, coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SET, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, Item, applyInvCmd, noteFinds, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
@@ -179,6 +179,13 @@ function hideoutButtons() {
   const l = document.getElementById("h-leave"); if (l) l.onclick = () => { online?.leave(); endRun(); };
 }
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+/** Unspent points shown under the hideout's talent and passive-tree stations. */
+function stationNote(id: string): string {
+  const c = char(profile);
+  if (id === "altar") { const f = talentPoints(c) - talentSpent(c.talents); return !c.subclass && talentPoints(c) ? "pick a subclass" : f > 0 ? `${f} point${f === 1 ? "" : "s"} to spend` : ""; }
+  if (id === "starchart") { const f = (c.paragon ?? 0) - (c.passives?.length ?? 0) + ((c.paragon ?? 0) - paragonSpent(c.pAlloc ?? {})); return f > 0 ? `${f} point${f === 1 ? "" : "s"} to spend` : ""; }
+  return "";
+}
 /** Bosses use the tier picked on the Play tab (at least 3, at most your highest). */
 const bossTier = () => Math.max(3, Math.min(ui.tier, char(profile).highestTier));
 function useSpot(n: HideoutSpot) {
@@ -878,7 +885,7 @@ function render(alpha: number, dt: number) {
         }) });
         continue;
       }
-      list.push({ y, f: () => drawStation(g, st, x, y, t, hideNear === st) });
+      list.push({ y, f: () => drawStation(g, st, x, y, t, hideNear === st, stationNote(st.id)) });
     }
     for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `T${bossTier()} · ${char(profile).feathers ?? 0} feathers` : `T${bossTier()} · ${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : po.kind === "trial" ? `trial ${trialTarget(char(profile))}` : po.kind === "vault" ? `${char(profile).vaultKeys ?? 0} keys` : `tier ${Math.min(ui.tier, char(profile).highestTier)}`) }); }
   }
