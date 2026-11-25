@@ -1,6 +1,6 @@
 // Local profile for OFFLINE_TEST builds (live builds keep this on the backend). Versioned save schema with migrations.
 import { AFFIX, CLASSES, CosChoice, EquipSlot, HideoutLayout, Life, RIFT, Rarity, lifeStats, paragonXp, xpForLevel } from "../sim/data";
-import { Holder, Item, mintItem } from "../sim/items";
+import { Holder, Item, mintItem, noteFinds } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import type { LootFilter, PlayerSetup, SimState } from "../sim/sim";
 
@@ -52,6 +52,8 @@ export interface Profile {
   feats?: string[]; life?: Partial<Life>;
   /** premium currency (cosmetics only) */
   aether?: number;
+  /** the collection: every legendary power and set piece ever found (account-wide, survives seasons) */
+  codex?: string[];
   /** reliquary (account-wide): extracted legendary powers and Relic Dust */
   relics?: string[]; relicDust?: number;
   /** boss trophies (account-wide, reset with the season) */
@@ -63,7 +65,7 @@ export interface Profile {
   /** this season's journey counters (reset with the season) */
   journey?: { season: number; stats: Partial<Life> };
   weekly: { week: string; best: number };
-  settings: { mute: boolean; shake: boolean; autoTier: boolean; hpbar?: boolean };
+  settings: { mute: boolean; shake: boolean; autoTier: boolean; hpbar?: boolean; /** show the set you wear 4+ pieces of on your hero (default on) */ setLooks?: boolean };
   /** ms timestamp of the last real change (used to pick the newer of the device and cloud copies) */
   savedAt?: number;
 }
@@ -111,6 +113,8 @@ export function migrate(raw: any): Profile | null {
       for (const it of [...Object.values(c.equipment), ...c.bag]) if (it) { delete (it as any).plus; delete (it as any).charges; }
     }
     for (const it of p.stash ?? []) { delete (it as any).plus; delete (it as any).charges; }
+    // the collection starts with whatever you already own
+    if (!p.codex) noteFinds(p, [...Object.values(p.chars).flatMap((c) => [...Object.values(c.equipment), ...c.bag]), ...(p.stash ?? [])]);
     // cosmetics were all free before the shop: whatever you were wearing stays yours
     if (!p.owned) {
       p.owned = [];
@@ -201,7 +205,7 @@ export function startNewSeason(p: Profile): Profile {
   n.season = { n: p.season.n + 1, started: new Date().toISOString().slice(0, 10) };
   n.unlockedPets = p.unlockedPets; n.pet = p.pet; n.cos = p.cos; n.settings = p.settings; n.filter = p.filter;
   // account-wide things carry over: purchases, the hideout, feats and the lifetime counters (baked from the old heroes)
-  n.owned = p.owned; n.hideout = p.hideout; n.feats = p.feats; n.life = lifeStats(p); n.aether = p.aether; // the reliquary resets with the season, like gear
+  n.owned = p.owned; n.hideout = p.hideout; n.feats = p.feats; n.codex = p.codex; n.life = lifeStats(p); n.aether = p.aether; // the reliquary resets with the season, like gear
   try { localStorage.setItem(`${SAVE_KEY}-season-${p.season.n}`, JSON.stringify(p)); } catch { /* ignore */ }
   return n;
 }

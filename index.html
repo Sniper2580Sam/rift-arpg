@@ -60,6 +60,12 @@
   .it-compare { margin-top:6px; font-size:13px; } .up { color:#7dff9a; } .down { color:#ff6a6a; }
   .big-time { font-size:42px; color:#ffd23f; margin:4px 0; }
   .legs { margin:8px 0; }
+  #findcard { position:fixed; left:50%; top:70px; transform:translate(-50%,-20px); opacity:0; pointer-events:none; transition:opacity .3s, transform .3s; background:#140c1cee; border:2px solid var(--c,#ff8a1f); box-shadow:0 0 18px var(--c,#ff8a1f); padding:10px 14px; max-width:min(360px,calc(100vw - 32px)); display:flex; gap:10px; align-items:center; z-index:30; }
+  #findcard.on { opacity:1; transform:translate(-50%,0); pointer-events:auto; }
+  #findcard img { width:44px; height:44px; image-rendering:pixelated; flex:none; } #findcard .fc-k { font-size:11px; letter-spacing:1px; color:#ffd23f; } #findcard .fc-n { font-size:16px; font-weight:bold; color:var(--c); } #findcard .fc-p { font-size:12px; color:var(--dim); }
+  @keyframes shimmer { 0% { box-shadow:inset 0 0 4px #ffb34755; } 50% { box-shadow:inset 0 0 14px #ffd23fcc; } 100% { box-shadow:inset 0 0 4px #ffb34755; } }
+  @keyframes primalpulse { 0% { box-shadow:0 0 4px #ff3b3b88; } 50% { box-shadow:0 0 16px #ff3b3b; } 100% { box-shadow:0 0 4px #ff3b3b88; } }
+  .cell.q-ancestral { animation:shimmer 2.4s ease-in-out infinite; } .cell.q-primal { animation:primalpulse 1.4s ease-in-out infinite; }
   #toast { position:fixed; left:50%; bottom:90px; transform:translateX(-50%); background:#140c1cdd; border:2px solid var(--line); padding:6px 12px; font-size:14px;
     opacity:0; transition:opacity .3s; pointer-events:none; white-space:nowrap; max-width:92vw; overflow:hidden; text-overflow:ellipsis; }
 
@@ -141,6 +147,7 @@
 <canvas id="game"></canvas>
 <div id="ui"></div>
 <div id="toast"></div>
+<div id="findcard" aria-live="polite"></div>
 <script>/*GAME*/</script>
 </body>
 </html>

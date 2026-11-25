@@ -251,3 +251,9 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 ## 2026-11-25: Loot by level (Samuel)
 - **Drops follow the hero's level** (`RIFT.lootLevels`): rares ramp in from level 5 (full at 12), legendaries from 20 (full at 28), sets and mythics at 30. A forced reward a hero can't get yet becomes the best rarity they can (`capRarity`): a set at level 22 is a legendary, at level 10 a rare. The server uses its own record of the hero's level. Crafting set pieces with King's Shards also opens at 30.
 - Item level already follows the hero's level (level + tier/4, capped at 30), so stats grow as you level.
+
+## 2026-11-25: Looks 1 and 2 (Samuel picked every idea in the looks brainstorm)
+- **Drops:** legendary, set and mythic beams are taller, in the set's own colour (red for primal, gold core for ancestral), with a pulsing floor ring and motes. Dropped set pieces use the set-tinted icon and name colour.
+- **First find:** the first time you pick up a legendary power or a set piece, a card shows it and adds it to your **collection** (`profile.codex`, account-wide, kept across seasons; the server records it from accepted saves, including scrapped finds; old saves start with what they own).
+- **Bag:** ancestral items shimmer gold, primal items pulse red.
+- **On the hero:** 4+ pieces of a set dress the hero in the set's colours (premium armour still wins; "Set looks on hero" toggle in Settings). A full 6-piece set adds a ring and sparks. Legendary weapon: glowing embers (crimson for mythic). Legendary helm: a gold glint. Legendary boots: an ember trail. Primal: a red ember; mythic: crimson motes.

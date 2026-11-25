@@ -1,5 +1,5 @@
 // All art is drawn in code: palette-indexed string arrays rendered once to offscreen canvases and cached.
-import { COSMETICS, guardianDef, Rarity, SlotType as Slot } from "../sim/data";
+import { COSMETICS, SET, guardianDef, Rarity, SlotType as Slot } from "../sim/data";
 
 export type Sprite = { img: HTMLCanvasElement; flash: HTMLCanvasElement; w: number; h: number };
 
@@ -463,6 +463,10 @@ export const RARITY_COLOR: Record<Rarity, string> = {
   set: "#3ddc84",
   mythic: "#ff3b6b",
 };
+function tint(hex: string, k: number) {
+  const n = parseInt(hex.slice(1), 16), f = (v: number) => Math.round(v + (255 - v) * k).toString(16).padStart(2, "0");
+  return "#" + f(n >> 16) + f((n >> 8) & 255) + f(n & 255);
+}
 function shade(hex: string, k: number) {
   const n = parseInt(hex.slice(1), 16), f = (v: number) => Math.round(v * k).toString(16).padStart(2, "0");
   return "#" + f(n >> 16) + f((n >> 8) & 255) + f(n & 255);
@@ -696,7 +700,10 @@ export function buildSprites(): SpriteBank {
     heroSkin(cls, armor, weapon, dye) {
       return cached(`h:${cls}:${armor}:${weapon}:${dye}`, () => {
         // a dye recolours the base outfit; premium and earned armour keep their own colours
-        const w = cosOf("weapon", weapon), a = cosOf("armor", armor)?.m ? cosOf("armor", armor) : cosOf("dye", dye);
+        // "set:<id>": a hero wearing 4+ pieces of a set is dressed in that set's colours
+        const sc = dye?.startsWith("set:") ? SET[dye.slice(4)]?.color : undefined;
+        const setDye = sc ? { m: sc, d: shade(sc, 0.5), t1: tint(sc, 0.45), t2: shade(sc, 0.75) } : undefined;
+        const w = cosOf("weapon", weapon), a = cosOf("armor", armor)?.m ? cosOf("armor", armor) : setDye ?? cosOf("dye", dye);
         const pal = { ...BASE, ...(a?.m ? (HERO_KEYS[cls] ?? HERO_KEYS.ashknight)(a) : {}), ...(w?.wood ? { n: w.wood, Z: w.gem } : {}) };
         return heroRows(cls).map((r) => make(r, pal));
       })!;

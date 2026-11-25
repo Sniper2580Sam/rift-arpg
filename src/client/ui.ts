@@ -796,14 +796,14 @@ export class UI {
         <div class="opts">${filters.map(([r, l]) => `<button class="${p.filter === r ? "on" : ""}" data-filter="${r}">${l}</button>`).join("")}</div></div>
       <div class="setting"><b>Pet</b><div class="dim small">Cosmetic. Any pet picks up your loot in a radius (bigger from level 15).</div>
         <div class="opts">${PETS.map((pt) => `<button class="${p.pet === pt.id ? "on" : ""}" data-pet="${pt.id}">${esc(pt.name)}</button>`).join("")}</div></div>
-      <div class="setting"><b>Sound</b> <button data-toggle="mute">${p.settings.mute ? "Off" : "On"}</button> <b>Screen shake</b> <button data-toggle="shake">${p.settings.shake ? "On" : "Off"}</button> <b>Life over head</b> <button data-toggle="hpbar">${p.settings.hpbar ? "On" : "Off"}</button></div>
+      <div class="setting"><b>Sound</b> <button data-toggle="mute">${p.settings.mute ? "Off" : "On"}</button> <b>Screen shake</b> <button data-toggle="shake">${p.settings.shake ? "On" : "Off"}</button> <b>Life over head</b> <button data-toggle="hpbar">${p.settings.hpbar ? "On" : "Off"}</button> <b>Set looks on hero</b> <button data-toggle="setLooks">${p.settings.setLooks !== false ? "On" : "Off"}</button></div>
       ${!OFFLINE_TEST ? "" : `<div class="setting"><b>Season ${p.season.n}</b> <span class="dim small">started ${p.season.started}. Test builds only: simulates a season reset. Levels and gear reset on every hero; cosmetics, feats, Aether, pets and settings carry over.</span><br><button id="season" class="warn">Start a new season</button></div>`}
       <div class="setting"><button id="reset" class="warn">Reset save</button> <span class="dim small">Saved in this browser only (offline test build).</span></div>`;
   }
   private bindSettings(p: Profile, H: HubHandlers, re: () => void) {
     this.root.querySelectorAll<HTMLElement>("[data-filter]").forEach((el) => el.onclick = () => { H.setting("filter", el.dataset.filter); re(); });
     this.root.querySelectorAll<HTMLElement>("[data-pet]").forEach((el) => el.onclick = () => { H.setting("pet", el.dataset.pet); re(); });
-    this.root.querySelectorAll<HTMLElement>("[data-toggle]").forEach((el) => el.onclick = () => { const k = el.dataset.toggle as "mute" | "shake" | "hpbar"; H.setting(k, !p.settings[k]); re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-toggle]").forEach((el) => el.onclick = () => { const k = el.dataset.toggle as "mute" | "shake" | "hpbar" | "setLooks"; H.setting(k, k === "setLooks" ? p.settings.setLooks === false : !p.settings[k]); re(); });
     const arm = (id: string, f: () => void) => { const el = $(id); el.onclick = () => { if (el.dataset.armed) f(); else { el.dataset.armed = "1"; el.textContent = "Tap again to confirm"; } }; };
     if (OFFLINE_TEST) arm("#season", () => { H.newSeason(); this.tab = "play"; });
     arm("#reset", () => { H.reset(); this.tab = "play"; });
@@ -845,6 +845,17 @@ export class UI {
     $("#back").onclick = onBack;
   }
 
+  /** First time an item's power or set piece is found: a card at the top (tap to close). */
+  private findT = 0;
+  findCard(it: Item) {
+    const el = $("#findcard");
+    const col = it.set && SET[it.set] ? SET[it.set].color : RARITY_COLOR[it.rarity];
+    const line = it.legendary ? powerText(it) : it.set ? `${SET[it.set].name}: ${Object.values(SET[it.set].bonuses)[0]?.text ?? ""}` : "";
+    el.style.setProperty("--c", col);
+    el.innerHTML = `<img alt="" src="${icon(this.bank, it)}"><div><div class="fc-k">NEW FIND · ADDED TO YOUR COLLECTION</div><div class="fc-n">${esc(it.name)}</div><div class="fc-p">${esc(line)}</div></div>`;
+    el.classList.add("on"); el.onclick = () => el.classList.remove("on");
+    clearTimeout(this.findT); this.findT = window.setTimeout(() => el.classList.remove("on"), 4500);
+  }
   toast(text: string, color = "#fff", ms = 2200) {
     const t = $("#toast");
     t.textContent = text; t.style.color = color; t.style.opacity = "1";

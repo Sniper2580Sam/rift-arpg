@@ -1,7 +1,7 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { runeLevel, chiselsForRun, nextTrial, talentPoints, coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { runeLevel, chiselsForRun, nextTrial, talentPoints, coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SET, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
-import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
+import { InvCmd, Item, applyInvCmd, noteFinds, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
 import { sfx, setMuted, unlockAudio } from "./audio";
 import { Input, KEY_LABELS } from "./input";
@@ -604,6 +604,7 @@ function handleEvent(e: SimEvent) {
     case "pickup":
       if (!mine(e.pid)) break;
       sfx.pickup(); found[e.rarity] = (found[e.rarity] ?? 0) + 1; runIds.add(e.item.id);
+      if (noteFinds(profile, [e.item]).length) ui.findCard(e.item);
       if (e.rarity === "legendary" || e.rarity === "set" || e.rarity === "mythic") foundLegs.push({ name: e.name, rarity: e.rarity, quality: e.item.quality });
       if (Object.values(me().equipment).some((it) => it?.id === e.item.id)) ui.toast(`Equipped ${e.name} (empty slot)`, RARITY_COLOR[e.rarity]);
       else if (e.rarity !== "common" && e.rarity !== "magic") ui.toast(`Picked up ${e.name} · Bag to equip`, RARITY_COLOR[e.rarity]);
@@ -797,18 +798,34 @@ function render(alpha: number, dt: number) {
   for (const l of s.loot) {
     if (l.owner !== ME || !onScreen(l.x, l.y, 100)) continue;
     const r = l.item.rarity;
-    const col = RARITY_COLOR[r];
+    // a set piece shines in its set's colour, a primal in red, an ancestral with a gold core
+    const setCol = l.item.set ? SET[l.item.set]?.color : undefined;
+    const q = l.item.quality;
+    const col = q === "primal" ? "#ff3b3b" : setCol ?? RARITY_COLOR[r];
     const hidden = RARITY_ORDER_IDX(r) < RARITY_ORDER_IDX(profile.filter);
     const bob = Math.sin(t * 4 + l.id) * 1.5;
     const big = r === "legendary" || r === "set" || r === "mythic";
-    const hgt = hidden ? 0 : big ? 90 : r === "rare" ? 40 : r === "magic" ? 22 : 0;
+    const hgt = hidden ? 0 : big ? (q ? 130 : 100) : r === "rare" ? 40 : r === "magic" ? 22 : 0;
     if (hgt) {
       const wdt = big ? 6 + Math.sin(t * 8) : 3;
       const gr = g.createLinearGradient(0, l.y - hgt, 0, l.y);
-      gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, l.item.quality === "primal" ? "#ff3b3b" : col);
-      g.globalAlpha = 0.65; g.fillStyle = gr; g.fillRect(Math.round(l.x - wdt / 2), l.y - hgt, wdt, hgt); g.globalAlpha = 1;
+      gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, col);
+      g.globalAlpha = 0.65; g.fillStyle = gr; g.fillRect(Math.round(l.x - wdt / 2), l.y - hgt, wdt, hgt);
+      if (big) {
+        // a bright core, a ring that pulses out along the floor, and motes drifting up the beam
+        g.globalAlpha = 0.8; g.fillStyle = q === "ancestral" ? "#ffd23f" : "#fff"; g.fillRect(Math.round(l.x - 1), l.y - hgt * 0.8, 2, hgt * 0.8);
+        const ph = (t * 0.8 + l.id * 0.13) % 1;
+        g.globalAlpha = 0.6 * (1 - ph); g.strokeStyle = col; g.lineWidth = 1;
+        g.beginPath(); g.ellipse(l.x, l.y + 2, 4 + ph * 16, (4 + ph * 16) * 0.45, 0, 0, Math.PI * 2); g.stroke();
+        for (let i = 0; i < (q ? 6 : 4); i++) {
+          const k = (t * 0.6 + i / (q ? 6 : 4) + l.id * 0.07) % 1;
+          g.globalAlpha = 0.9 * (1 - k); g.fillStyle = i % 2 ? col : "#fff";
+          g.fillRect(Math.round(l.x + Math.sin(t * 3 + i * 2 + l.id) * 4), Math.round(l.y - k * hgt * 0.9), 1, 1);
+        }
+      }
+      g.globalAlpha = 1;
     }
-    const ic = bank.icon(l.item.slot, r);
+    const ic = bank.icon(l.item.slot, r, setCol);
     g.globalAlpha = hidden ? 0.35 : 1;
     g.fillStyle = "rgba(0,0,0,0.4)"; g.fillRect(l.x - 4, l.y + 3, 8, 2);
     g.drawImage(ic.img, Math.round(l.x - ic.w / 2), Math.round(l.y - ic.h + 2 + bob));
@@ -1095,13 +1112,48 @@ function drawHero(g: CanvasRenderingContext2D, p: Player, x: number, y: number, 
   const sc = au && !ending ? au.scale : 1;
   if (sc !== 1) { g.save(); g.translate(x, y); g.scale(sc, sc); g.translate(-x, -y); }
   if (au?.fade && !ending) g.globalAlpha = Math.min(g.globalAlpha, au.fade);
-  const fr = drawHeroCos(g, bank, { pid: p.pid, cls: p.cls, cos: p.cos ?? {}, fx: p.fx, fy: p.fy, moving: p.moving, walk: p.walk, swingK }, x, y, t, emitFx);
+  const look = gearLook(p);
+  const cos = look.set && profile.settings.setLooks !== false ? { ...(p.cos ?? {}), dye: "set:" + look.set } : p.cos ?? {};
+  const fr = drawHeroCos(g, bank, { pid: p.pid, cls: p.cls, cos, fx: p.fx, fy: p.fy, moving: p.moving, walk: p.walk, swingK }, x, y, t, emitFx);
+  if (!p.dead) gearMarks(g, p, look, x, y, fr.h, t);
   if (au?.tint && !ending) { g.globalAlpha = 0.25 + 0.12 * Math.sin(t * 10); drawSprite(g, fr, x, y, p.fx < 0, true); g.globalAlpha = 1; }
   if (p.pid === ME && hurtFlash > 0.2) { g.globalAlpha = 0.6; drawSprite(g, fr, x, y, p.fx < 0, true); }
   if (sc !== 1) g.restore();
   g.globalAlpha = 1;
   if (au && !ending) auraFront(g, au, x, y - fr.h * sc / 2, t);
   if (profile.settings.hpbar && !p.dead) hpOverHead(g, p, x, y - fr.h - 3);
+}
+/** What your gear shows on the hero: the set you wear 4+ pieces of (6 = full set), and your legendary slots. */
+type GearLook = { set?: string; full: boolean; weapon?: string; helm: boolean; boots: boolean; mythic: boolean; primal: boolean };
+function gearLook(p: Player): GearLook {
+  const n: Record<string, number> = {}; let best: string | undefined;
+  for (const it of Object.values(p.equipment)) if (it?.set) { n[it.set] = (n[it.set] ?? 0) + 1; if (!best || n[it.set] > n[best]) best = it.set; }
+  const eq = p.equipment, leg = (it?: Item) => !!it && (it.rarity === "legendary" || it.rarity === "mythic");
+  const set = best && n[best] >= 4 ? best : undefined;
+  return {
+    set, full: !!set && n[set] >= 6,
+    weapon: leg(eq.weapon) ? (eq.weapon!.rarity === "mythic" ? "#ff3b6b" : "#ff8a1f") : undefined,
+    helm: leg(eq.helm), boots: leg(eq.boots),
+    mythic: Object.values(eq).some((it) => it?.rarity === "mythic"),
+    primal: Object.values(eq).some((it) => it?.quality === "primal"),
+  };
+}
+/** Legendary marks and set effects: a glowing weapon, a crown glint, a trail behind legendary boots, a full set's idle sparks, a primal ember. */
+function gearMarks(g: CanvasRenderingContext2D, p: Player, L: GearLook, x: number, y: number, h: number, t: number) {
+  const r = Math.random;
+  if (L.weapon && r() < 0.35) emitFx(x + (p.fx < 0 ? -5 : 5) + (r() - 0.5) * 4, y - 8 - r() * 6, 0, -10, 0.5, L.weapon);
+  if (L.helm) { const a = 0.5 + 0.5 * Math.sin(t * 3 + p.pid); g.globalAlpha = 0.5 + 0.5 * a; g.fillStyle = "#ffd23f"; g.fillRect(Math.round(x) - 1, Math.round(y - h - 1), 3, 1); g.fillRect(Math.round(x), Math.round(y - h - 2), 1, 1); g.globalAlpha = 1; }
+  if (L.boots && p.moving && r() < 0.6) emitFx(x + (r() - 0.5) * 4, y, -p.fx * 6, -2, 0.6, r() < 0.5 ? "#ff8a1f" : "#ffd23f");
+  if (L.set) {
+    const col = SET[L.set].color;
+    if (L.full) {
+      // full set: a ring at the feet and sparks in the set's colour
+      g.globalAlpha = 0.35 + 0.15 * Math.sin(t * 4); g.strokeStyle = col; g.beginPath(); g.ellipse(x, y + 1, 8, 3, 0, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1;
+      if (r() < 0.3) emitFx(x + (r() - 0.5) * 10, y - r() * h, 0, -12, 0.7, col);
+    } else if (r() < 0.08) emitFx(x + (r() - 0.5) * 8, y - r() * h, 0, -8, 0.5, col);
+  }
+  if (L.primal && r() < 0.15) emitFx(x + (r() - 0.5) * 8, y - 2, 0, -14, 0.6, "#ff3b3b");
+  if (L.mythic && r() < 0.12) emitFx(x + (r() - 0.5) * 10, y - h * 0.5, (r() - 0.5) * 6, -6, 0.8, "#ff3b6b");
 }
 /** Self-buff looks: each buff skill changes the hero while it runs (size, glow, particles) in its own theme. */
 type Aura = { color: string; glow: string; scale: number; tint?: boolean; fade?: number; ring?: boolean; bubble?: boolean; sparks?: "bolt" | "ember" | "smoke" | "steel" | "spark" | "bone" };
@@ -1199,7 +1251,7 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
     if (px < -50 || px > W + 50 || py < -20 || py > H + 20) continue;
     const name = (l.item.quality ? l.item.quality[0].toUpperCase() + l.item.quality.slice(1) + " " : "") + l.item.name;
     c.lineWidth = 3; c.strokeStyle = "#000"; c.strokeText(name, px, py);
-    c.fillStyle = RARITY_COLOR[l.item.rarity]; c.fillText(name, px, py);
+    c.fillStyle = l.item.set && SET[l.item.set] ? SET[l.item.set].color : RARITY_COLOR[l.item.rarity]; c.fillText(name, px, py);
   }
   // elite names
   c.font = font(10);

@@ -37,7 +37,7 @@ export type HubOp =
   | { t: "reset" };
 
 const ITEMS_EQUIP = ITEMS.equipSlots;
-const SETTINGS = new Set(["mute", "shake", "autoTier", "hpbar"]);
+const SETTINGS = new Set(["mute", "shake", "autoTier", "hpbar", "setLooks"]);
 const FILTERS = new Set(["common", "magic", "rare", "legendary", "ancestral", "primal"]);
 
 /** Applies one hub op. Returns false if it was invalid (nothing changed). */

@@ -1,7 +1,7 @@
 // Server-side item authority: minting drops for a run, and validating what a player brings back.
 // Pure functions (no I/O) so they can be unit tested.
 import { lootChances, chiselsForRun, coresForRun, trophiesForRun, dustForRun, aetherForFeats, aetherForRun, CLASSES, GEM, GEMS, gemCap, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
-import { Item, MintOpts, mintItem, scrapValue, shardValue } from "../sim/items";
+import { Item, MintOpts, mintItem, noteFinds, scrapValue, shardValue } from "../sim/items";
 import { Rng, next } from "../sim/rng";
 import type { CharSave, Profile } from "../client/profile";
 
@@ -101,6 +101,7 @@ export function applySave(p: Profile, cls: string, rep: SaveReport, m: RunMember
   for (const [slot, it] of Object.entries(rep.equipment ?? {})) if (ok(it)) (eq as any)[slot] = it;
   const bag = (rep.bag ?? []).filter(ok).slice(0, 30);
   c.equipment = eq; c.bag = bag;
+  noteFinds(p, [...Object.values(eq), ...bag, ...[...gone].map(known)]); // the collection: auto-scrapped finds still count
   for (const id of [...seen, ...gone]) m?.pending.delete(id);
   const maxMats = p.materials + earned;
   if (rep.materials > maxMats) problems.push(`materials clamped ${rep.materials} -> ${maxMats}`);

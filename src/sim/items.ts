@@ -211,6 +211,16 @@ export function affixText(a: Affix): string { return AFFIX[a.id].text.replace("{
 export function affixQuality(a: Affix): number { return a.max === a.min ? 1 : (a.value - a.min) / (a.max - a.min); }
 
 /** Legendary power text with values filled in (ancestral/primal powers are 50% stronger). */
+/** Collection keys: a legendary by its power, a set piece by set and slot. */
+export const codexKey = (it: Item) => (it.legendary ? "L:" + it.legendary : it.set ? `S:${it.set}:${it.slot}` : null);
+/** Record finds in the account's collection; returns the keys that were new. */
+export function noteFinds(p: { codex?: string[] }, items: (Item | undefined)[]): string[] {
+  const have = new Set(p.codex ?? []), added: string[] = [];
+  for (const it of items) { const k = it && codexKey(it); if (k && !have.has(k)) { have.add(k); added.push(k); } }
+  if (added.length) p.codex = [...(p.codex ?? []), ...added];
+  return added;
+}
+
 export function powerText(it: Item): string {
   const l = LEGENDARY[it.legendary!];
   const m = it.quality ? 1.5 : 1;
