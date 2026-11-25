@@ -98,7 +98,7 @@ run({ seed: 4, tier: 10, players: [setup(0, "ashknight", 30, kit(30, "legendary"
 // every guardian: spawns, uses its own attacks, and can be beaten by a geared hero
 for (const gd of GUARDIANS) {
   for (const cls of ["ashknight", "gloomstalker"]) {
-    const s = createSim({ seed: 11, tier: 10, players: [setup(0, cls, 30, kit(30, "legendary"))], mods: [] });
+    const s = createSim({ seed: 11, tier: 22, players: [setup(0, cls, 30, kit(30, "legendary"))], mods: [] });
     s.rift.progress = s.rift.need;
     let g: any = null, deaths = 0; const states = new Set<string>();
     for (let t = 0; t < 30 * 300 && !s.rift.done; t++) {
@@ -251,7 +251,7 @@ console.log("all legendaries, mythics and sets ran", Object.keys(CLASSES).length
   const T = RIFT.tiers;
   let ok = T.max === 30;
   for (let t = 2; t <= 30; t++) if (!(tierHpMult(t) > tierHpMult(t - 1))) ok = false;
-  ok = ok && tierHpMult(21) / tierHpMult(20) < tierHpMult(20) / tierHpMult(19);
+  ok = ok && Math.abs(tierHpMult(11) / tierHpMult(6) - 2) < 0.01; // doubles every 5 tiers
   ok = ok && rollModifiers(7, 16).length === 4 && rollModifiers(7, 15).length === 3;
   ok = ok && lootChances(30).anc > lootChances(15).anc && lootChances(25).pri > lootChances(10).pri;
   if (!ok) { console.log("FAIL abyssal tiers"); proc.exit(1); } else console.log(`abyssal tiers ok (T20 life ×${Math.round(tierHpMult(20))}, T30 ×${Math.round(tierHpMult(30))})`);

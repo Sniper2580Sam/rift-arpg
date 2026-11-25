@@ -1,7 +1,7 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
 import { makeRng } from "../sim/rng";
-import { talentCanAdd, talentCanRemove, talentPoints, SET, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
+import { passiveCanAdd, passiveCanRemove, runeLevel, talentCanAdd, talentCanRemove, talentPoints, SET, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
 import { chiselItem, echoCost, hallowItem, mintItem, Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
@@ -23,6 +23,7 @@ export type HubOp =
   | { t: "buy"; key: string }
   | { t: "paragon"; stat?: string; d?: number; reset?: boolean }
   | { t: "talent"; id?: string; d?: number; reset?: boolean }
+  | { t: "passive"; id?: string; d?: number; reset?: boolean }
   | { t: "gem"; slot: number; id: string | null }
   | { t: "buyAether"; pack: string }
   | { t: "extract"; bag: number }
@@ -50,7 +51,7 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       if (!sk || !CLASSES[c.cls].skills.includes(op.skill)) return false;
       if (!op.rune) { delete c.runes[op.skill]; return true; }
       const r = sk.runes.find((x) => x.id === op.rune);
-      if (!r || (c.uses[op.skill] ?? 0) < r.uses) return false;
+      if (!r || c.level < runeLevel(op.skill, r.id)) return false;
       c.runes[op.skill] = op.rune; return true;
     }
     case "setSkill": {
@@ -123,6 +124,14 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       }
       if (SETTINGS.has(op.k)) { (p.settings as any)[op.k] = !!op.v; return true; }
       return false;
+    case "passive": {
+      // the passive tree: one point per Paragon level; take nodes linked to what you have; free to respec
+      if (op.reset) { c.passives = []; return true; }
+      const taken = [...(c.passives ?? [])], id = String(op.id ?? "");
+      if (op.d === 1 && passiveCanAdd(c.cls, taken, id, c.paragon ?? 0)) { c.passives = [...taken, id]; return true; }
+      if (op.d === -1 && passiveCanRemove(c.cls, taken, id)) { c.passives = taken.filter((x) => x !== id); return true; }
+      return false;
+    }
     case "talent": {
       // spend or refund talent points (one per Trial level cleared); free to respec
       if (op.reset) { c.talents = {}; return true; }

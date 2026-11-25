@@ -234,6 +234,20 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   check("keys clamp to +1 per save", c.vaultKeys === 1);
 }
 
+{ // Passive tree: points from Paragon, nodes must link to what you have, refunds keep the tree connected, keystones change skills
+  const p = newProfile(), c = p.chars.ashknight;
+  c.paragon = 6;
+  check("can't jump to a keystone", applyHubOp(p, { t: "passive", id: "ashknight_0_6", d: 1 }) === false);
+  for (const id of ["ashknight_0_1", "ashknight_0_2", "ashknight_0_3", "ashknight_0_4", "ashknight_0_5", "ashknight_0_6"]) applyHubOp(p, { t: "passive", id, d: 1 });
+  check("a path to the keystone", (c.passives ?? []).length === 6);
+  check("no points left", applyHubOp(p, { t: "passive", id: "ashknight_1_1", d: 1 }) === false);
+  check("can't cut the path", applyHubOp(p, { t: "passive", id: "ashknight_0_3", d: -1 }) === false);
+  check("can refund the tip", applyHubOp(p, { t: "passive", id: "ashknight_0_6", d: -1 }) === true);
+  applyHubOp(p, { t: "passive", id: "ashknight_0_6", d: 1 });
+  const st = computeStats({}, { cls: "ashknight", level: 30, passives: c.passives });
+  check("Ring of Fire makes Cleave a circle", resolveSkill("cleave", undefined, st).p.arcCos === -1);
+}
+
 if (fails) { console.log(`${fails} ledger checks failed`); process.exit(1); }
 console.log("ledger: all checks passed");
 

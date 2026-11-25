@@ -32,12 +32,12 @@
   "lifeOnHitCap": 0.04,
   "volleyRepeat": 0.3,
   "name": "The Sunken Ossuary",
-  "timeLimit": 420,
-  "progressNeeded": 420,
+  "timeLimit": 720,
+  "progressNeeded": 900,
   "mapWidth": 84,
   "mapHeight": 84,
   "tileSize": 16,
-  "packCount": 80,
+  "packCount": 100,
   "packs": [
     {
       "weight": 55,
@@ -148,7 +148,7 @@
   },
   "tiers": {
     "max": 30,
-    "steepUntil": 20,
+    "steepUntil": 30,
     "hpGrowthHigh": 1.2,
     "dmgGrowthHigh": 1.08,
     "abyssFrom": 16,
@@ -157,8 +157,8 @@
     "abyssPrimalPerTier": 0.25,
     "tier1Hp": 0.85,
     "tier1Dmg": 0.85,
-    "hpGrowth": 1.4,
-    "dmgGrowth": 1.2,
+    "hpGrowth": 1.1487,
+    "dmgGrowth": 1.0845,
     "xpGrowth": 0.25,
     "legendaryGrowth": 0.15,
     "ancestralFrom": 3,
@@ -273,11 +273,11 @@
   },
   "tierJumps": [
     [
-      180,
+      240,
       3
     ],
     [
-      300,
+      360,
       2
     ]
   ],

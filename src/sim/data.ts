@@ -20,6 +20,7 @@ import achievementsJson from "../../data/achievements.json";
 import seasonJson from "../../data/season.json";
 import gemsJson from "../../data/gems.json";
 import talentsJson from "../../data/talents.json";
+import passivesJson from "../../data/passives.json";
 import shopJson from "../../data/shop.json";
 
 export type SlotType = "weapon" | "offhand" | "helm" | "shoulders" | "chest" | "bracers" | "gloves" | "belt" | "pants" | "boots" | "amulet" | "ring";
@@ -143,6 +144,43 @@ export function lootChances(t: number) {
   const anc = t >= T.ancestralFrom ? Math.min(isAbyssal(t) ? T.abyssAncestralCap : T.ancestralCap, T.ancestralBase + T.ancestralPerTier * (t - T.ancestralFrom)) : 0;
   const pri = t >= T.primalFrom ? T.primalChance * (1 + T.abyssPrimalPerTier * Math.max(0, t - T.abyssFrom + 1)) : 0;
   return { anc, pri };
+}
+/** Runes unlock by character level: the first when the skill unlocks, the last at the level cap, the rest spread between. */
+export function runeLevel(skill: string, rune: string): number {
+  const d = SKILL[skill], i = d?.runes.findIndex((r) => r.id === rune) ?? -1;
+  if (!d || i < 0) return 999;
+  const n = d.runes.length, cap = RIFT.levels.max;
+  return n <= 1 ? d.unlock : Math.min(cap, d.unlock + Math.round(((cap - d.unlock) * i) / (n - 1)));
+}
+// ------------------------------------------------------------------ passive tree (points from Paragon levels)
+export interface PassiveNode { id: string; name: string; kind: "start" | "small" | "notable" | "key"; branch?: string; color?: string; x: number; y: number; text: string; stats?: Record<string, number>; mod?: ModDef }
+export const PASSIVES = passivesJson as unknown as { note: string; classes: Record<string, { nodes: PassiveNode[]; links: [string, string][] }> };
+const passiveNbr = new Map<string, Map<string, string[]>>();
+function nbrs(cls: string) {
+  let m = passiveNbr.get(cls);
+  if (!m) { m = new Map(); for (const [a, b] of PASSIVES.classes[cls]?.links ?? []) { (m.get(a) ?? m.set(a, []).get(a)!).push(b); (m.get(b) ?? m.set(b, []).get(b)!).push(a); } passiveNbr.set(cls, m); }
+  return m;
+}
+export const passiveStart = (cls: string) => `${cls}_start`;
+export const passiveNode = (cls: string, id: string) => PASSIVES.classes[cls]?.nodes.find((n) => n.id === id);
+/** A node can be taken when a linked node (or the start) is already taken. */
+export function passiveCanAdd(cls: string, taken: string[], id: string, points: number): boolean {
+  const n = passiveNode(cls, id);
+  if (!n || n.kind === "start" || taken.includes(id) || taken.length >= points) return false;
+  const have = new Set([passiveStart(cls), ...taken]);
+  return (nbrs(cls).get(id) ?? []).some((x) => have.has(x));
+}
+/** A node can be refunded when everything else stays connected to the start. */
+export function passiveCanRemove(cls: string, taken: string[], id: string): boolean {
+  if (!taken.includes(id)) return false;
+  const left = new Set(taken.filter((x) => x !== id)), seen = new Set([passiveStart(cls)]), q = [passiveStart(cls)];
+  while (q.length) for (const x of nbrs(cls).get(q.pop()!) ?? []) if (left.has(x) && !seen.has(x)) { seen.add(x); q.push(x); }
+  return [...left].every((x) => seen.has(x));
+}
+export function passiveStats(cls: string, taken: string[] | undefined): { stats: Record<string, number>; mods: ModDef[] } {
+  const stats: Record<string, number> = {}, mods: ModDef[] = [];
+  for (const id of taken ?? []) { const n = passiveNode(cls, id); if (!n) continue; for (const [k, v] of Object.entries(n.stats ?? {})) stats[k] = (stats[k] ?? 0) + v; if (n.mod) mods.push({ ...n.mod, text: n.text }); }
+  return { stats, mods };
 }
 /** The Trial level you face next: one past your best, up to the cap. */
 export const nextTrial = (best: number | undefined) => Math.min(RIFT.trial.maxLevel, (best ?? 0) + 1);

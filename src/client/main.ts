@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { chiselsForRun, nextTrial, talentPoints, coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
+import { runeLevel, chiselsForRun, nextTrial, talentPoints, coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, applyInvCmd, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
@@ -345,7 +345,7 @@ function endRun() {
   for (const [k, v] of Object.entries(p.uses)) c.uses[k] = (c.uses[k] ?? 0) + v;
   const lines: string[] = [];
   if (c.level > startLevel) lines.push(`Level ${startLevel} → ${c.level}`);
-  const newRunes = CLASSES[c.cls].skills.flatMap((id) => SKILL[id].runes.filter((r) => r.uses > (c.uses[id] ?? 0) - (p.uses[id] ?? 0) && r.uses <= (c.uses[id] ?? 0)).map((r) => `${SKILL[id].name}: ${r.name}`));
+  const newRunes = CLASSES[c.cls].skills.flatMap((id) => SKILL[id].runes.filter((r) => runeLevel(id, r.id) > startLevel && runeLevel(id, r.id) <= c.level).map((r) => `${SKILL[id].name}: ${r.name}`));
   if (newRunes.length) lines.push(`New runes: ${newRunes.join(", ")}`);
   if (gotSigil) lines.push(`Bone Sigil found (${c.sigils} owned). The Ossuary King awaits.`);
   if (gemLines.length) lines.push(`Gems levelled: ${gemLines.join(", ")}`);

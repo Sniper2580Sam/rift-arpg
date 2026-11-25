@@ -1,0 +1,2000 @@
+{
+ "note": "One passive point per Paragon level (after the level cap). Start at the centre; each node needs a linked node already taken. Free to respec.",
+ "classes": {
+  "ashknight": {
+   "nodes": [
+    {
+     "id": "ashknight_start",
+     "name": "Origin",
+     "kind": "start",
+     "x": 0,
+     "y": 0,
+     "text": "Your starting point."
+    },
+    {
+     "id": "ashknight_0_1",
+     "name": "Might",
+     "kind": "small",
+     "branch": "Pyre",
+     "color": "#ff8a1f",
+     "x": 0.0,
+     "y": -1.0,
+     "text": "+3% damage",
+     "stats": {
+      "dmgPct": 3
+     }
+    },
+    {
+     "id": "ashknight_0_2",
+     "name": "Precision",
+     "kind": "small",
+     "branch": "Pyre",
+     "color": "#ff8a1f",
+     "x": 0.0,
+     "y": -2.0,
+     "text": "+1% crit chance",
+     "stats": {
+      "critChance": 1
+     }
+    },
+    {
+     "id": "ashknight_0_3",
+     "name": "Searing Heat",
+     "kind": "notable",
+     "branch": "Pyre",
+     "color": "#ff8a1f",
+     "x": 0.0,
+     "y": -3.0,
+     "text": "+12% fire damage",
+     "stats": {
+      "tag:fire": 12
+     }
+    },
+    {
+     "id": "ashknight_0_4",
+     "name": "Precision",
+     "kind": "small",
+     "branch": "Pyre",
+     "color": "#ff8a1f",
+     "x": 0.0,
+     "y": -4.0,
+     "text": "+1% crit chance",
+     "stats": {
+      "critChance": 1
+     }
+    },
+    {
+     "id": "ashknight_0_5",
+     "name": "Might",
+     "kind": "small",
+     "branch": "Pyre",
+     "color": "#ff8a1f",
+     "x": 0.0,
+     "y": -5.0,
+     "text": "+3% damage",
+     "stats": {
+      "dmgPct": 3
+     }
+    },
+    {
+     "id": "ashknight_0_6",
+     "name": "Ring of Fire",
+     "kind": "key",
+     "branch": "Pyre",
+     "color": "#ff8a1f",
+     "x": 0.0,
+     "y": -6.0,
+     "text": "Cleave hits all around you, for 85% damage.",
+     "mod": {
+      "skill": "cleave",
+      "set": {
+       "arcCos": -1
+      },
+      "mul": {
+       "damage": 0.85
+      }
+     }
+    },
+    {
+     "id": "ashknight_0_f1",
+     "name": "Precision",
+     "kind": "small",
+     "branch": "Pyre",
+     "color": "#ff8a1f",
+     "x": 1.63,
+     "y": -3.65,
+     "text": "+1% crit chance",
+     "stats": {
+      "critChance": 1
+     }
+    },
+    {
+     "id": "ashknight_0_f2",
+     "name": "Brutality",
+     "kind": "notable",
+     "branch": "Pyre",
+     "color": "#ff8a1f",
+     "x": 2.5,
+     "y": -4.33,
+     "text": "+20% crit damage",
+     "stats": {
+      "critDmg": 20
+     }
+    },
+    {
+     "id": "ashknight_1_1",
+     "name": "Vigour",
+     "kind": "small",
+     "branch": "Bulwark",
+     "color": "#c9b8ff",
+     "x": 0.87,
+     "y": 0.5,
+     "text": "+3% life",
+     "stats": {
+      "hpPct": 3
+     }
+    },
+    {
+     "id": "ashknight_1_2",
+     "name": "Plating",
+     "kind": "small",
+     "branch": "Bulwark",
+     "color": "#c9b8ff",
+     "x": 1.73,
+     "y": 1.0,
+     "text": "+6% armour",
+     "stats": {
+      "armorPct": 6
+     }
+    },
+    {
+     "id": "ashknight_1_3",
+     "name": "Unbowed",
+     "kind": "notable",
+     "branch": "Bulwark",
+     "color": "#c9b8ff",
+     "x": 2.6,
+     "y": 1.5,
+     "text": "-5% damage taken",
+     "stats": {
+      "takenPct": 5
+     }
+    },
+    {
+     "id": "ashknight_1_4",
+     "name": "Plating",
+     "kind": "small",
+     "branch": "Bulwark",
+     "color": "#c9b8ff",
+     "x": 3.46,
+     "y": 2.0,
+     "text": "+6% armour",
+     "stats": {
+      "armorPct": 6
+     }
+    },
+    {
+     "id": "ashknight_1_5",
+     "name": "Vigour",
+     "kind": "small",
+     "branch": "Bulwark",
+     "color": "#c9b8ff",
+     "x": 4.33,
+     "y": 2.5,
+     "text": "+3% life",
+     "stats": {
+      "hpPct": 3
+     }
+    },
+    {
+     "id": "ashknight_1_6",
+     "name": "Molten Core",
+     "kind": "key",
+     "branch": "Bulwark",
+     "color": "#c9b8ff",
+     "x": 5.2,
+     "y": 3.0,
+     "text": "Flame Nova pulses 2 more times.",
+     "mod": {
+      "skill": "flame_nova",
+      "add": {
+       "pulses": 2
+      }
+     }
+    },
+    {
+     "id": "ashknight_1_f1",
+     "name": "Plating",
+     "kind": "small",
+     "branch": "Bulwark",
+     "color": "#c9b8ff",
+     "x": 2.35,
+     "y": 3.24,
+     "text": "+6% armour",
+     "stats": {
+      "armorPct": 6
+     }
+    },
+    {
+     "id": "ashknight_1_f2",
+     "name": "Ember Mend",
+     "kind": "notable",
+     "branch": "Bulwark",
+     "color": "#c9b8ff",
+     "x": 2.5,
+     "y": 4.33,
+     "text": "+4 life per hit",
+     "stats": {
+      "lifeOnHit": 4
+     }
+    },
+    {
+     "id": "ashknight_2_1",
+     "name": "Haste",
+     "kind": "small",
+     "branch": "Warpath",
+     "color": "#ffd23f",
+     "x": -0.87,
+     "y": 0.5,
+     "text": "-1.5% cooldowns",
+     "stats": {
+      "cdr": 1.5
+     }
+    },
+    {
+     "id": "ashknight_2_2",
+     "name": "Swiftness",
+     "kind": "small",
+     "branch": "Warpath",
+     "color": "#ffd23f",
+     "x": -1.73,
+     "y": 1.0,
+     "text": "+2% move speed",
+     "stats": {
+      "moveSpeed": 2
+     }
+    },
+    {
+     "id": "ashknight_2_3",
+     "name": "Battle Trance",
+     "kind": "notable",
+     "branch": "Warpath",
+     "color": "#ffd23f",
+     "x": -2.6,
+     "y": 1.5,
+     "text": "+6% attack speed",
+     "stats": {
+      "atkSpeed": 6
+     }
+    },
+    {
+     "id": "ashknight_2_4",
+     "name": "Swiftness",
+     "kind": "small",
+     "branch": "Warpath",
+     "color": "#ffd23f",
+     "x": -3.46,
+     "y": 2.0,
+     "text": "+2% move speed",
+     "stats": {
+      "moveSpeed": 2
+     }
+    },
+    {
+     "id": "ashknight_2_5",
+     "name": "Haste",
+     "kind": "small",
+     "branch": "Warpath",
+     "color": "#ffd23f",
+     "x": -4.33,
+     "y": 2.5,
+     "text": "-1.5% cooldowns",
+     "stats": {
+      "cdr": 1.5
+     }
+    },
+    {
+     "id": "ashknight_2_6",
+     "name": "Ember Volley",
+     "kind": "key",
+     "branch": "Warpath",
+     "color": "#ffd23f",
+     "x": -5.2,
+     "y": 3.0,
+     "text": "Ember Lance throws 2 extra lances in a fan.",
+     "mod": {
+      "skill": "ember_lance",
+      "add": {
+       "count": 2
+      }
+     }
+    },
+    {
+     "id": "ashknight_2_f1",
+     "name": "Swiftness",
+     "kind": "small",
+     "branch": "Warpath",
+     "color": "#ffd23f",
+     "x": -3.98,
+     "y": 0.42,
+     "text": "+2% move speed",
+     "stats": {
+      "moveSpeed": 2
+     }
+    },
+    {
+     "id": "ashknight_2_f2",
+     "name": "Stoked",
+     "kind": "notable",
+     "branch": "Warpath",
+     "color": "#ffd23f",
+     "x": -5.0,
+     "y": 0.0,
+     "text": "+20 max Embers",
+     "stats": {
+      "resMax": 20
+     }
+    },
+    {
+     "id": "ashknight_br0",
+     "name": "Crossroads",
+     "kind": "small",
+     "branch": "",
+     "color": "#b8a8d0",
+     "x": 2.25,
+     "y": -1.3,
+     "text": "+2% damage and +2% life",
+     "stats": {
+      "dmgPct": 2,
+      "hpPct": 2
+     }
+    },
+    {
+     "id": "ashknight_br1",
+     "name": "Crossroads",
+     "kind": "small",
+     "branch": "",
+     "color": "#b8a8d0",
+     "x": 0.0,
+     "y": 2.6,
+     "text": "+2% damage and +2% life",
+     "stats": {
+      "dmgPct": 2,
+      "hpPct": 2
+     }
+    },
+    {
+     "id": "ashknight_br2",
+     "name": "Crossroads",
+     "kind": "small",
+     "branch": "",
+     "color": "#b8a8d0",
+     "x": -2.25,
+     "y": -1.3,
+     "text": "+2% damage and +2% life",
+     "stats": {
+      "dmgPct": 2,
+      "hpPct": 2
+     }
+    }
+   ],
+   "links": [
+    [
+     "ashknight_start",
+     "ashknight_0_1"
+    ],
+    [
+     "ashknight_0_1",
+     "ashknight_0_2"
+    ],
+    [
+     "ashknight_0_2",
+     "ashknight_0_3"
+    ],
+    [
+     "ashknight_0_3",
+     "ashknight_0_4"
+    ],
+    [
+     "ashknight_0_4",
+     "ashknight_0_5"
+    ],
+    [
+     "ashknight_0_5",
+     "ashknight_0_6"
+    ],
+    [
+     "ashknight_0_3",
+     "ashknight_0_f1"
+    ],
+    [
+     "ashknight_0_f1",
+     "ashknight_0_f2"
+    ],
+    [
+     "ashknight_start",
+     "ashknight_1_1"
+    ],
+    [
+     "ashknight_1_1",
+     "ashknight_1_2"
+    ],
+    [
+     "ashknight_1_2",
+     "ashknight_1_3"
+    ],
+    [
+     "ashknight_1_3",
+     "ashknight_1_4"
+    ],
+    [
+     "ashknight_1_4",
+     "ashknight_1_5"
+    ],
+    [
+     "ashknight_1_5",
+     "ashknight_1_6"
+    ],
+    [
+     "ashknight_1_3",
+     "ashknight_1_f1"
+    ],
+    [
+     "ashknight_1_f1",
+     "ashknight_1_f2"
+    ],
+    [
+     "ashknight_start",
+     "ashknight_2_1"
+    ],
+    [
+     "ashknight_2_1",
+     "ashknight_2_2"
+    ],
+    [
+     "ashknight_2_2",
+     "ashknight_2_3"
+    ],
+    [
+     "ashknight_2_3",
+     "ashknight_2_4"
+    ],
+    [
+     "ashknight_2_4",
+     "ashknight_2_5"
+    ],
+    [
+     "ashknight_2_5",
+     "ashknight_2_6"
+    ],
+    [
+     "ashknight_2_3",
+     "ashknight_2_f1"
+    ],
+    [
+     "ashknight_2_f1",
+     "ashknight_2_f2"
+    ],
+    [
+     "ashknight_0_2",
+     "ashknight_br0"
+    ],
+    [
+     "ashknight_br0",
+     "ashknight_1_2"
+    ],
+    [
+     "ashknight_1_2",
+     "ashknight_br1"
+    ],
+    [
+     "ashknight_br1",
+     "ashknight_2_2"
+    ],
+    [
+     "ashknight_2_2",
+     "ashknight_br2"
+    ],
+    [
+     "ashknight_br2",
+     "ashknight_0_2"
+    ]
+   ]
+  },
+  "gloomstalker": {
+   "nodes": [
+    {
+     "id": "gloomstalker_start",
+     "name": "Origin",
+     "kind": "start",
+     "x": 0,
+     "y": 0,
+     "text": "Your starting point."
+    },
+    {
+     "id": "gloomstalker_0_1",
+     "name": "Might",
+     "kind": "small",
+     "branch": "Marksman",
+     "color": "#7dff9a",
+     "x": 0.0,
+     "y": -1.0,
+     "text": "+3% damage",
+     "stats": {
+      "dmgPct": 3
+     }
+    },
+    {
+     "id": "gloomstalker_0_2",
+     "name": "Precision",
+     "kind": "small",
+     "branch": "Marksman",
+     "color": "#7dff9a",
+     "x": 0.0,
+     "y": -2.0,
+     "text": "+1% crit chance",
+     "stats": {
+      "critChance": 1
+     }
+    },
+    {
+     "id": "gloomstalker_0_3",
+     "name": "Deadeye",
+     "kind": "notable",
+     "branch": "Marksman",
+     "color": "#7dff9a",
+     "x": 0.0,
+     "y": -3.0,
+     "text": "+20% crit damage",
+     "stats": {
+      "critDmg": 20
+     }
+    },
+    {
+     "id": "gloomstalker_0_4",
+     "name": "Precision",
+     "kind": "small",
+     "branch": "Marksman",
+     "color": "#7dff9a",
+     "x": 0.0,
+     "y": -4.0,
+     "text": "+1% crit chance",
+     "stats": {
+      "critChance": 1
+     }
+    },
+    {
+     "id": "gloomstalker_0_5",
+     "name": "Might",
+     "kind": "small",
+     "branch": "Marksman",
+     "color": "#7dff9a",
+     "x": 0.0,
+     "y": -5.0,
+     "text": "+3% damage",
+     "stats": {
+      "dmgPct": 3
+     }
+    },
+    {
+     "id": "gloomstalker_0_6",
+     "name": "Hail of Arrows",
+     "kind": "key",
+     "branch": "Marksman",
+     "color": "#7dff9a",
+     "x": 0.0,
+     "y": -6.0,
+     "text": "Volley fires 3 more arrows.",
+     "mod": {
+      "skill": "volley",
+      "add": {
+       "count": 3
+      }
+     }
+    },
+    {
+     "id": "gloomstalker_0_f1",
+     "name": "Precision",
+     "kind": "small",
+     "branch": "Marksman",
+     "color": "#7dff9a",
+     "x": 1.63,
+     "y": -3.65,
+     "text": "+1% crit chance",
+     "stats": {
+      "critChance": 1
+     }
+    },
+    {
+     "id": "gloomstalker_0_f2",
+     "name": "Apex Hunter",
+     "kind": "notable",
+     "branch": "Marksman",
+     "color": "#7dff9a",
+     "x": 2.5,
+     "y": -4.33,
+     "text": "+15% damage to elites and bosses",
+     "stats": {
+      "eliteDmg": 15
+     }
+    },
+    {
+     "id": "gloomstalker_1_1",
+     "name": "Vigour",
+     "kind": "small",
+     "branch": "Shadow",
+     "color": "#9fa8ff",
+     "x": 0.87,
+     "y": 0.5,
+     "text": "+3% life",
+     "stats": {
+      "hpPct": 3
+     }
+    },
+    {
+     "id": "gloomstalker_1_2",
+     "name": "Plating",
+     "kind": "small",
+     "branch": "Shadow",
+     "color": "#9fa8ff",
+     "x": 1.73,
+     "y": 1.0,
+     "text": "+6% armour",
+     "stats": {
+      "armorPct": 6
+     }
+    },
+    {
+     "id": "gloomstalker_1_3",
+     "name": "Veiled",
+     "kind": "notable",
+     "branch": "Shadow",
+     "color": "#9fa8ff",
+     "x": 2.6,
+     "y": 1.5,
+     "text": "-5% damage taken",
+     "stats": {
+      "takenPct": 5
+     }
+    },
+    {
+     "id": "gloomstalker_1_4",
+     "name": "Plating",
+     "kind": "small",
+     "branch": "Shadow",
+     "color": "#9fa8ff",
+     "x": 3.46,
+     "y": 2.0,
+     "text": "+6% armour",
+     "stats": {
+      "armorPct": 6
+     }
+    },
+    {
+     "id": "gloomstalker_1_5",
+     "name": "Vigour",
+     "kind": "small",
+     "branch": "Shadow",
+     "color": "#9fa8ff",
+     "x": 4.33,
+     "y": 2.5,
+     "text": "+3% life",
+     "stats": {
+      "hpPct": 3
+     }
+    },
+    {
+     "id": "gloomstalker_1_6",
+     "name": "Long Night",
+     "kind": "key",
+     "branch": "Shadow",
+     "color": "#9fa8ff",
+     "x": 5.2,
+     "y": 3.0,
+     "text": "Frost Snare lasts 50% longer and is 30% wider.",
+     "mod": {
+      "skill": "frost_snare",
+      "mul": {
+       "duration": 1.5,
+       "radius": 1.3
+      }
+     }
+    },
+    {
+     "id": "gloomstalker_1_f1",
+     "name": "Plating",
+     "kind": "small",
+     "branch": "Shadow",
+     "color": "#9fa8ff",
+     "x": 2.35,
+     "y": 3.24,
+     "text": "+6% armour",
+     "stats": {
+      "armorPct": 6
+     }
+    },
+    {
+     "id": "gloomstalker_1_f2",
+     "name": "Rime",
+     "kind": "notable",
+     "branch": "Shadow",
+     "color": "#9fa8ff",
+     "x": 2.5,
+     "y": 4.33,
+     "text": "+12% cold damage",
+     "stats": {
+      "tag:cold": 12
+     }
+    },
+    {
+     "id": "gloomstalker_2_1",
+     "name": "Haste",
+     "kind": "small",
+     "branch": "Wild",
+     "color": "#ffd23f",
+     "x": -0.87,
+     "y": 0.5,
+     "text": "-1.5% cooldowns",
+     "stats": {
+      "cdr": 1.5
+     }
+    },
+    {
+     "id": "gloomstalker_2_2",
+     "name": "Swiftness",
+     "kind": "small",
+     "branch": "Wild",
+     "color": "#ffd23f",
+     "x": -1.73,
+     "y": 1.0,
+     "text": "+2% move speed",
+     "stats": {
+      "moveSpeed": 2
+     }
+    },
+    {
+     "id": "gloomstalker_2_3",
+     "name": "Quick Draw",
+     "kind": "notable",
+     "branch": "Wild",
+     "color": "#ffd23f",
+     "x": -2.6,
+     "y": 1.5,
+     "text": "+6% attack speed",
+     "stats": {
+      "atkSpeed": 6
+     }
+    },
+    {
+     "id": "gloomstalker_2_4",
+     "name": "Swiftness",
+     "kind": "small",
+     "branch": "Wild",
+     "color": "#ffd23f",
+     "x": -3.46,
+     "y": 2.0,
+     "text": "+2% move speed",
+     "stats": {
+      "moveSpeed": 2
+     }
+    },
+    {
+     "id": "gloomstalker_2_5",
+     "name": "Haste",
+     "kind": "small",
+     "branch": "Wild",
+     "color": "#ffd23f",
+     "x": -4.33,
+     "y": 2.5,
+     "text": "-1.5% cooldowns",
+     "stats": {
+      "cdr": 1.5
+     }
+    },
+    {
+     "id": "gloomstalker_2_6",
+     "name": "Phantom Shot",
+     "kind": "key",
+     "branch": "Wild",
+     "color": "#ffd23f",
+     "x": -5.2,
+     "y": 3.0,
+     "text": "Bone Shot pierces through every enemy.",
+     "mod": {
+      "skill": "bone_shot",
+      "set": {
+       "pierce": 1
+      }
+     }
+    },
+    {
+     "id": "gloomstalker_2_f1",
+     "name": "Swiftness",
+     "kind": "small",
+     "branch": "Wild",
+     "color": "#ffd23f",
+     "x": -3.98,
+     "y": 0.42,
+     "text": "+2% move speed",
+     "stats": {
+      "moveSpeed": 2
+     }
+    },
+    {
+     "id": "gloomstalker_2_f2",
+     "name": "Pack Leader",
+     "kind": "notable",
+     "branch": "Wild",
+     "color": "#ffd23f",
+     "x": -5.0,
+     "y": 0.0,
+     "text": "+15% summon damage",
+     "stats": {
+      "tag:summon": 15
+     }
+    },
+    {
+     "id": "gloomstalker_br0",
+     "name": "Crossroads",
+     "kind": "small",
+     "branch": "",
+     "color": "#b8a8d0",
+     "x": 2.25,
+     "y": -1.3,
+     "text": "+2% damage and +2% life",
+     "stats": {
+      "dmgPct": 2,
+      "hpPct": 2
+     }
+    },
+    {
+     "id": "gloomstalker_br1",
+     "name": "Crossroads",
+     "kind": "small",
+     "branch": "",
+     "color": "#b8a8d0",
+     "x": 0.0,
+     "y": 2.6,
+     "text": "+2% damage and +2% life",
+     "stats": {
+      "dmgPct": 2,
+      "hpPct": 2
+     }
+    },
+    {
+     "id": "gloomstalker_br2",
+     "name": "Crossroads",
+     "kind": "small",
+     "branch": "",
+     "color": "#b8a8d0",
+     "x": -2.25,
+     "y": -1.3,
+     "text": "+2% damage and +2% life",
+     "stats": {
+      "dmgPct": 2,
+      "hpPct": 2
+     }
+    }
+   ],
+   "links": [
+    [
+     "gloomstalker_start",
+     "gloomstalker_0_1"
+    ],
+    [
+     "gloomstalker_0_1",
+     "gloomstalker_0_2"
+    ],
+    [
+     "gloomstalker_0_2",
+     "gloomstalker_0_3"
+    ],
+    [
+     "gloomstalker_0_3",
+     "gloomstalker_0_4"
+    ],
+    [
+     "gloomstalker_0_4",
+     "gloomstalker_0_5"
+    ],
+    [
+     "gloomstalker_0_5",
+     "gloomstalker_0_6"
+    ],
+    [
+     "gloomstalker_0_3",
+     "gloomstalker_0_f1"
+    ],
+    [
+     "gloomstalker_0_f1",
+     "gloomstalker_0_f2"
+    ],
+    [
+     "gloomstalker_start",
+     "gloomstalker_1_1"
+    ],
+    [
+     "gloomstalker_1_1",
+     "gloomstalker_1_2"
+    ],
+    [
+     "gloomstalker_1_2",
+     "gloomstalker_1_3"
+    ],
+    [
+     "gloomstalker_1_3",
+     "gloomstalker_1_4"
+    ],
+    [
+     "gloomstalker_1_4",
+     "gloomstalker_1_5"
+    ],
+    [
+     "gloomstalker_1_5",
+     "gloomstalker_1_6"
+    ],
+    [
+     "gloomstalker_1_3",
+     "gloomstalker_1_f1"
+    ],
+    [
+     "gloomstalker_1_f1",
+     "gloomstalker_1_f2"
+    ],
+    [
+     "gloomstalker_start",
+     "gloomstalker_2_1"
+    ],
+    [
+     "gloomstalker_2_1",
+     "gloomstalker_2_2"
+    ],
+    [
+     "gloomstalker_2_2",
+     "gloomstalker_2_3"
+    ],
+    [
+     "gloomstalker_2_3",
+     "gloomstalker_2_4"
+    ],
+    [
+     "gloomstalker_2_4",
+     "gloomstalker_2_5"
+    ],
+    [
+     "gloomstalker_2_5",
+     "gloomstalker_2_6"
+    ],
+    [
+     "gloomstalker_2_3",
+     "gloomstalker_2_f1"
+    ],
+    [
+     "gloomstalker_2_f1",
+     "gloomstalker_2_f2"
+    ],
+    [
+     "gloomstalker_0_2",
+     "gloomstalker_br0"
+    ],
+    [
+     "gloomstalker_br0",
+     "gloomstalker_1_2"
+    ],
+    [
+     "gloomstalker_1_2",
+     "gloomstalker_br1"
+    ],
+    [
+     "gloomstalker_br1",
+     "gloomstalker_2_2"
+    ],
+    [
+     "gloomstalker_2_2",
+     "gloomstalker_br2"
+    ],
+    [
+     "gloomstalker_br2",
+     "gloomstalker_0_2"
+    ]
+   ]
+  },
+  "stormcaller": {
+   "nodes": [
+    {
+     "id": "stormcaller_start",
+     "name": "Origin",
+     "kind": "start",
+     "x": 0,
+     "y": 0,
+     "text": "Your starting point."
+    },
+    {
+     "id": "stormcaller_0_1",
+     "name": "Might",
+     "kind": "small",
+     "branch": "Tempest",
+     "color": "#5fb0ff",
+     "x": 0.0,
+     "y": -1.0,
+     "text": "+3% damage",
+     "stats": {
+      "dmgPct": 3
+     }
+    },
+    {
+     "id": "stormcaller_0_2",
+     "name": "Precision",
+     "kind": "small",
+     "branch": "Tempest",
+     "color": "#5fb0ff",
+     "x": 0.0,
+     "y": -2.0,
+     "text": "+1% crit chance",
+     "stats": {
+      "critChance": 1
+     }
+    },
+    {
+     "id": "stormcaller_0_3",
+     "name": "High Voltage",
+     "kind": "notable",
+     "branch": "Tempest",
+     "color": "#5fb0ff",
+     "x": 0.0,
+     "y": -3.0,
+     "text": "+12% lightning damage",
+     "stats": {
+      "tag:lightning": 12
+     }
+    },
+    {
+     "id": "stormcaller_0_4",
+     "name": "Precision",
+     "kind": "small",
+     "branch": "Tempest",
+     "color": "#5fb0ff",
+     "x": 0.0,
+     "y": -4.0,
+     "text": "+1% crit chance",
+     "stats": {
+      "critChance": 1
+     }
+    },
+    {
+     "id": "stormcaller_0_5",
+     "name": "Might",
+     "kind": "small",
+     "branch": "Tempest",
+     "color": "#5fb0ff",
+     "x": 0.0,
+     "y": -5.0,
+     "text": "+3% damage",
+     "stats": {
+      "dmgPct": 3
+     }
+    },
+    {
+     "id": "stormcaller_0_6",
+     "name": "Arc Conduit",
+     "kind": "key",
+     "branch": "Tempest",
+     "color": "#5fb0ff",
+     "x": 0.0,
+     "y": -6.0,
+     "text": "Chain Lightning jumps to 3 more enemies.",
+     "mod": {
+      "skill": "chain_lightning",
+      "add": {
+       "chain": 3
+      }
+     }
+    },
+    {
+     "id": "stormcaller_0_f1",
+     "name": "Precision",
+     "kind": "small",
+     "branch": "Tempest",
+     "color": "#5fb0ff",
+     "x": 1.63,
+     "y": -3.65,
+     "text": "+1% crit chance",
+     "stats": {
+      "critChance": 1
+     }
+    },
+    {
+     "id": "stormcaller_0_f2",
+     "name": "Arc Surge",
+     "kind": "notable",
+     "branch": "Tempest",
+     "color": "#5fb0ff",
+     "x": 2.5,
+     "y": -4.33,
+     "text": "+20% crit damage",
+     "stats": {
+      "critDmg": 20
+     }
+    },
+    {
+     "id": "stormcaller_1_1",
+     "name": "Vigour",
+     "kind": "small",
+     "branch": "Ward",
+     "color": "#c9b8ff",
+     "x": 0.87,
+     "y": 0.5,
+     "text": "+3% life",
+     "stats": {
+      "hpPct": 3
+     }
+    },
+    {
+     "id": "stormcaller_1_2",
+     "name": "Plating",
+     "kind": "small",
+     "branch": "Ward",
+     "color": "#c9b8ff",
+     "x": 1.73,
+     "y": 1.0,
+     "text": "+6% armour",
+     "stats": {
+      "armorPct": 6
+     }
+    },
+    {
+     "id": "stormcaller_1_3",
+     "name": "Static Shell",
+     "kind": "notable",
+     "branch": "Ward",
+     "color": "#c9b8ff",
+     "x": 2.6,
+     "y": 1.5,
+     "text": "-5% damage taken",
+     "stats": {
+      "takenPct": 5
+     }
+    },
+    {
+     "id": "stormcaller_1_4",
+     "name": "Plating",
+     "kind": "small",
+     "branch": "Ward",
+     "color": "#c9b8ff",
+     "x": 3.46,
+     "y": 2.0,
+     "text": "+6% armour",
+     "stats": {
+      "armorPct": 6
+     }
+    },
+    {
+     "id": "stormcaller_1_5",
+     "name": "Vigour",
+     "kind": "small",
+     "branch": "Ward",
+     "color": "#c9b8ff",
+     "x": 4.33,
+     "y": 2.5,
+     "text": "+3% life",
+     "stats": {
+      "hpPct": 3
+     }
+    },
+    {
+     "id": "stormcaller_1_6",
+     "name": "Forked Spark",
+     "kind": "key",
+     "branch": "Ward",
+     "color": "#c9b8ff",
+     "x": 5.2,
+     "y": 3.0,
+     "text": "Spark jumps to 2 more enemies.",
+     "mod": {
+      "skill": "spark",
+      "add": {
+       "chain": 2
+      }
+     }
+    },
+    {
+     "id": "stormcaller_1_f1",
+     "name": "Plating",
+     "kind": "small",
+     "branch": "Ward",
+     "color": "#c9b8ff",
+     "x": 2.35,
+     "y": 3.24,
+     "text": "+6% armour",
+     "stats": {
+      "armorPct": 6
+     }
+    },
+    {
+     "id": "stormcaller_1_f2",
+     "name": "Arcane Lore",
+     "kind": "notable",
+     "branch": "Ward",
+     "color": "#c9b8ff",
+     "x": 2.5,
+     "y": 4.33,
+     "text": "+12% arcane damage",
+     "stats": {
+      "tag:arcane": 12
+     }
+    },
+    {
+     "id": "stormcaller_2_1",
+     "name": "Haste",
+     "kind": "small",
+     "branch": "Flow",
+     "color": "#ffd23f",
+     "x": -0.87,
+     "y": 0.5,
+     "text": "-1.5% cooldowns",
+     "stats": {
+      "cdr": 1.5
+     }
+    },
+    {
+     "id": "stormcaller_2_2",
+     "name": "Swiftness",
+     "kind": "small",
+     "branch": "Flow",
+     "color": "#ffd23f",
+     "x": -1.73,
+     "y": 1.0,
+     "text": "+2% move speed",
+     "stats": {
+      "moveSpeed": 2
+     }
+    },
+    {
+     "id": "stormcaller_2_3",
+     "name": "Deep Wells",
+     "kind": "notable",
+     "branch": "Flow",
+     "color": "#ffd23f",
+     "x": -2.6,
+     "y": 1.5,
+     "text": "+30 max Mana",
+     "stats": {
+      "resMax": 30
+     }
+    },
+    {
+     "id": "stormcaller_2_4",
+     "name": "Swiftness",
+     "kind": "small",
+     "branch": "Flow",
+     "color": "#ffd23f",
+     "x": -3.46,
+     "y": 2.0,
+     "text": "+2% move speed",
+     "stats": {
+      "moveSpeed": 2
+     }
+    },
+    {
+     "id": "stormcaller_2_5",
+     "name": "Haste",
+     "kind": "small",
+     "branch": "Flow",
+     "color": "#ffd23f",
+     "x": -4.33,
+     "y": 2.5,
+     "text": "-1.5% cooldowns",
+     "stats": {
+      "cdr": 1.5
+     }
+    },
+    {
+     "id": "stormcaller_2_6",
+     "name": "Eye of the Storm",
+     "kind": "key",
+     "branch": "Flow",
+     "color": "#ffd23f",
+     "x": -5.2,
+     "y": 3.0,
+     "text": "Thunderstorm covers 50% more ground.",
+     "mod": {
+      "skill": "thunderstorm",
+      "mul": {
+       "radius": 1.5
+      }
+     }
+    },
+    {
+     "id": "stormcaller_2_f1",
+     "name": "Swiftness",
+     "kind": "small",
+     "branch": "Flow",
+     "color": "#ffd23f",
+     "x": -3.98,
+     "y": 0.42,
+     "text": "+2% move speed",
+     "stats": {
+      "moveSpeed": 2
+     }
+    },
+    {
+     "id": "stormcaller_2_f2",
+     "name": "Thrift",
+     "kind": "notable",
+     "branch": "Flow",
+     "color": "#ffd23f",
+     "x": -5.0,
+     "y": 0.0,
+     "text": "-6% resource cost",
+     "stats": {
+      "costRed": 6
+     }
+    },
+    {
+     "id": "stormcaller_br0",
+     "name": "Crossroads",
+     "kind": "small",
+     "branch": "",
+     "color": "#b8a8d0",
+     "x": 2.25,
+     "y": -1.3,
+     "text": "+2% damage and +2% life",
+     "stats": {
+      "dmgPct": 2,
+      "hpPct": 2
+     }
+    },
+    {
+     "id": "stormcaller_br1",
+     "name": "Crossroads",
+     "kind": "small",
+     "branch": "",
+     "color": "#b8a8d0",
+     "x": 0.0,
+     "y": 2.6,
+     "text": "+2% damage and +2% life",
+     "stats": {
+      "dmgPct": 2,
+      "hpPct": 2
+     }
+    },
+    {
+     "id": "stormcaller_br2",
+     "name": "Crossroads",
+     "kind": "small",
+     "branch": "",
+     "color": "#b8a8d0",
+     "x": -2.25,
+     "y": -1.3,
+     "text": "+2% damage and +2% life",
+     "stats": {
+      "dmgPct": 2,
+      "hpPct": 2
+     }
+    }
+   ],
+   "links": [
+    [
+     "stormcaller_start",
+     "stormcaller_0_1"
+    ],
+    [
+     "stormcaller_0_1",
+     "stormcaller_0_2"
+    ],
+    [
+     "stormcaller_0_2",
+     "stormcaller_0_3"
+    ],
+    [
+     "stormcaller_0_3",
+     "stormcaller_0_4"
+    ],
+    [
+     "stormcaller_0_4",
+     "stormcaller_0_5"
+    ],
+    [
+     "stormcaller_0_5",
+     "stormcaller_0_6"
+    ],
+    [
+     "stormcaller_0_3",
+     "stormcaller_0_f1"
+    ],
+    [
+     "stormcaller_0_f1",
+     "stormcaller_0_f2"
+    ],
+    [
+     "stormcaller_start",
+     "stormcaller_1_1"
+    ],
+    [
+     "stormcaller_1_1",
+     "stormcaller_1_2"
+    ],
+    [
+     "stormcaller_1_2",
+     "stormcaller_1_3"
+    ],
+    [
+     "stormcaller_1_3",
+     "stormcaller_1_4"
+    ],
+    [
+     "stormcaller_1_4",
+     "stormcaller_1_5"
+    ],
+    [
+     "stormcaller_1_5",
+     "stormcaller_1_6"
+    ],
+    [
+     "stormcaller_1_3",
+     "stormcaller_1_f1"
+    ],
+    [
+     "stormcaller_1_f1",
+     "stormcaller_1_f2"
+    ],
+    [
+     "stormcaller_start",
+     "stormcaller_2_1"
+    ],
+    [
+     "stormcaller_2_1",
+     "stormcaller_2_2"
+    ],
+    [
+     "stormcaller_2_2",
+     "stormcaller_2_3"
+    ],
+    [
+     "stormcaller_2_3",
+     "stormcaller_2_4"
+    ],
+    [
+     "stormcaller_2_4",
+     "stormcaller_2_5"
+    ],
+    [
+     "stormcaller_2_5",
+     "stormcaller_2_6"
+    ],
+    [
+     "stormcaller_2_3",
+     "stormcaller_2_f1"
+    ],
+    [
+     "stormcaller_2_f1",
+     "stormcaller_2_f2"
+    ],
+    [
+     "stormcaller_0_2",
+     "stormcaller_br0"
+    ],
+    [
+     "stormcaller_br0",
+     "stormcaller_1_2"
+    ],
+    [
+     "stormcaller_1_2",
+     "stormcaller_br1"
+    ],
+    [
+     "stormcaller_br1",
+     "stormcaller_2_2"
+    ],
+    [
+     "stormcaller_2_2",
+     "stormcaller_br2"
+    ],
+    [
+     "stormcaller_br2",
+     "stormcaller_0_2"
+    ]
+   ]
+  },
+  "bonewright": {
+   "nodes": [
+    {
+     "id": "bonewright_start",
+     "name": "Origin",
+     "kind": "start",
+     "x": 0,
+     "y": 0,
+     "text": "Your starting point."
+    },
+    {
+     "id": "bonewright_0_1",
+     "name": "Might",
+     "kind": "small",
+     "branch": "Artifice",
+     "color": "#e8dcb0",
+     "x": 0.0,
+     "y": -1.0,
+     "text": "+3% damage",
+     "stats": {
+      "dmgPct": 3
+     }
+    },
+    {
+     "id": "bonewright_0_2",
+     "name": "Precision",
+     "kind": "small",
+     "branch": "Artifice",
+     "color": "#e8dcb0",
+     "x": 0.0,
+     "y": -2.0,
+     "text": "+1% crit chance",
+     "stats": {
+      "critChance": 1
+     }
+    },
+    {
+     "id": "bonewright_0_3",
+     "name": "Loyal Works",
+     "kind": "notable",
+     "branch": "Artifice",
+     "color": "#e8dcb0",
+     "x": 0.0,
+     "y": -3.0,
+     "text": "+15% summon damage",
+     "stats": {
+      "tag:summon": 15
+     }
+    },
+    {
+     "id": "bonewright_0_4",
+     "name": "Precision",
+     "kind": "small",
+     "branch": "Artifice",
+     "color": "#e8dcb0",
+     "x": 0.0,
+     "y": -4.0,
+     "text": "+1% crit chance",
+     "stats": {
+      "critChance": 1
+     }
+    },
+    {
+     "id": "bonewright_0_5",
+     "name": "Might",
+     "kind": "small",
+     "branch": "Artifice",
+     "color": "#e8dcb0",
+     "x": 0.0,
+     "y": -5.0,
+     "text": "+3% damage",
+     "stats": {
+      "dmgPct": 3
+     }
+    },
+    {
+     "id": "bonewright_0_6",
+     "name": "Twin Turrets",
+     "kind": "key",
+     "branch": "Artifice",
+     "color": "#e8dcb0",
+     "x": 0.0,
+     "y": -6.0,
+     "text": "One more Bone Turret can stand at once.",
+     "mod": {
+      "skill": "bone_turret",
+      "add": {
+       "maxCount": 1
+      }
+     }
+    },
+    {
+     "id": "bonewright_0_f1",
+     "name": "Precision",
+     "kind": "small",
+     "branch": "Artifice",
+     "color": "#e8dcb0",
+     "x": 1.63,
+     "y": -3.65,
+     "text": "+1% crit chance",
+     "stats": {
+      "critChance": 1
+     }
+    },
+    {
+     "id": "bonewright_0_f2",
+     "name": "Weak Points",
+     "kind": "notable",
+     "branch": "Artifice",
+     "color": "#e8dcb0",
+     "x": 2.5,
+     "y": -4.33,
+     "text": "+4% crit chance",
+     "stats": {
+      "critChance": 4
+     }
+    },
+    {
+     "id": "bonewright_1_1",
+     "name": "Vigour",
+     "kind": "small",
+     "branch": "Ossuary",
+     "color": "#c9b8ff",
+     "x": 0.87,
+     "y": 0.5,
+     "text": "+3% life",
+     "stats": {
+      "hpPct": 3
+     }
+    },
+    {
+     "id": "bonewright_1_2",
+     "name": "Plating",
+     "kind": "small",
+     "branch": "Ossuary",
+     "color": "#c9b8ff",
+     "x": 1.73,
+     "y": 1.0,
+     "text": "+6% armour",
+     "stats": {
+      "armorPct": 6
+     }
+    },
+    {
+     "id": "bonewright_1_3",
+     "name": "Braced",
+     "kind": "notable",
+     "branch": "Ossuary",
+     "color": "#c9b8ff",
+     "x": 2.6,
+     "y": 1.5,
+     "text": "-5% damage taken",
+     "stats": {
+      "takenPct": 5
+     }
+    },
+    {
+     "id": "bonewright_1_4",
+     "name": "Plating",
+     "kind": "small",
+     "branch": "Ossuary",
+     "color": "#c9b8ff",
+     "x": 3.46,
+     "y": 2.0,
+     "text": "+6% armour",
+     "stats": {
+      "armorPct": 6
+     }
+    },
+    {
+     "id": "bonewright_1_5",
+     "name": "Vigour",
+     "kind": "small",
+     "branch": "Ossuary",
+     "color": "#c9b8ff",
+     "x": 4.33,
+     "y": 2.5,
+     "text": "+3% life",
+     "stats": {
+      "hpPct": 3
+     }
+    },
+    {
+     "id": "bonewright_1_6",
+     "name": "Heavy Mallet",
+     "kind": "key",
+     "branch": "Ossuary",
+     "color": "#c9b8ff",
+     "x": 5.2,
+     "y": 3.0,
+     "text": "Bone Mallet hits all around you, for 85% damage.",
+     "mod": {
+      "skill": "bone_mallet",
+      "set": {
+       "arcCos": -1
+      },
+      "mul": {
+       "damage": 0.85
+      }
+     }
+    },
+    {
+     "id": "bonewright_1_f1",
+     "name": "Plating",
+     "kind": "small",
+     "branch": "Ossuary",
+     "color": "#c9b8ff",
+     "x": 2.35,
+     "y": 3.24,
+     "text": "+6% armour",
+     "stats": {
+      "armorPct": 6
+     }
+    },
+    {
+     "id": "bonewright_1_f2",
+     "name": "Knit Bone",
+     "kind": "notable",
+     "branch": "Ossuary",
+     "color": "#c9b8ff",
+     "x": 2.5,
+     "y": 4.33,
+     "text": "1% life regen per second",
+     "stats": {
+      "regenPct": 1
+     }
+    },
+    {
+     "id": "bonewright_2_1",
+     "name": "Haste",
+     "kind": "small",
+     "branch": "Workshop",
+     "color": "#ffd23f",
+     "x": -0.87,
+     "y": 0.5,
+     "text": "-1.5% cooldowns",
+     "stats": {
+      "cdr": 1.5
+     }
+    },
+    {
+     "id": "bonewright_2_2",
+     "name": "Swiftness",
+     "kind": "small",
+     "branch": "Workshop",
+     "color": "#ffd23f",
+     "x": -1.73,
+     "y": 1.0,
+     "text": "+2% move speed",
+     "stats": {
+      "moveSpeed": 2
+     }
+    },
+    {
+     "id": "bonewright_2_3",
+     "name": "Oiled Gears",
+     "kind": "notable",
+     "branch": "Workshop",
+     "color": "#ffd23f",
+     "x": -2.6,
+     "y": 1.5,
+     "text": "+6% attack speed",
+     "stats": {
+      "atkSpeed": 6
+     }
+    },
+    {
+     "id": "bonewright_2_4",
+     "name": "Swiftness",
+     "kind": "small",
+     "branch": "Workshop",
+     "color": "#ffd23f",
+     "x": -3.46,
+     "y": 2.0,
+     "text": "+2% move speed",
+     "stats": {
+      "moveSpeed": 2
+     }
+    },
+    {
+     "id": "bonewright_2_5",
+     "name": "Haste",
+     "kind": "small",
+     "branch": "Workshop",
+     "color": "#ffd23f",
+     "x": -4.33,
+     "y": 2.5,
+     "text": "-1.5% cooldowns",
+     "stats": {
+      "cdr": 1.5
+     }
+    },
+    {
+     "id": "bonewright_2_6",
+     "name": "Shrapnel",
+     "kind": "key",
+     "branch": "Workshop",
+     "color": "#ffd23f",
+     "x": -5.2,
+     "y": 3.0,
+     "text": "Scrap Burst pulses 2 more times.",
+     "mod": {
+      "skill": "scrap_burst",
+      "add": {
+       "pulses": 2
+      }
+     }
+    },
+    {
+     "id": "bonewright_2_f1",
+     "name": "Swiftness",
+     "kind": "small",
+     "branch": "Workshop",
+     "color": "#ffd23f",
+     "x": -3.98,
+     "y": 0.42,
+     "text": "+2% move speed",
+     "stats": {
+      "moveSpeed": 2
+     }
+    },
+    {
+     "id": "bonewright_2_f2",
+     "name": "Siegebreaker",
+     "kind": "notable",
+     "branch": "Workshop",
+     "color": "#ffd23f",
+     "x": -5.0,
+     "y": 0.0,
+     "text": "+15% damage to elites and bosses",
+     "stats": {
+      "eliteDmg": 15
+     }
+    },
+    {
+     "id": "bonewright_br0",
+     "name": "Crossroads",
+     "kind": "small",
+     "branch": "",
+     "color": "#b8a8d0",
+     "x": 2.25,
+     "y": -1.3,
+     "text": "+2% damage and +2% life",
+     "stats": {
+      "dmgPct": 2,
+      "hpPct": 2
+     }
+    },
+    {
+     "id": "bonewright_br1",
+     "name": "Crossroads",
+     "kind": "small",
+     "branch": "",
+     "color": "#b8a8d0",
+     "x": 0.0,
+     "y": 2.6,
+     "text": "+2% damage and +2% life",
+     "stats": {
+      "dmgPct": 2,
+      "hpPct": 2
+     }
+    },
+    {
+     "id": "bonewright_br2",
+     "name": "Crossroads",
+     "kind": "small",
+     "branch": "",
+     "color": "#b8a8d0",
+     "x": -2.25,
+     "y": -1.3,
+     "text": "+2% damage and +2% life",
+     "stats": {
+      "dmgPct": 2,
+      "hpPct": 2
+     }
+    }
+   ],
+   "links": [
+    [
+     "bonewright_start",
+     "bonewright_0_1"
+    ],
+    [
+     "bonewright_0_1",
+     "bonewright_0_2"
+    ],
+    [
+     "bonewright_0_2",
+     "bonewright_0_3"
+    ],
+    [
+     "bonewright_0_3",
+     "bonewright_0_4"
+    ],
+    [
+     "bonewright_0_4",
+     "bonewright_0_5"
+    ],
+    [
+     "bonewright_0_5",
+     "bonewright_0_6"
+    ],
+    [
+     "bonewright_0_3",
+     "bonewright_0_f1"
+    ],
+    [
+     "bonewright_0_f1",
+     "bonewright_0_f2"
+    ],
+    [
+     "bonewright_start",
+     "bonewright_1_1"
+    ],
+    [
+     "bonewright_1_1",
+     "bonewright_1_2"
+    ],
+    [
+     "bonewright_1_2",
+     "bonewright_1_3"
+    ],
+    [
+     "bonewright_1_3",
+     "bonewright_1_4"
+    ],
+    [
+     "bonewright_1_4",
+     "bonewright_1_5"
+    ],
+    [
+     "bonewright_1_5",
+     "bonewright_1_6"
+    ],
+    [
+     "bonewright_1_3",
+     "bonewright_1_f1"
+    ],
+    [
+     "bonewright_1_f1",
+     "bonewright_1_f2"
+    ],
+    [
+     "bonewright_start",
+     "bonewright_2_1"
+    ],
+    [
+     "bonewright_2_1",
+     "bonewright_2_2"
+    ],
+    [
+     "bonewright_2_2",
+     "bonewright_2_3"
+    ],
+    [
+     "bonewright_2_3",
+     "bonewright_2_4"
+    ],
+    [
+     "bonewright_2_4",
+     "bonewright_2_5"
+    ],
+    [
+     "bonewright_2_5",
+     "bonewright_2_6"
+    ],
+    [
+     "bonewright_2_3",
+     "bonewright_2_f1"
+    ],
+    [
+     "bonewright_2_f1",
+     "bonewright_2_f2"
+    ],
+    [
+     "bonewright_0_2",
+     "bonewright_br0"
+    ],
+    [
+     "bonewright_br0",
+     "bonewright_1_2"
+    ],
+    [
+     "bonewright_1_2",
+     "bonewright_br1"
+    ],
+    [
+     "bonewright_br1",
+     "bonewright_2_2"
+    ],
+    [
+     "bonewright_2_2",
+     "bonewright_br2"
+    ],
+    [
+     "bonewright_br2",
+     "bonewright_0_2"
+    ]
+   ]
+  }
+ }
+}

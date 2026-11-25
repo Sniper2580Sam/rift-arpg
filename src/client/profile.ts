@@ -23,6 +23,8 @@ export interface CharSave {
   gems?: Record<string, number>; gemSlots?: string[];
   /** best Trial level cleared in time (one talent point each) and talent ranks spent */
   trialBest?: number; talents?: Record<string, number>;
+  /** passive tree nodes taken (one point per Paragon level) */
+  passives?: string[];
   /** set pieces crafted (seeds the next craft) */
   crafted?: number;
   /** reliquary: an extracted legendary power per slot */
@@ -156,7 +158,7 @@ export function holderOf(p: Profile): Holder {
 
 export function setupFor(p: Profile, pid = 0, name = "You"): PlayerSetup {
   const c = char(p);
-  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, feathers: c.feathers ?? 0, vaultKeys: c.vaultKeys ?? 0, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, pAlloc: c.pAlloc ?? {}, gems: c.gems ?? {}, gemSlots: c.gemSlots ?? [], talents: c.talents ?? {}, relics: Object.values(c.relicSlots ?? {}).filter((id): id is string => !!id && (p.relics ?? []).includes(id)) };
+  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, feathers: c.feathers ?? 0, vaultKeys: c.vaultKeys ?? 0, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, pAlloc: c.pAlloc ?? {}, gems: c.gems ?? {}, gemSlots: c.gemSlots ?? [], talents: c.talents ?? {}, passives: c.passives ?? [], relics: Object.values(c.relicSlots ?? {}).filter((id): id is string => !!id && (p.relics ?? []).includes(id)) };
 }
 
 /** Pull the player's persistent state back out of a running sim (items picked up, XP, levels). Boons are not kept. */

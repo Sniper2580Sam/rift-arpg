@@ -1,4 +1,4 @@
-import { talentStats,
+import { passiveStats, talentStats,
   gemVals, AFFIX, AFFIXES, BOON, CLASSES, EquipSlot, ITEMS, LEGENDARIES, LEGENDARY, MODIFIER, ModDef, MYTHICS, Num, RARITY_ORDER, RIFT,
   Rarity, SET, SETS, SKILL, SlotType, classAffinity, levelPower, slotTypeOf,
 } from "./data";
@@ -246,7 +246,7 @@ export interface Stats {
   speed: number; dmgMult: number; takenMult: number;
 }
 
-export interface StatCtx { cls: string; level: number; paragon?: Partial<Record<string, number>>; /** equipped rift gems and their levels */ gems?: Record<string, number>; /** legendary powers worn in the reliquary */ relics?: string[]; /** talent ranks (node id -> rank) */ talents?: Record<string, number>; effLevel?: number; boons?: string[]; riftMods?: string[]; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"] }
+export interface StatCtx { cls: string; level: number; paragon?: Partial<Record<string, number>>; /** equipped rift gems and their levels */ gems?: Record<string, number>; /** legendary powers worn in the reliquary */ relics?: string[]; /** talent ranks (node id -> rank) */ talents?: Record<string, number>; /** passive tree nodes taken */ passives?: string[]; effLevel?: number; boons?: string[]; riftMods?: string[]; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"] }
 
 export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
   const cd = CLASSES[c.cls];
@@ -289,6 +289,7 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
     // a set counts each piece once: two copies of the same set ring are one piece
     if (it.set && !setSeen.has(it.set + ":" + it.slot)) { setSeen.add(it.set + ":" + it.slot); s.setCounts[it.set] = (s.setCounts[it.set] ?? 0) + 1; }
   }
+  s.mods.push(...passiveStats(c.cls, c.passives).mods);
   for (const id of c.relics ?? []) if (LEGENDARY[id] && !LEGENDARY[id].mythic && !worn.has(id)) { worn.add(id); s.mods.push(LEGENDARY[id]); }
   for (const [id, n] of Object.entries(s.setCounts)) {
     for (const [need, b] of Object.entries(SET[id].bonuses)) if (n >= +need) s.mods.push(b);
@@ -321,8 +322,11 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
   if (pv("vitality")) s.maxHp = Math.round(s.maxHp * (1 + pv("vitality") / 100));
   if (pv("toughness")) s.takenMult *= 1 - pv("toughness") / 100;
   if (pv("haste")) { s.cdr += pv("haste"); s.moveSpeed += pv("haste"); }
-  // talents (points from Trials)
-  for (const [k, v] of Object.entries(talentStats(c.cls, c.talents))) {
+  // talents (points from Trials) and the passive tree (points from Paragon)
+  const ps = passiveStats(c.cls, c.passives);
+  const statMap: Record<string, number> = { ...talentStats(c.cls, c.talents) };
+  for (const [k, v] of Object.entries(ps.stats)) statMap[k] = (statMap[k] ?? 0) + v;
+  for (const [k, v] of Object.entries(statMap)) {
     if (k.startsWith("tag:")) { const t = k.slice(4); s.tagDmg[t] = (s.tagDmg[t] ?? 0) + v; continue; }
     switch (k) {
       case "hpPct": s.maxHp = Math.round(s.maxHp * (1 + v / 100)); break;

@@ -5,7 +5,7 @@ import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { drawFxPreview } from "./fxpreview";
-import { tierHpMult, lootChances, isAbyssal, TALENTS, talentCanAdd, talentCanRemove, talentPoints, talentSpent, nextTrial, SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { PASSIVES, passiveCanAdd, passiveCanRemove, passiveNode, passiveStart, runeLevel, tierHpMult, lootChances, isAbyssal, TALENTS, talentCanAdd, talentCanRemove, talentPoints, talentSpent, nextTrial, SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { echoCost, BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -195,6 +195,9 @@ export class UI {
       this.root.querySelectorAll<HTMLElement>("[data-slot]").forEach((el) => el.onclick = () => { this.skSlot = +el.dataset.slot!; re(); });
       this.root.querySelectorAll<HTMLElement>("[data-equip]").forEach((el) => el.onclick = () => { H.setSkill(this.skSlot, el.dataset.equip!); re(); });
       this.root.querySelectorAll<HTMLElement>("[data-pg]").forEach((el) => el.onclick = () => { const [k, d] = el.dataset.pg!.split(":"); H.op?.({ t: "paragon", stat: k, d: +d }); re(); });
+      this.root.querySelectorAll<SVGGElement>("[data-pn]").forEach((el) => el.onclick = () => { this.psel = el.dataset.pn!; re(); });
+      this.root.querySelectorAll<HTMLElement>("[data-pass]").forEach((el) => el.onclick = () => { const [k, d] = el.dataset.pass!.split(":"); H.op?.({ t: "passive", id: k, d: +d }); re(); });
+      const pr2 = this.root.querySelector<HTMLElement>("[data-pass-reset]"); if (pr2) pr2.onclick = () => { H.op?.({ t: "passive", reset: true }); this.psel = ""; re(); };
       this.root.querySelectorAll<HTMLElement>("[data-tal]").forEach((el) => el.onclick = () => { const [k, d] = el.dataset.tal!.split(":"); H.op?.({ t: "talent", id: k, d: +d }); re(); });
       const tr = this.root.querySelector<HTMLElement>("[data-tal-reset]"); if (tr) tr.onclick = () => { H.op?.({ t: "talent", reset: true }); re(); };
       const pr = this.root.querySelector<HTMLElement>("[data-pg-reset]"); if (pr) pr.onclick = () => { H.op?.({ t: "paragon", reset: true }); re(); };
@@ -217,7 +220,7 @@ export class UI {
         <div class="tier"><b>Tier ${t}${isAbyssal(t) ? ` <span class="abyss">Abyssal</span>` : ""}</b><small>${isAbyssal(t) ? "4 modifiers · more elites · " : ""}enemy life ×${hp < 100 ? hp.toFixed(1) : Math.round(hp).toLocaleString("en-US")} · legendary odds ×${leg.toFixed(2)}${anc ? ` · ancestral ${Math.round(anc * 100)}%` : ""}${t >= T.primalFrom ? " · primals can drop" : ""}</small></div>
         <button id="t-up" aria-label="Higher tier" ${t >= c.highestTier ? "disabled" : ""}>+</button>
       </div>
-      <div class="dim small">Clear a tier in time to unlock the next one. Tiers ${RIFT.tiers.abyssFrom}–${RIFT.tiers.max} are Abyssal. Under 5 min unlocks 2, under 3 min unlocks 3. Highest: ${c.highestTier}. Ancestral pity: ${c.pityAnc}/${T.ancestralPity}.</div>
+      <div class="dim small">Clear a tier in time to unlock the next one. Tiers ${RIFT.tiers.abyssFrom}–${RIFT.tiers.max} are Abyssal. Enemy life doubles every 5 tiers. A normal clear takes 8–10 min (${Math.round(RIFT.timeLimit / 60)} min timer); under ${RIFT.tierJumps[1][0] / 60} min unlocks 2, under ${RIFT.tierJumps[0][0] / 60} min unlocks 3. Highest: ${c.highestTier}. Ancestral pity: ${c.pityAnc}/${T.ancestralPity}.</div>
       <button id="enter" class="big">Enter a rift</button>
       <div class="row">
         <input id="seed" placeholder="rift code (optional)" maxlength="8" autocomplete="off" aria-label="Rift code">
@@ -468,14 +471,14 @@ export class UI {
       const cur = c.runes[id];
       const at = bar.indexOf(id);
       const runes = d.runes.map((r) => {
-        const ok = !locked && uses >= r.uses;
-        return `<button class="rune ${cur === r.id ? "on" : ""}" ${ok ? `data-rune="${id}:${cur === r.id ? "" : r.id}"` : "disabled"} title="${esc(r.desc)}"><b>${esc(r.name)}</b><small>${ok ? esc(r.desc) : `after ${r.uses} uses (${uses})`}</small></button>`;
+        const lv = runeLevel(id, r.id), ok = c.level >= lv;
+        return `<button class="rune ${cur === r.id ? "on" : ""}" ${ok ? `data-rune="${id}:${cur === r.id ? "" : r.id}"` : "disabled"} title="${esc(r.desc)}"><b>${esc(r.name)}</b><small>${ok ? esc(r.desc) : `unlocks at level ${lv}`}</small></button>`;
       }).join("");
       const btn = locked ? `<span class="lock">unlocks at level ${d.unlock}</span>` : at === this.skSlot ? `<span class="eq">equipped</span>` : `<button class="equip" data-equip="${id}">${at >= 0 ? `Move to slot ${this.skSlot + 1}` : `Equip in slot ${this.skSlot + 1}`}</button>`;
       return `<div class="skill ${locked ? "locked" : ""} ${at >= 0 ? "inbar" : ""}"><div class="sk-head"><b>${esc(d.name)}</b>${at >= 0 ? ` <span class="eq">${KEY_LABELS[at]}</span>` : ""} <span class="dim">${esc(costText(id))}</span> ${btn}</div><div class="tags">${d.tags.map((t) => `<span class="tag" style="--c:${TAG_COLOR[t] ?? "#b8a8d0"}">${esc(TAG_NAME[t] ?? t)}</span>`).join("")}</div><div class="dim small">${esc(d.desc)}</div>${runes ? `<div class="runes">${runes}</div>` : `<div class="dim small">Runes for this skill come in a later update.</div>`}</div>`;
     }).join("");
     const groups = ([["generator", "Generators: build " + R.name], ["core", "Core: spend " + R.name], ["support", "Support"], ["ultimate", "Ultimate (one at a time)"]] as const).map(([t, title]) => `<h3 class="sk-type">${title}</h3>${group(t, title)}`).join("");
-    return `${this.talentsHtml(c)}${this.paragonHtml(c)}<div class="dim small">Pick any 4 skills, with at most one ultimate. Tap a slot, then a skill to put there. ${esc(R.name)}: ${R.regen ? `refills ${R.regen} per second` : `built by hits, fades after ${R.decayAfter}s out of combat`}, max ${R.max}. Runes unlock by using a skill.</div><div class="sk-bar">${slots}</div>${groups}`;
+    return `${this.passivesHtml(c)}${this.talentsHtml(c)}${this.paragonHtml(c)}<div class="dim small">Pick any 4 skills, with at most one ultimate. Tap a slot, then a skill to put there. ${esc(R.name)}: ${R.regen ? `refills ${R.regen} per second` : `built by hits, fades after ${R.decayAfter}s out of combat`}, max ${R.max}. Runes unlock as you level up; everything is open by level ${RIFT.levels.max}.</div><div class="sk-bar">${slots}</div>${groups}`;
   }
 
   /** Paragon: shown once you hit max level. Points go into four capped stats; respec is free. */
@@ -539,6 +542,24 @@ export class UI {
       return `<div class="pg-row"><span><b style="color:${g.color}">◆ ${esc(g.name)}</b> <span class="dim small">Lv ${lv}/${GEMS.maxLevel} · ${esc(gemText(id, lv))}</span></span><span class="opts">${btn}</span></div>`;
     };
     return `<div class="setting"><b>Rift Gems</b> <span class="dim small">${sl.length}/${GEMS.slots} socketed. Timed clears level socketed gems (more at higher tiers, up to level ${GEMS.levelCapPerTier}× the tier).</span>${[...sl, ...own.filter((id) => !sl.includes(id))].map(row).join("")}</div>`;
+  }
+  /** Passive tree (Path of Exile style): tap a node to see it; take nodes linked to ones you have. */
+  psel = "";
+  private passivesHtml(c: CharSave) {
+    const T = PASSIVES.classes[c.cls]; if (!T) return "";
+    const taken = c.passives ?? [], pts = c.paragon ?? 0, free = pts - taken.length, have = new Set([passiveStart(c.cls), ...taken]);
+    const head = `<b>Passive tree</b> <span class="dim small">${pts ? `${free} of ${pts} point${pts === 1 ? "" : "s"} to spend` : `opens at level ${RIFT.levels.max}: each Paragon level gives a point`}</span>`;
+    const S = 26, R = 7.2, W = 2 * R * S + 40, px = (v: number) => Math.round(v * S + W / 2);
+    const nodeR = (k: string) => (k === "key" ? 11 : k === "notable" ? 8 : k === "start" ? 9 : 5);
+    const lines = T.links.map(([a, b]) => { const A = passiveNode(c.cls, a)!, B = passiveNode(c.cls, b)!, on = have.has(a) && have.has(b); return `<line x1="${px(A.x)}" y1="${px(A.y)}" x2="${px(B.x)}" y2="${px(B.y)}" stroke="${on ? "#ffd23f" : "#3a2e4a"}" stroke-width="${on ? 3 : 2}"/>`; }).join("");
+    const nodes = T.nodes.map((n) => {
+      const on = have.has(n.id), can = passiveCanAdd(c.cls, taken, n.id, Math.max(pts, taken.length + 1)), col = n.color ?? "#b8a8d0";
+      return `<g data-pn="${n.id}" style="cursor:pointer"><circle cx="${px(n.x)}" cy="${px(n.y)}" r="${nodeR(n.kind) + 6}" fill="transparent"/><circle cx="${px(n.x)}" cy="${px(n.y)}" r="${nodeR(n.kind)}" fill="${on ? col : "#140c1c"}" stroke="${this.psel === n.id ? "#fff" : can ? col : "#4a3e5a"}" stroke-width="${this.psel === n.id ? 3 : 2}"${n.kind === "key" ? ` stroke-dasharray="${on ? "" : "3 2"}"` : ""}/></g>`;
+    }).join("");
+    const sel = this.psel ? passiveNode(c.cls, this.psel) : undefined;
+    const info = sel ? `<div class="pn-info"><b style="color:${sel.color ?? "#fff"}">${esc(sel.name)}</b> <span class="dim small">${sel.kind === "key" ? "Keystone" : sel.kind === "notable" ? "Notable" : sel.kind === "start" ? "" : "Small"}${sel.branch ? ` · ${esc(sel.branch)}` : ""}</span><div>${esc(sel.text)}</div>
+      ${sel.kind === "start" ? "" : taken.includes(sel.id) ? `<button data-pass="${sel.id}:-1" ${passiveCanRemove(c.cls, taken, sel.id) ? "" : "disabled"}>Refund</button>${passiveCanRemove(c.cls, taken, sel.id) ? "" : ` <span class="dim small">other nodes depend on it</span>`}` : `<button data-pass="${sel.id}:1" ${passiveCanAdd(c.cls, taken, sel.id, pts) ? "" : "disabled"}>Take (1 point)</button>${free <= 0 ? ` <span class="dim small">no points</span>` : !passiveCanAdd(c.cls, taken, sel.id, pts) ? ` <span class="dim small">take a linked node first</span>` : ""}`}</div>` : `<div class="dim small">Tap a node. Dashed big nodes are keystones that change how a skill works.</div>`;
+    return `<div class="setting">${head}<svg class="ptree" viewBox="0 0 ${W} ${W}" width="100%">${lines}${nodes}</svg>${info}<div class="opts"><button data-pass-reset ${taken.length ? "" : "disabled"}>Refund all</button></div></div>`;
   }
   /** Class talent tree: three branches, points from Trials. Rows open as you spend in a branch. */
   private talentsHtml(c: CharSave) {
