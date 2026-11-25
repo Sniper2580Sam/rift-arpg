@@ -36,8 +36,8 @@ export type HubOp =
   | { t: "reset" };
 
 const ITEMS_EQUIP = ITEMS.equipSlots;
-const SETTINGS = new Set(["mute", "shake", "autoTier"]);
-const FILTERS = new Set(["common", "magic", "rare", "legendary"]);
+const SETTINGS = new Set(["mute", "shake", "autoTier", "hpbar"]);
+const FILTERS = new Set(["common", "magic", "rare", "legendary", "ancestral", "primal"]);
 
 /** Applies one hub op. Returns false if it was invalid (nothing changed). */
 export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {

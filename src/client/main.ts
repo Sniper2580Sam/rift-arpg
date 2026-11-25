@@ -179,11 +179,13 @@ function hideoutButtons() {
   const l = document.getElementById("h-leave"); if (l) l.onclick = () => { online?.leave(); endRun(); };
 }
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+/** Bosses use the tier picked on the Play tab (at least 3, at most your highest). */
+const bossTier = () => Math.max(3, Math.min(ui.tier, char(profile).highestTier));
 function useSpot(n: HideoutSpot) {
   if (n.kind) {
     const c = char(profile);
-    if (n.kind === "chase" && n.id === "seraph") { if ((c.feathers ?? 0) <= 0) { ui.toast(`You need a Pale Feather (the King leaves one, and guardians drop them at tier ${RIFT.seraph.featherFrom}+).`, "#bfe8ff"); return; } startRun({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase", boss: "seraph" }); }
-    else if (n.kind === "chase") { if (c.sigils <= 0) { ui.toast("You need a Bone Sigil (they drop from guardians at tier 3+).", "#ffd23f"); return; } startRun({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase" }); }
+    if (n.kind === "chase" && n.id === "seraph") { if ((c.feathers ?? 0) <= 0) { ui.toast(`You need a Pale Feather (the King leaves one, and guardians drop them at tier ${RIFT.seraph.featherFrom}+).`, "#bfe8ff"); return; } startRun({ tier: bossTier(), seed: null, kind: "chase", boss: "seraph" }); }
+    else if (n.kind === "chase") { if (c.sigils <= 0) { ui.toast("You need a Bone Sigil (they drop from guardians at tier 3+).", "#ffd23f"); return; } startRun({ tier: bossTier(), seed: null, kind: "chase" }); }
     else if (n.kind === "vault") { if ((c.vaultKeys ?? 0) <= 0) { ui.toast("You need a Gilded Key: catch a Gilded Imp in a rift (tier 2+) before it escapes.", "#ffd23f"); return; } startRun({ tier: c.highestTier, seed: null, kind: "vault" }); }
     else if (n.kind === "trial") startRun({ tier: nextTrial(c.trialBest), seed: null, kind: "trial" });
     else startRun({ tier: Math.min(Math.max(1, ui.tier), c.highestTier), seed: null, kind: n.kind as RunKind });
@@ -382,7 +384,7 @@ function endRun() {
     finishOnline();
     screen = "results";
     ui.showResults({ title, sub, time: completeInfo.time, kills: s.rift.kills, found, legendaries: foundLegs, lines }, goHub);
-  } else { checkFeats(); saveProfile(profile); finishOnline(); goHub(); }
+  } else { checkFeats(); saveProfile(profile); finishOnline(); sim = null; run = null; mode = "hub"; goHub(); return; } // goHub starts the hideout run, so clear first
   sim = null; run = null; mode = "hub";
 }
 
@@ -817,7 +819,7 @@ function render(alpha: number, dt: number) {
   if (hth) {
     for (const d of s.rift.hideout?.decor ?? []) { const x = (d.x + 0.5) * s.map.ts, y = (d.y + 1) * s.map.ts - 2; list.push({ y: d.id === "rug" ? -1e9 : y, f: () => drawDecor(g, d.id, x, y, t) }); }
     for (const st of HIDEOUT.stations) { const [x, y] = spotPos(s.map, hth, st); list.push({ y, f: () => drawStation(g, st, x, y, t, hideNear === st) }); }
-    for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : po.kind === "trial" ? `trial ${nextTrial(char(profile).trialBest)}` : po.kind === "vault" ? `${char(profile).vaultKeys ?? 0} keys` : `tier ${Math.min(ui.tier, char(profile).highestTier)}`) }); }
+    for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `T${bossTier()} · ${char(profile).feathers ?? 0} feathers` : `T${bossTier()} · ${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : po.kind === "trial" ? `trial ${nextTrial(char(profile).trialBest)}` : po.kind === "vault" ? `${char(profile).vaultKeys ?? 0} keys` : `tier ${Math.min(ui.tier, char(profile).highestTier)}`) }); }
   }
   for (const q of s.players) {
     if (q.dead) continue;
@@ -1054,6 +1056,7 @@ function drawHero(g: CanvasRenderingContext2D, p: Player, x: number, y: number, 
     if (p.pid === ME && hurtFlash > 0.2) { g.globalAlpha = 0.5; drawSprite(g, fr, x, y, p.fx < 0, true, 1.6); }
     g.globalAlpha = 1;
     if (Math.random() < 0.15) particles.push({ x: x + (Math.random() - 0.5) * 10, y: y - 14, vx: 0, vy: -16, life: 0.5, max: 0.5, color: "#ffd23f", size: 1, grav: 0 });
+    if (profile.settings.hpbar && !p.dead) hpOverHead(g, p, x, y - fr.h * 1.6 - 3);
     return;
   }
   shadow(g, x, y, 5);
@@ -1063,6 +1066,13 @@ function drawHero(g: CanvasRenderingContext2D, p: Player, x: number, y: number, 
   const fr = drawHeroCos(g, bank, { pid: p.pid, cls: p.cls, cos: p.cos ?? {}, fx: p.fx, fy: p.fy, moving: p.moving, walk: p.walk, swingK }, x, y, t, emitFx);
   if (p.pid === ME && hurtFlash > 0.2) { g.globalAlpha = 0.6; drawSprite(g, fr, x, y, p.fx < 0, true); }
   g.globalAlpha = 1;
+  if (profile.settings.hpbar && !p.dead) hpOverHead(g, p, x, y - fr.h - 3);
+}
+/** Optional life bar over each hero's head (Settings). */
+function hpOverHead(g: CanvasRenderingContext2D, p: Player, x: number, y: number) {
+  const w = 16, k = Math.max(0, Math.min(1, p.hp / p.stats.maxHp)), bx = Math.round(x - w / 2), by = Math.round(y);
+  g.fillStyle = "#140c1c"; g.fillRect(bx - 1, by - 1, w + 2, 4);
+  g.fillStyle = k > 0.5 ? "#5ee06a" : k > 0.25 ? "#ffd23f" : "#ff4a4a"; g.fillRect(bx, by, Math.round(w * k), 2);
 }
 
 function drawPet(g: CanvasRenderingContext2D, q: Player, pt: { x: number; y: number; flip: boolean }, t: number) {

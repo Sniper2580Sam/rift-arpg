@@ -26,7 +26,7 @@ export interface PlayerSetup {
   /** Gilded Keys (from Gilded Imps) open the Gilded Vault */
   vaultKeys?: number;
   shards?: number; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"];
-  runes: Record<string, string>; pet: string; filter: Rarity;
+  runes: Record<string, string>; pet: string; filter: LootFilter;
   loadout?: string[];
   /** paragon levels, XP toward the next one, and points spent */
   paragon?: number; pxp?: number; pAlloc?: Partial<Record<ParagonStat, number>>;
@@ -43,7 +43,7 @@ export interface PlayerSetup {
 export interface Buff { armorPct: number; dmgPct: number; cdrPct: number; t: number }
 export interface Player extends Holder {
   pid: number; name: string; cls: string; level: number; xp: number; sigils: number; feathers: number; vaultKeys: number;
-  runes: Record<string, string>; pet: string; filter: Rarity; cos: CosChoice;
+  runes: Record<string, string>; pet: string; filter: LootFilter; cos: CosChoice;
   x: number; y: number; px: number; py: number; r: number; hp: number; fx: number; fy: number; moving: boolean; walk: number;
   skills: string[]; cds: Num; charges: Num; chargeT: Num; swingT: number; swingCount: number;
   dashT: number; dashDx: number; dashDy: number; dashHit: number[]; dashSkill: string; trailT: number;
@@ -849,7 +849,8 @@ function hitEnemy(s: SimState, e: Enemy, mult: number, p: Player | undefined, sk
   if (crit) dmg *= 1 + st.critDmg / 100;
   const amount = Math.max(1, Math.round(dmg));
   // Thorns elites hurt whoever hits them (at most twice a second)
-  if (e.elite && e.affixes.includes("thorns") && (p.thornT ?? 0) <= 0) { p.thornT = 0.5; damagePlayer(s, p, (ENEMIES[e.kind]?.damage ?? 10) * e.dmgMult * 0.35); }
+  // thorns: a small sting at most once a second, capped at 4% of your life, so it can't race you to death
+  if (e.elite && e.affixes.includes("thorns") && (p.thornT ?? 0) <= 0) { p.thornT = 1; damagePlayer(s, p, Math.min((ENEMIES[e.kind]?.damage ?? 10) * e.dmgMult * 0.12, p.stats.maxHp * 0.04)); }
   if (o.kb && e.kind !== "guardian" && e.kind !== "king" && e.kind !== "pylon") {
     const res = e.kind === "brute" ? 0.35 : e.elite ? 0.5 : 1;
     e.kbx += (o.kx ?? 0) * o.kb * res; e.kby += (o.ky ?? 0) * o.kb * res;
@@ -1393,7 +1394,7 @@ function aiKing(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: number, d
     for (let i = 0; i < 3; i++) {
       const d = DIR_TABLE[i * 11 + 2];
       const py = spawnEnemy(s, "pylon", e.x + d[0] * 90, e.y + d[1] * 90, s.players.length);
-      py.hp = py.maxHp = Math.round(e.maxHp * 0.04); py.r = 7; py.aggro = true; py.noProgress = true;
+      py.hp = py.maxHp = Math.round(e.maxHp * 0.02); py.r = 7; py.aggro = true; py.noProgress = true;
     }
     return;
   }
@@ -1401,9 +1402,11 @@ function aiKing(s: SimState, e: Enemy, def: EnemyDef, p: Player, dist: number, d
     const alive = s.enemies.filter((o) => o.kind === "pylon" && !o.dead).length;
     if (alive === 0) { e.state = "stun"; e.t = 4; s.events.push({ type: "phase", n: 4, text: "The King is exposed!" }); return; }
     if (e.t <= 0) {
-      e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.2);
+      // too slow: the bones crumble into him and he fights on enraged
       for (const o of s.enemies) if (o.kind === "pylon") o.dead = true;
-      e.state = "idle"; e.t = 1; e.phase = 2; s.events.push({ type: "phase", n: 2, text: "Too slow. The King mends." });
+      e.state = "idle"; e.t = 1;
+      if (!e.enraged) { e.enraged = true; s.events.push({ type: "enrage" }); }
+      s.events.push({ type: "phase", n: 3, text: "Too slow. The King is enraged!" });
     }
     return;
   }
@@ -1565,7 +1568,11 @@ function updateZones(s: SimState) {
 }
 
 export function pickupRadius(p: Player) { return p.pet && p.pet !== "none" ? (p.level >= 15 ? 70 : 42) : 14; }
+/** Loot filter: a minimum rarity, or "ancestral"/"primal" to keep only items of that quality (and mythics). */
+export type LootFilter = Rarity | "ancestral" | "primal";
 export function hiddenByFilter(p: Player, it: Item) {
+  if (p.filter === "ancestral") return !(it.quality || it.rarity === "mythic");
+  if (p.filter === "primal") return !(it.quality === "primal" || it.rarity === "mythic");
   if (RARITY_ORDER.indexOf(it.rarity) >= RARITY_ORDER.indexOf(p.filter)) return false;
   return true;
 }

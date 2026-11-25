@@ -392,6 +392,7 @@ export type InvCmd =
   | { type: "unequip"; slot: EquipSlot }
   | { type: "scrap"; bagIndex: number }
   | { type: "scrapBelow"; rarity: Rarity }
+  | { type: "scrapAll" }
   | { type: "lock"; bagIndex?: number; slot?: EquipSlot };
 
 export function equipTarget(h: Holder, it: Item, to?: EquipSlot): EquipSlot {
@@ -432,8 +433,8 @@ export function applyInvCmd(h: Holder, cmd: InvCmd): boolean {
     h.materials += scrapValue(it); h.shards = (h.shards ?? 0) + shardValue(it);
     return true;
   }
-  if (cmd.type === "scrapBelow") {
-    const lim = RARITY_ORDER.indexOf(cmd.rarity);
+  if (cmd.type === "scrapBelow" || cmd.type === "scrapAll") {
+    const lim = cmd.type === "scrapAll" ? 99 : RARITY_ORDER.indexOf(cmd.rarity);
     const keep: Item[] = [];
     for (const it of h.bag) { if (!it.locked && RARITY_ORDER.indexOf(it.rarity) < lim) { h.materials += scrapValue(it); h.shards = (h.shards ?? 0) + shardValue(it); } else keep.push(it); }
     const changed = keep.length !== h.bag.length;

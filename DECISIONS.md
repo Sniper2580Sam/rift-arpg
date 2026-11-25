@@ -205,3 +205,13 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 - **Abyssal tiers (16+)** get a 4th rift modifier and ×1.5 elite packs. Ancestral odds cap at 40% instead of 25%, and primal odds rise 25% per Abyssal tier. Ancestral and primal odds come from `lootChances` in both the sim and the server.
 - The gem level cap went from 50 to 75, so gems keep levelling through tier 25.
 - This is meant to absorb the new power sources: gems, the reliquary, echoes, talents, chisels and paragon. The numbers are first guesses and need a playtest with a fully geared hero.
+
+## 2026-11-25: Samuel's playtest list, batch 1 (quick fixes)
+- **Black screen after leaving a rift early:** endRun called goHub, which started the hideout run, and then cleared `sim`. It now clears the run state before going home.
+- **Enemy speed down about 25%** (hounds about 15%, so they stay the fast ones). Tier speed scaling is now +1.5% per tier, capped at ×1.2. It was +3% capped at ×1.4, which was the main cause of swarming at high tiers.
+- **Elite thorns:** at most once a second, 12% of the elite's hit, capped at 4% of your life. It was every 0.5 s at 35% with no cap.
+- **Ossuary King bones:** each has 2% of the King's life (was 4%). If you're too slow, he enrages instead of healing 20% and repeating the phase.
+- **Bag:** a "Scrap all (not ★ locked)" button. **Loot filter:** "Only ancestral, primal, mythic" and "Only primal and mythic".
+- **Settings:** "Life over head" draws a small bar over each hero. **Skills:** tags show as coloured chips.
+- **Bosses use the tier picked on the Play tab** (minimum 3, maximum your highest). The hideout portals show it, and the live server honours it.
+- The "Start a new season" button only shows in test builds.

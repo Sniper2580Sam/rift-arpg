@@ -11,6 +11,7 @@ import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, WEEKLY_TIER, char, isoWeek, seasonStats, xpProgress } from "./profile";
 import { KEY_LABELS } from "./input";
+declare const OFFLINE_TEST: boolean;
 import type { HubOp } from "../shared/ops";
 
 const $ = (sel: string) => document.querySelector(sel) as HTMLElement;
@@ -119,6 +120,9 @@ export interface CoopHub {
   direct?: boolean; connecting?: boolean; setName?: (n: string) => void;
 }
 
+/** Skill tags as chips: damage types first in their element colour, then shape. Items and talents boost these tags. */
+const TAG_NAME: Record<string, string> = { aoe: "Area", single: "Single target", defence: "Defence", construct: "Construct", colossus: "Colossus" };
+const TAG_COLOR: Record<string, string> = { fire: "#ff8a1f", cold: "#7dd8ff", lightning: "#5fb0ff", arcane: "#c06aff", physical: "#d8c8a8", melee: "#ffb08a", projectile: "#ffe08a", pierce: "#9fe0a0", aoe: "#ff9ad0", dash: "#a8e4ff", summon: "#b8ff9a", shout: "#ffd23f", defence: "#c9b8ff", support: "#7dff9a", single: "#e8dcb0" };
 export class UI {
   root = $("#ui");
   tab: Tab = "play";
@@ -225,9 +229,9 @@ export class UI {
       <div class="dim small">Gilded Imps hide in some rifts from tier ${RIFT.imp.fromTier}. Catch one within ${RIFT.imp.escapeAfter}s of it spotting you for loot and a key. The Vault is ${RIFT.vault.timeLimit}s of treasure and pays ${RIFT.vault.chisels} Gilded Chisels.</div>
       <button id="trial" class="trial">Trial ${nextTrial(c.trialBest)} · ${talentPoints(c.trialBest)}/${RIFT.trial.maxLevel} talent points earned</button>
       <div class="dim small">${esc(RIFT.trial.desc)} No loot: Trials pay in talent points, which you spend under Skills.</div>
-      <button id="chase" class="chase" ${c.sigils > 0 ? "" : "disabled"}>Challenge the Ossuary King (uses 1 Bone Sigil · you have ${c.sigils})</button>
+      <button id="chase" class="chase" ${c.sigils > 0 ? "" : "disabled"}>Challenge the Ossuary King at T${Math.max(3, Math.min(t, c.highestTier))} (uses 1 Bone Sigil · you have ${c.sigils})</button>
       <div class="dim small">Bone Sigils drop from guardians at tier ${T.sigilFrom}+. The King is a 3-phase fight with a ${Math.round(RIFT.chase.mythicChance * 100)}% mythic chance.</div>
-      <button id="seraph" class="chase" ${(c.feathers ?? 0) > 0 ? "" : "disabled"}>Challenge the Pale Seraph (uses 1 Pale Feather · you have ${c.feathers ?? 0})</button>
+      <button id="seraph" class="chase" ${(c.feathers ?? 0) > 0 ? "" : "disabled"}>Challenge the Pale Seraph at T${Math.max(3, Math.min(t, c.highestTier))} (uses 1 Pale Feather · you have ${c.feathers ?? 0})</button>
       <div class="dim small">Every King kill leaves a Pale Feather, and guardians drop them at tier ${RIFT.seraph.featherFrom}+. Two guaranteed ancestral items and a ${Math.round(RIFT.seraph.mythicChance * 100)}% mythic chance.</div>
       <div class="help">
         <b>Desktop:</b> WASD move · skills on LMB, RMB (or E), Space (or Q) and R (or F) · I bag · M mute<br>
@@ -283,8 +287,8 @@ export class UI {
     $("#endless").onclick = () => H.enter({ tier: this.tier, seed: null, kind: "endless" });
     $("#vault").onclick = () => H.enter({ tier: c.highestTier, seed: null, kind: "vault" });
     $("#trial").onclick = () => H.enter({ tier: nextTrial(c.trialBest), seed: null, kind: "trial" });
-    $("#chase").onclick = () => H.enter({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase" });
-    $("#seraph").onclick = () => H.enter({ tier: Math.max(3, c.highestTier), seed: null, kind: "chase", boss: "seraph" });
+    $("#chase").onclick = () => H.enter({ tier: Math.max(3, Math.min(this.tier, c.highestTier)), seed: null, kind: "chase" });
+    $("#seraph").onclick = () => H.enter({ tier: Math.max(3, Math.min(this.tier, c.highestTier)), seed: null, kind: "chase", boss: "seraph" });
   }
 
   // ---------------------------------------------------------------- gear
@@ -331,7 +335,7 @@ export class UI {
     return `
       <div class="statline">Damage ${st.dmgMin}–${st.dmgMax} (+${st.dmgPct}%) · Crit ${st.critChance}%/+${st.critDmg}% · AS +${st.atkSpeed}% · Life ${st.maxHp} · Armor ${st.armor}${st.cdr ? ` · CDR ${st.cdr}%` : ""}${st.regen ? ` · ${st.regen} life/s` : ""}${st.lifeOnHit ? ` · ${Math.round(st.lifeOnHit)} life per hit` : ""}<br>Powers: ${st.mods.filter((m) => !(m as any).text).length} · Sets: ${sets || "none"} · Materials ${materials ?? p?.materials ?? 0} · Shards ${p?.shards ?? h.shards ?? 0}</div>
       <div class="doll">${doll}</div>
-      <div class="bag-head"><span>Bag ${h.bag.length}/${BAG_SIZE}</span><span><button class="tiny-btn" data-scrapbelow="rare">Scrap common+magic</button><button class="tiny-btn" data-scrapbelow="legendary">Scrap all but legendary/set</button></span></div>
+      <div class="bag-head"><span>Bag ${h.bag.length}/${BAG_SIZE}</span><span><button class="tiny-btn" data-scrapbelow="rare">Scrap common+magic</button><button class="tiny-btn" data-scrapbelow="legendary">Scrap all but legendary/set</button><button class="tiny-btn warn" data-scrapbelow="all">Scrap all (not ★ locked)</button></span></div>
       <div class="bag">${bag}</div>
       <div class="detail">${detail}</div>
       ${allowReroll && p ? this.arsenalHtml(p, char(p)) + this.stashHtml(p) : ""}`;
@@ -402,7 +406,7 @@ export class UI {
     this.root.querySelectorAll<HTMLElement>("[data-eq]").forEach((el) => el.onclick = () => { this.sel = { where: "eq", slot: el.dataset.eq as EquipSlot }; this.rerollState = null; re(); });
     this.root.querySelectorAll<HTMLElement>("[data-bag]").forEach((el) => el.onclick = () => { this.sel = { where: "bag", i: +el.dataset.bag! }; this.rerollState = null; re(); });
     this.root.querySelectorAll<HTMLElement>("[data-scrapbelow]").forEach((el) => el.onclick = () => {
-      if (el.dataset.armed) { H.invCmd({ type: "scrapBelow", rarity: el.dataset.scrapbelow as Rarity }); this.sel = null; re(); }
+      if (el.dataset.armed) { H.invCmd(el.dataset.scrapbelow === "all" ? { type: "scrapAll" } : { type: "scrapBelow", rarity: el.dataset.scrapbelow as Rarity }); this.sel = null; re(); }
       else { el.dataset.armed = "1"; el.textContent = "Tap again to scrap"; }
     });
     const bind = (id: string, f: () => void) => { const el = this.root.querySelector<HTMLElement>(id); if (el) el.onclick = f; };
@@ -468,7 +472,7 @@ export class UI {
         return `<button class="rune ${cur === r.id ? "on" : ""}" ${ok ? `data-rune="${id}:${cur === r.id ? "" : r.id}"` : "disabled"} title="${esc(r.desc)}"><b>${esc(r.name)}</b><small>${ok ? esc(r.desc) : `after ${r.uses} uses (${uses})`}</small></button>`;
       }).join("");
       const btn = locked ? `<span class="lock">unlocks at level ${d.unlock}</span>` : at === this.skSlot ? `<span class="eq">equipped</span>` : `<button class="equip" data-equip="${id}">${at >= 0 ? `Move to slot ${this.skSlot + 1}` : `Equip in slot ${this.skSlot + 1}`}</button>`;
-      return `<div class="skill ${locked ? "locked" : ""} ${at >= 0 ? "inbar" : ""}"><div class="sk-head"><b>${esc(d.name)}</b>${at >= 0 ? ` <span class="eq">${KEY_LABELS[at]}</span>` : ""} <span class="dim">${esc(costText(id))}</span> ${btn}</div><div class="dim small">${esc(d.desc)}</div>${runes ? `<div class="runes">${runes}</div>` : `<div class="dim small">Runes for this skill come in a later update.</div>`}</div>`;
+      return `<div class="skill ${locked ? "locked" : ""} ${at >= 0 ? "inbar" : ""}"><div class="sk-head"><b>${esc(d.name)}</b>${at >= 0 ? ` <span class="eq">${KEY_LABELS[at]}</span>` : ""} <span class="dim">${esc(costText(id))}</span> ${btn}</div><div class="tags">${d.tags.map((t) => `<span class="tag" style="--c:${TAG_COLOR[t] ?? "#b8a8d0"}">${esc(TAG_NAME[t] ?? t)}</span>`).join("")}</div><div class="dim small">${esc(d.desc)}</div>${runes ? `<div class="runes">${runes}</div>` : `<div class="dim small">Runes for this skill come in a later update.</div>`}</div>`;
     }).join("");
     const groups = ([["generator", "Generators: build " + R.name], ["core", "Core: spend " + R.name], ["support", "Support"], ["ultimate", "Ultimate (one at a time)"]] as const).map(([t, title]) => `<h3 class="sk-type">${title}</h3>${group(t, title)}`).join("");
     return `${this.talentsHtml(c)}${this.paragonHtml(c)}<div class="dim small">Pick any 4 skills, with at most one ultimate. Tap a slot, then a skill to put there. ${esc(R.name)}: ${R.regen ? `refills ${R.regen} per second` : `built by hits, fades after ${R.decayAfter}s out of combat`}, max ${R.max}. Runes unlock by using a skill.</div><div class="sk-bar">${slots}</div>${groups}`;
@@ -730,22 +734,22 @@ export class UI {
     if (o) o.onclick = () => { driveSignOut(); };
   }
   private settingsTab(p: Profile) {
-    const filters: [Rarity, string][] = [["common", "Show everything"], ["magic", "Hide commons"], ["rare", "Hide common + magic"], ["legendary", "Only legendary, set, mythic"]];
+    const filters: [string, string][] = [["common", "Show everything"], ["magic", "Hide commons"], ["rare", "Hide common + magic"], ["legendary", "Only legendary, set, mythic"], ["ancestral", "Only ancestral, primal, mythic"], ["primal", "Only primal and mythic"]];
     return `${this.driveHtml()}
       <div class="setting"><b>Loot filter</b><div class="dim small">Hidden items are auto-scrapped into materials when you walk over them.</div>
         <div class="opts">${filters.map(([r, l]) => `<button class="${p.filter === r ? "on" : ""}" data-filter="${r}">${l}</button>`).join("")}</div></div>
       <div class="setting"><b>Pet</b><div class="dim small">Cosmetic. Any pet picks up your loot in a radius (bigger from level 15).</div>
         <div class="opts">${PETS.map((pt) => `<button class="${p.pet === pt.id ? "on" : ""}" data-pet="${pt.id}">${esc(pt.name)}</button>`).join("")}</div></div>
-      <div class="setting"><b>Sound</b> <button data-toggle="mute">${p.settings.mute ? "Off" : "On"}</button> <b>Screen shake</b> <button data-toggle="shake">${p.settings.shake ? "On" : "Off"}</button></div>
-      <div class="setting"><b>Season ${p.season.n}</b> <span class="dim small">started ${p.season.started}. A new season resets levels and gear for both classes. Pets and settings carry over.</span><br><button id="season" class="warn">Start a new season</button></div>
+      <div class="setting"><b>Sound</b> <button data-toggle="mute">${p.settings.mute ? "Off" : "On"}</button> <b>Screen shake</b> <button data-toggle="shake">${p.settings.shake ? "On" : "Off"}</button> <b>Life over head</b> <button data-toggle="hpbar">${p.settings.hpbar ? "On" : "Off"}</button></div>
+      ${!OFFLINE_TEST ? "" : `<div class="setting"><b>Season ${p.season.n}</b> <span class="dim small">started ${p.season.started}. Test builds only: simulates a season reset. Levels and gear reset on every hero; cosmetics, feats, Aether, pets and settings carry over.</span><br><button id="season" class="warn">Start a new season</button></div>`}
       <div class="setting"><button id="reset" class="warn">Reset save</button> <span class="dim small">Saved in this browser only (offline test build).</span></div>`;
   }
   private bindSettings(p: Profile, H: HubHandlers, re: () => void) {
     this.root.querySelectorAll<HTMLElement>("[data-filter]").forEach((el) => el.onclick = () => { H.setting("filter", el.dataset.filter); re(); });
     this.root.querySelectorAll<HTMLElement>("[data-pet]").forEach((el) => el.onclick = () => { H.setting("pet", el.dataset.pet); re(); });
-    this.root.querySelectorAll<HTMLElement>("[data-toggle]").forEach((el) => el.onclick = () => { const k = el.dataset.toggle as "mute" | "shake"; H.setting(k, !p.settings[k]); re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-toggle]").forEach((el) => el.onclick = () => { const k = el.dataset.toggle as "mute" | "shake" | "hpbar"; H.setting(k, !p.settings[k]); re(); });
     const arm = (id: string, f: () => void) => { const el = $(id); el.onclick = () => { if (el.dataset.armed) f(); else { el.dataset.armed = "1"; el.textContent = "Tap again to confirm"; } }; };
-    arm("#season", () => { H.newSeason(); this.tab = "play"; });
+    if (OFFLINE_TEST) arm("#season", () => { H.newSeason(); this.tab = "play"; });
     arm("#reset", () => { H.reset(); this.tab = "play"; });
   }
 

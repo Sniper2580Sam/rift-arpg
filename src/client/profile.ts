@@ -2,7 +2,7 @@
 import { AFFIX, CLASSES, CosChoice, EquipSlot, HideoutLayout, Life, RIFT, Rarity, lifeStats, paragonXp, xpForLevel } from "../sim/data";
 import { Holder, Item, mintItem } from "../sim/items";
 import { makeRng } from "../sim/rng";
-import type { PlayerSetup, SimState } from "../sim/sim";
+import type { LootFilter, PlayerSetup, SimState } from "../sim/sim";
 
 export const SAVE_KEY = "rift-arpg-save";
 export const SAVE_VERSION = 2;
@@ -36,7 +36,7 @@ export const STASH_SIZE = 60;
 export const BUILD_SLOTS = 5;
 export interface Profile {
   version: number; active: string; chars: Record<string, CharSave>;
-  materials: number; pet: string; filter: Rarity; cos: CosChoice;
+  materials: number; pet: string; filter: LootFilter; cos: CosChoice;
   /** premium things this account owns (shop keys like "cos:armor:gilded"); free in the test build */
   owned?: string[];
   /** hideout theme and placed decorations */
@@ -61,7 +61,7 @@ export interface Profile {
   /** this season's journey counters (reset with the season) */
   journey?: { season: number; stats: Partial<Life> };
   weekly: { week: string; best: number };
-  settings: { mute: boolean; shake: boolean; autoTier: boolean };
+  settings: { mute: boolean; shake: boolean; autoTier: boolean; hpbar?: boolean };
   /** ms timestamp of the last real change (used to pick the newer of the device and cloud copies) */
   savedAt?: number;
 }

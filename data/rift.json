@@ -171,8 +171,8 @@
     "primalPity": 80,
     "sigilFrom": 3,
     "sigilChance": 0.2,
-    "speedPerTier": 0.03,
-    "speedCap": 1.4
+    "speedPerTier": 0.015,
+    "speedCap": 1.2
   },
   "party": {
     "hpPerExtra": 0.75,
