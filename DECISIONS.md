@@ -295,3 +295,4 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 
 ## 2026-11-25: The game is called Riftbound (Samuel)
 - Renamed on the title screen, page title, installed-app name, privacy page, server log and docs. Save keys, the repo name and the GitHub Pages address stay `rift-arpg`, so existing saves and links keep working.
+- 2026-11-25 (Samuel): co-op own-hero prediction waits for a co-op playtest (brief conflict 1 stays as approved). Saves stay in browser storage with Google Drive sync, no IndexedDB move (brief conflict 2 closed).
