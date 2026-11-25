@@ -42,10 +42,10 @@ export interface EnemyDef {
   blastRadius?: number; blastDelay?: number; chargeTime?: number; shieldBlock?: number;
 }
 export interface AffixDef { id: string; text: string; min: number; max: number; slots: SlotType[]; flat?: boolean }
-export interface LegendaryDef extends ModDef { id: string; name: string; slot: SlotType; tag: string; text: string; scales?: string[]; pct?: string[]; mythic?: boolean }
-export interface SetDef { id: string; name: string; tag: string; skill: string; color: string; pieces: Partial<Record<SlotType, string>>; bonuses: Record<string, ModDef & { text: string }> }
+export interface LegendaryDef extends ModDef { id: string; name: string; slot: SlotType; tag?: string; text: string; scales?: string[]; pct?: string[]; mythic?: boolean; /** only drops from the Ossuary King (never from the normal pool) */ chase?: boolean }
+export interface SetDef { id: string; name: string; tag: string; skill: string; color: string; pieces: Partial<Record<SlotType, string>>; bonuses: Record<string, ModDef & { text: string; stats?: Num }>; /** a 2-piece set that fits any build */ generic?: boolean }
 export interface ModifierDef { id: string; name: string; desc: string; packMult?: number; enemySpeed?: number; enemyHp?: number; dropMult?: number; playerDmg?: number; playerTaken?: number; eliteMult?: number; dark?: boolean; xpMult?: number }
-export interface BoonDef { id: string; name: string; desc: string; stats?: Num; mod?: ModDef }
+export interface BoonDef { id: string; name: string; desc: string; stats?: Num; mod?: ModDef; /** a stronger upside with a downside */ trade?: boolean }
 
 export const SKILLS = skillsJson as unknown as SkillDef[];
 export const SKILL = Object.fromEntries(SKILLS.map((s) => [s.id, s])) as Record<string, SkillDef>;

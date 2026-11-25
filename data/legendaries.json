@@ -43,7 +43,7 @@
     "name": "Grip of the Reaper",
     "slot": "gloves",
     "tag": "melee",
-    "text": "Every 3rd melee attack hits all around you for {ringMult}\u00d7 damage.",
+    "text": "Every 3rd melee attack hits all around you for {ringMult}× damage.",
     "set": {
       "ringEvery": 3,
       "ringMult": 2
@@ -375,5 +375,178 @@
     "pct": [
       "slamDamage"
     ]
+  },
+  {
+    "id": "sunwheel",
+    "name": "Sunwheel Gauntlets",
+    "slot": "gloves",
+    "skill": "searing_strike",
+    "text": "Searing Strike hits all around you instead of one target in front.",
+    "set": {
+      "arcCos": -1
+    },
+    "mul": {
+      "damage": 0.9
+    }
+  },
+  {
+    "id": "lance_crown",
+    "name": "Crown of Lances",
+    "slot": "helm",
+    "skill": "ember_lance",
+    "text": "Ember Lance throws {count} lances in a ring around you, each for 60% damage.",
+    "set": {
+      "circle": 8
+    },
+    "add": {
+      "count": 7
+    },
+    "mul": {
+      "damage": 0.6
+    }
+  },
+  {
+    "id": "rams_bulwark",
+    "name": "Ram's Bulwark",
+    "slot": "offhand",
+    "skill": "shield_bash",
+    "text": "Shield Bash hits all around you and pulls enemies in instead of pushing them away.",
+    "set": {
+      "arcCos": -1,
+      "pullOnHit": 1
+    }
+  },
+  {
+    "id": "cinder_step",
+    "name": "Cinder Step",
+    "slot": "boots",
+    "skill": "ash_dash",
+    "text": "Ash Dash explodes where you land for {endBlast}× damage.",
+    "set": {
+      "endBlast": 3
+    },
+    "scales": [
+      "endBlast"
+    ]
+  },
+  {
+    "id": "raven_wheel",
+    "name": "Raven Wheel",
+    "slot": "shoulders",
+    "skill": "volley",
+    "text": "Volley fires in a full circle with {count} more arrows.",
+    "set": {
+      "circle": 1
+    },
+    "add": {
+      "count": 7
+    },
+    "mul": {
+      "damage": 0.8
+    }
+  },
+  {
+    "id": "boomerang_bone",
+    "name": "Boomerang Femur",
+    "slot": "bracers",
+    "skill": "bone_shot",
+    "text": "Bone Shot flies back to you at the end of its path, hitting again.",
+    "set": {
+      "returns": 1
+    }
+  },
+  {
+    "id": "knife_storm",
+    "name": "Knife Storm Vest",
+    "slot": "chest",
+    "skill": "shadow_knives",
+    "text": "Shadow Knives fan out all around you with {count} more knives.",
+    "set": {
+      "circle": 1
+    },
+    "add": {
+      "count": 5
+    }
+  },
+  {
+    "id": "stormcoil",
+    "name": "Stormcoil",
+    "slot": "amulet",
+    "skill": "spark",
+    "text": "Spark fires {count} bolts in a ring around you, each for 60% damage.",
+    "set": {
+      "circle": 6
+    },
+    "add": {
+      "count": 5
+    },
+    "mul": {
+      "damage": 0.6
+    }
+  },
+  {
+    "id": "orbit_lens",
+    "name": "Orbit Lens",
+    "slot": "offhand",
+    "skill": "arcane_orb",
+    "text": "Arcane Orb comes back to you at the end of its path, hitting again.",
+    "set": {
+      "returns": 1
+    }
+  },
+  {
+    "id": "missile_halo",
+    "name": "Halo of Missiles",
+    "slot": "helm",
+    "skill": "magic_missile",
+    "text": "Magic Missile fires all around you with {count} more missiles.",
+    "set": {
+      "circle": 1
+    },
+    "add": {
+      "count": 5
+    },
+    "mul": {
+      "damage": 0.8
+    }
+  },
+  {
+    "id": "rivet_wheel",
+    "name": "Rivet Wheel",
+    "slot": "gloves",
+    "skill": "rivet_shot",
+    "text": "Rivet Shot fires {count} rivets in a ring around you, each for 50% damage.",
+    "set": {
+      "circle": 8
+    },
+    "add": {
+      "count": 7
+    },
+    "mul": {
+      "damage": 0.5
+    }
+  },
+  {
+    "id": "mallet_wheel",
+    "name": "Whirling Mallet",
+    "slot": "chest",
+    "skill": "bone_mallet",
+    "text": "Every Bone Mallet swing hits all around you.",
+    "set": {
+      "ringEvery": 1,
+      "ringMult": 0.9
+    }
+  },
+  {
+    "id": "concord",
+    "name": "Concord Band",
+    "slot": "ring",
+    "tag": "any",
+    "player": true,
+    "chase": true,
+    "text": "Your sets need one fewer piece (you still need 2 of a set worn). Only the Ossuary King drops it.",
+    "set": {
+      "concord": 1
+    }
   }
 ]

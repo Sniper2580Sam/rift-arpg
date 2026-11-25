@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.sim.json && tsc -p tsconfig.json",
-    "test": "esbuild test/sim.test.ts --bundle --platform=node --outfile=dist/sim.test.js --log-level=warning && node dist/sim.test.js && esbuild test/ledger.test.ts --bundle --platform=node --outfile=dist/ledger.test.js --log-level=warning && node dist/ledger.test.js && esbuild test/maps.test.ts --bundle --platform=node --outfile=dist/maps.test.js --log-level=warning && node dist/maps.test.js",
+    "test": "esbuild test/loot.test.ts --bundle --platform=node --outfile=dist/loot.test.js --log-level=warning && node dist/loot.test.js && esbuild test/sim.test.ts --bundle --platform=node --outfile=dist/sim.test.js --log-level=warning && node dist/sim.test.js && esbuild test/ledger.test.ts --bundle --platform=node --outfile=dist/ledger.test.js --log-level=warning && node dist/ledger.test.js && esbuild test/maps.test.ts --bundle --platform=node --outfile=dist/maps.test.js --log-level=warning && node dist/maps.test.js",
     "serve": "node scripts/build.mjs && npx --yes http-server dist -p 8080 -c-1",
     "build:live": "node scripts/build.mjs --live",
     "build:server": "esbuild src/server/server.ts --bundle --platform=node --format=esm --outfile=dist/server.mjs --external:ws --log-level=warning",

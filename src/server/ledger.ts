@@ -26,6 +26,8 @@ export function sanitizeOpts(run: RunInfo, m: RunMember, o: MintOpts, rng: Rng, 
     ilvl: Math.max(1, Math.min(RIFT.levels.max, o.ilvl ?? 1, m.level + 6 + Math.floor(t / 4))),
     ancestralChance: lootChances(t).anc, primalChance: lootChances(t).pri,
     legendaryWeightMult: Math.max(1, Math.min(6, o.legendaryWeightMult ?? 1)),
+    // the Concord Band only rolls from a finished Ossuary King run
+    chasePool: !!o.chasePool && run.kind === "chase" && run.boss !== "seraph" && run.completed,
   };
   if (o.rarity) {
     // forced rarities only come from guardian / chase rewards: at most two per player per run (three for the Seraph), after completion

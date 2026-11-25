@@ -208,7 +208,7 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
     case "extract": {
       // destroy a legendary in the bag to keep its power in the reliquary (account-wide), for Relic Dust
       const it = c.bag[op.bag];
-      if (!it?.legendary || !LEGENDARY[it.legendary] || LEGENDARY[it.legendary].mythic || it.locked) return false;
+      if (!it?.legendary || !LEGENDARY[it.legendary] || LEGENDARY[it.legendary].mythic || LEGENDARY[it.legendary].chase || it.locked) return false;
       if ((p.relics ?? []).includes(it.legendary) || (p.relicDust ?? 0) < RIFT.reliquary.extractCost) return false;
       p.relicDust = (p.relicDust ?? 0) - RIFT.reliquary.extractCost;
       p.relics = [...(p.relics ?? []), it.legendary];

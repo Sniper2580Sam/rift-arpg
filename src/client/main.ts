@@ -570,8 +570,12 @@ function handleEvent(e: SimEvent) {
     case "waveStart": showBanner(`WAVE ${e.wave}`, e.boss ? "An elite brute leads this one" : `${e.count} enemies`, e.boss ? "#ffd23f" : "#ff8a5a", 1.6); sfx.shout(); break;
     case "waveClear": if (e.cleared && nums.length < 70) { const p = me(); nums.push({ x: p.x, y: p.y - 24, text: e.jump > 1 ? `FAST +${e.jump}` : "cleared", color: e.jump > 1 ? "#ffd23f" : "#b8a8d0", size: e.jump > 1 ? 1.4 : 0.9, t: 0, vx: 0 }); } break;
     case "endlessOver": break;
+    case "block":
+      if (mine(e.pid) && sim && nums.length < 70) { const p = me(); nums.push({ x: p.x, y: p.y - 18, text: "Block", color: "#bfe8ff", size: 1, t: 0, vx: 0 }); }
+      break;
     case "playerHurt":
       if (!mine(e.pid)) break;
+      if (!e.amount) { if (sim && nums.length < 70) { const p = me(); nums.push({ x: p.x, y: p.y - 14, text: "absorbed", color: "#bfe8ff", size: 1, t: 0, vx: 0 }); } break; }
       addShake(3); hurtFlash = 0.35; sfx.hurt();
       if (sim && nums.length < 70) { const p = me(); nums.push({ x: p.x, y: p.y - 14, text: "-" + e.amount, color: "#ff4a4a", size: 1, t: 0, vx: 0 }); }
       break;
@@ -1131,6 +1135,7 @@ function hpOverHead(g: CanvasRenderingContext2D, p: Player, x: number, y: number
   const w = 16, k = Math.max(0, Math.min(1, p.hp / p.stats.maxHp)), bx = Math.round(x - w / 2), by = Math.round(y);
   g.fillStyle = "#140c1c"; g.fillRect(bx - 1, by - 1, w + 2, 4);
   g.fillStyle = k > 0.5 ? "#5ee06a" : k > 0.25 ? "#ffd23f" : "#ff4a4a"; g.fillRect(bx, by, Math.round(w * k), 2);
+  if (p.barrier && p.barrier > 0.5) { g.fillStyle = "#bfe8ff"; g.fillRect(bx, by - 1, Math.max(1, Math.round((w * Math.min(1, p.barrier / p.stats.maxHp)))), 1); }
 }
 
 /** A fallen hero: a grave marker, and in co-op a ring that fills while an ally stands on it to revive them. */
@@ -1209,7 +1214,9 @@ function drawHud(s: SimState, sx: number, sy: number, t: number) {
   c.fillStyle = "#3a1018"; c.fillRect(L + 6, T + 6, lw, 16);
   c.fillStyle = p.hp / p.stats.maxHp < 0.3 && Math.floor(t * 4) % 2 ? "#ff6a6a" : "#d93a3a";
   c.fillRect(L + 6, T + 6, lw * Math.max(0, p.hp / p.stats.maxHp), 16);
-  c.fillStyle = "#fff"; c.font = font(12); c.fillText(`${Math.ceil(p.hp)} / ${p.stats.maxHp}`, L + 12, T + 15);
+  // barrier: a pale band over the top of the life bar
+  if (p.barrier && p.barrier > 0.5) { c.fillStyle = "#bfe8ffcc"; c.fillRect(L + 6, T + 6, lw * Math.min(1, p.barrier / p.stats.maxHp), 5); }
+  c.fillStyle = "#fff"; c.font = font(12); c.fillText(`${Math.ceil(p.hp)} / ${p.stats.maxHp}${p.barrier && p.barrier > 0.5 ? ` +${Math.ceil(p.barrier)}` : ""}`, L + 12, T + 15);
   const R = CLASSES[p.cls].resource;
   c.fillStyle = "#1b1424"; c.fillRect(L + 6, T + 25, lw, 8);
   c.fillStyle = R.color; c.fillRect(L + 6, T + 25, lw * Math.max(0, Math.min(1, p.res / resMax(p))), 8);

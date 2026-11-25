@@ -208,8 +208,11 @@ for (const cls of ["ashknight", "gloomstalker"]) {
 for (const l of [...LEGENDARIES, ...MYTHICS]) {
   const it = mintItem(makeRng(5), l.id, { rarity: l.mythic ? "mythic" : "legendary", slot: l.slot });
   it.legendary = l.id;
-  const cls = ["construct", "colossus"].includes(l.tag) ? "bonewright" : ["projectile", "pierce", "cold", "aoe"].includes(l.tag) ? "gloomstalker" : "ashknight";
-  const s = createSim({ seed: 77, players: [setup(0, cls, 12, { [l.slot === "ring" ? "ring1" : l.slot]: it })] });
+  const tag = l.tag ?? "";
+  const cls = l.skill ? Object.keys(CLASSES).find((c) => CLASSES[c].skills.includes(l.skill!))! : ["construct", "colossus"].includes(tag) ? "bonewright" : ["projectile", "pierce", "cold", "aoe"].includes(tag) ? "gloomstalker" : "ashknight";
+  const ps = setup(0, cls, 30, { [l.slot === "ring" ? "ring1" : l.slot]: it });
+  if (l.skill) ps.loadout = [l.skill, ...CLASSES[cls].loadout.filter((x) => x !== l.skill)];
+  const s = createSim({ seed: 77, players: [ps] });
   for (let t = 0; t < 30 * 20; t++) step(s, { 0: bot(s, 0, t) });
 }
 for (const st of SETS) {
@@ -221,6 +224,7 @@ for (const st of SETS) {
   console.log(`  set ${st.name}: ${stt.setCounts[st.id]} pieces, ${stt.mods.length} mods, kills in 20s ${s.rift.kills}`);
 }
 console.log("all legendaries, mythics and sets ran", Object.keys(CLASSES).length, "classes");
+
 
 // 5) every rune of every skill: equipped in the always-pressed slot, 12 s of play, no NaN and some damage dealt
 {

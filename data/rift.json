@@ -236,6 +236,12 @@
     "judgement": 9,
     "fallStun": 5
   },
+  "chaseLegendaryWeight": 8,
+  "defence": {
+    "barrierDelay": 4,
+    "barrierFill": 2,
+    "blockAmount": 0.5
+  },
   "chase": {
     "name": "Throne of the Ossuary King",
     "mythicChance": 0.06,

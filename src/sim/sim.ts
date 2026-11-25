@@ -53,7 +53,7 @@ export interface Player extends Holder {
   gems: Record<string, number>; gemSlots: string[]; relics: string[]; talents: Record<string, number>; passives: string[];
   /** life-on-hit healed in the current second (capped, so many-hit skills can't out-heal everything) */
   leech: number;
-  invuln: number; deaths?: number; chillT?: number; thornT?: number; dead: boolean; deadT: number; /** revive progress from a nearby ally (seconds) */ reviveT?: number; /** a self-buff skill that is running (visual only) */ aura?: string; auraT?: number; /** recent hits for the death recap */ dmgLog?: { src: string; amt: number; t: number }[]; buff: Buff; boons: string[]; cheatT: number;
+  invuln: number; deaths?: number; chillT?: number; thornT?: number; dead: boolean; deadT: number; /** revive progress from a nearby ally (seconds) */ reviveT?: number; /** a self-buff skill that is running (visual only) */ aura?: string; auraT?: number; /** recent hits for the death recap */ dmgLog?: { src: string; amt: number; t: number }[]; buff: Buff; boons: string[]; cheatT: number; /** barrier (overshield) left, and seconds since the last hit */ barrier?: number; hurtT?: number;
   stats: Stats; sk: Record<string, ResolvedSkill>; uses: Num; connected: boolean;
   /** class resource (Embers / Focus / Mana) and seconds since the last hit dealt or taken */
   res: number; combatT: number;
@@ -113,7 +113,7 @@ export type SimEvent =
   | { type: "enrage" } | { type: "guardianStun" } | { type: "timeUp" } | { type: "phase"; n: number; text: string }
   | { type: "riftComplete"; inTime: boolean; time: number }
   | { type: "levelUp"; pid: number; level: number }
-  | { type: "boonOffer"; pid: number } | { type: "boonTaken"; pid: number; id: string }
+  | { type: "block"; pid: number } | { type: "boonOffer"; pid: number } | { type: "boonTaken"; pid: number; id: string }
   | { type: "sigil"; pid: number } | { type: "feather"; pid: number } | { type: "vaultKey"; pid: number } | { type: "impAlert"; x: number; y: number } | { type: "impEscape"; x: number; y: number } | { type: "impKill"; x: number; y: number } | { type: "teleport"; x: number; y: number } | { type: "chain"; x1: number; y1: number; x2: number; y2: number; pid?: number; skill?: string }
   | { type: "waveStart"; wave: number; count: number; boss: boolean } | { type: "waveClear"; wave: number; secs: number; jump: number; cleared: boolean } | { type: "endlessOver"; wave: number; time: number }
   | { type: "equipChanged"; pid: number } | { type: "ambush"; x: number; y: number; n: number } | { type: "bountyTask"; text: string; left: number };
@@ -517,6 +517,11 @@ function gainRes(p: Player, v: number) { p.res = Math.min(resMax(p), p.res + v);
 function updateResource(p: Player) {
   const R = CLASSES[p.cls].resource;
   p.combatT += DT;
+  // barrier: refills to full over 2 seconds once you go 4 seconds without being hit
+  const bMax = (p.stats.maxHp * p.stats.barrierPct) / 100;
+  p.hurtT = (p.hurtT ?? 99) + DT;
+  if (bMax > 0 && p.hurtT > RIFT.defence.barrierDelay && (p.barrier ?? 0) < bMax) p.barrier = Math.min(bMax, (p.barrier ?? 0) + (bMax / RIFT.defence.barrierFill) * DT);
+  else if (bMax <= 0 && p.barrier) p.barrier = 0;
   if (R.regen || p.stats.resRegen) gainRes(p, (R.regen + p.stats.resRegen) * DT);
   if (R.decay && p.combatT > R.decayAfter) p.res = Math.max(0, p.res - R.decay * DT);
 }
@@ -599,11 +604,12 @@ function castMelee(s: SimState, p: Player, sk: ResolvedSkill) {
 
 function castProjectile(s: SimState, p: Player, sk: ResolvedSkill) {
   const n = Math.max(1, Math.round(sk.p.count ?? 1));
-  const step = (sk.p.spreadSteps ?? 1) * 8; // in 1/256 turns
+  // a "circle" legendary fires the whole volley evenly all around you
+  const step = sk.p.circle ? 256 / n : (sk.p.spreadSteps ?? 1) * 8; // in 1/256 turns
   const kind = sk.id === "ember_lance" ? "lance" : "bolt";
   const vol = s.nextId;
   for (let i = 0; i < n; i++) {
-    const k = (i - (n - 1) / 2) * step;
+    const k = sk.p.circle ? i * step : (i - (n - 1) / 2) * step;
     const [dx, dy] = rotFine(p.fx, p.fy, k);
     const pr = mkProj(s, 0, kind, p.x + dx * 6, p.y + dy * 6, dx * sk.p.speed, dy * sk.p.speed, sk.p.radius, p.pid, sk.id, sk.p.damage, 0, sk.tags, (sk.p.pierce ?? 0) > 0, sk.p.range / sk.p.speed, sk.p.knockback);
     pr.volley = vol;
@@ -881,7 +887,8 @@ function hitEnemy(s: SimState, e: Enemy, mult: number, p: Player | undefined, sk
     if (P.chain && !o.chained && sk) chainFrom(s, e, mult, p, sk, P);
     // Stormlink gem: a chance to arc lightning
     if (st.flags.gemChain && !o.chained && sk && chance(s.rng, st.flags.gemChain)) chainFrom(s, e, st.flags.gemChainMult / 0.85, p, sk, { chain: 3, chainRange: 90, chainMult: 0.85 });
-    if (st.lifeOnHit > 0) { const cap = p.stats.maxHp * RIFT.lifeOnHitCap, amt = Math.min(st.lifeOnHit, cap - p.leech); if (amt > 0) { p.leech += amt; heal(p, amt); } }
+    const loh = st.lifeOnHit + (st.maxHp * st.leechPct) / 100;
+    if (loh > 0) { const cap = p.stats.maxHp * RIFT.lifeOnHitCap, amt = Math.min(loh, cap - p.leech); if (amt > 0) { p.leech += amt; heal(p, amt); } }
   }
   applyDamage(s, e, amount, crit, p.pid, P, false);
 }
@@ -994,7 +1001,7 @@ let aiSrc = "";
 const enemyName = (e: Enemy) => (e.variant === "seraph" ? RIFT.seraph.name : e.variant ? guardianDef(e.variant).name : ENEMIES[e.kind]?.name ?? e.kind) + (e.elite ? " (elite)" : "");
 /** Respawn time cost: grows with each death in this run. */
 export const deathPenalty = (s: SimState, p: Player) => { const D = RIFT.deathPenalty; return Math.min(D.max, D.base + D.perDeath * Math.max(0, (p.deaths ?? 1) - 1)); };
-function damagePlayer(s: SimState, p: Player, raw: number, src = aiSrc) {
+export function damagePlayer(s: SimState, p: Player, raw: number, src = aiSrc) {
   if (p.dead || p.invuln > 0) return;
   const st = p.stats;
   const armor = st.armor * (1 + (p.buff.t > 0 ? p.buff.armorPct : 0) / 100);
@@ -1002,7 +1009,11 @@ function damagePlayer(s: SimState, p: Player, raw: number, src = aiSrc) {
   if (p.buff.t > 0 && st.flags.buffDR) dmg *= 1 - st.flags.buffDR;
   if (st.flags.lowLifeDR && p.hp < st.maxHp / 2) dmg *= 1 - Math.min(0.6, st.flags.lowLifeDR);
   if ((p.colossusT ?? 0) > 0 && p.colossusSkill) dmg *= 1 - Math.min(90, p.sk[p.colossusSkill]?.p.takenPct ?? 0) / 100;
+  // block: a chance to take half damage from a hit
+  if (st.blockChance > 0 && chance(s.rng, st.blockChance / 100)) { dmg *= 1 - RIFT.defence.blockAmount; s.events.push({ type: "block", pid: p.pid }); }
   dmg = Math.max(1, Math.round(dmg));
+  p.hurtT = 0;
+  if (p.barrier && p.barrier > 0) { const a = Math.min(p.barrier, dmg); p.barrier -= a; dmg -= a; if (dmg <= 0) { s.events.push({ type: "playerHurt", pid: p.pid, amount: 0 }); return; } }
   p.hp -= dmg;
   const log = (p.dmgLog ??= []);
   log.push({ src: src || "Unknown", amt: dmg, t: s.rift.time });
@@ -1957,7 +1968,7 @@ function completeRift(s: SimState, g: Enemy) {
       for (let i = 0; i < n; i++) {
         const d = DIR_TABLE[Math.floor((i * 32) / n) % 32];
         const mythic = i === 0 && chance(s.rng, RIFT.chase.mythicChance);
-        dropFor(s, p, g.x + d[0] * 26, g.y + d[1] * 26, mythic ? { rarity: "mythic" } : i < 2 ? { rarity: chance(s.rng, 0.5) ? "legendary" : "set" } : { legendaryWeightMult: 6 });
+        dropFor(s, p, g.x + d[0] * 26, g.y + d[1] * 26, mythic ? { rarity: "mythic" } : i < 2 ? { rarity: chance(s.rng, 0.5) ? "legendary" : "set", chasePool: true } : { legendaryWeightMult: 6, chasePool: true });
       }
       // every King kill leaves a Pale Feather: the way to the Seraph
       p.feathers++; s.events.push({ type: "feather", pid: p.pid });

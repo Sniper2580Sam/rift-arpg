@@ -463,6 +463,10 @@ export const RARITY_COLOR: Record<Rarity, string> = {
   set: "#3ddc84",
   mythic: "#ff3b6b",
 };
+function shade(hex: string, k: number) {
+  const n = parseInt(hex.slice(1), 16), f = (v: number) => Math.round(v * k).toString(16).padStart(2, "0");
+  return "#" + f(n >> 16) + f((n >> 8) & 255) + f(n & 255);
+}
 const RARITY_DARK: Record<Rarity, string> = { common: "#7d7d7d", magic: "#2f4ea8", rare: "#b38b16", legendary: "#b04a0a", set: "#1d7a46", mythic: "#8f1233" };
 
 const RANGER_TOP = [
@@ -651,7 +655,7 @@ export interface SpriteBank {
   seraph: Sprite[];
   /** a guardian recoloured for its variant (data/guardians.json pal) */
   guardianOf: (id: string) => Sprite[];
-  icon: (slot: Slot, rarity: Rarity) => Sprite;
+  icon: (slot: Slot, rarity: Rarity, tint?: string) => Sprite;
   /** hero frames in an armour + weapon skin */
   heroSkin: (cls: string, armor?: string, weapon?: string, dye?: string) => Sprite[];
   /** wing pair frames (up, down), or null for none */
@@ -720,11 +724,12 @@ export function buildSprites(): SpriteBank {
         return PETS[pet].map((r) => make(r, pal));
       });
     },
-    icon(slot, rarity) {
-      const key = slot + rarity;
+    icon(slot, rarity, tint) {
+      const key = slot + rarity + (tint ?? "");
       let s = iconCache.get(key);
       if (!s) {
-        s = make(ICONS[slot], { ...BASE, C: RARITY_COLOR[rarity], c: RARITY_DARK[rarity], K: "#140c1c" });
+        // set pieces wear their set's own colour, so a set reads at a glance
+        s = make(ICONS[slot], { ...BASE, C: tint ?? RARITY_COLOR[rarity], c: tint ? shade(tint, 0.55) : RARITY_DARK[rarity], K: "#140c1c" });
         iconCache.set(key, s);
       }
       return s;

@@ -4,7 +4,7 @@
     "name": "Embersworn Regalia",
     "tag": "pierce",
     "skill": "ember_lance / volley",
-    "color": "#3ddc84",
+    "color": "#ff7a3d",
     "pieces": {
       "helm": "Embersworn Visage",
       "shoulders": "Embersworn Mantle",
@@ -45,7 +45,7 @@
     "name": "Reaver's Harness",
     "tag": "melee",
     "skill": "cleave",
-    "color": "#3ddc84",
+    "color": "#e0413b",
     "pieces": {
       "weapon": "Reaver's Edge",
       "helm": "Reaver's Skull",
@@ -86,7 +86,7 @@
     "name": "Cometborn Raiment",
     "tag": "dash",
     "skill": "ash_dash / tumble",
-    "color": "#3ddc84",
+    "color": "#ffb347",
     "pieces": {
       "shoulders": "Cometborn Wings",
       "gloves": "Cometborn Grips",
@@ -128,7 +128,7 @@
     "name": "Broodmother's Vestments",
     "tag": "summon",
     "skill": "cinderlings / raven_swarm",
-    "color": "#3ddc84",
+    "color": "#b56be0",
     "pieces": {
       "helm": "Broodmother's Crest",
       "chest": "Broodmother's Nest",
@@ -168,7 +168,7 @@
     "name": "Warden's Bulwark",
     "tag": "shout",
     "skill": "warcry / rally_banner",
-    "color": "#3ddc84",
+    "color": "#e8c95a",
     "pieces": {
       "offhand": "Warden's Wall",
       "shoulders": "Warden's Shoulders",
@@ -212,7 +212,7 @@
     "name": "Rimecaller's Shroud",
     "tag": "cold",
     "skill": "cold runes, frost_snare",
-    "color": "#3ddc84",
+    "color": "#6fd3ff",
     "pieces": {
       "weapon": "Rimecaller's Fang",
       "helm": "Rimecaller's Hood",
@@ -250,7 +250,7 @@
     "name": "Stormweaver Vestments",
     "tag": "lightning",
     "skill": "spark, chain_lightning, thunderstorm, static_field",
-    "color": "#3ddc84",
+    "color": "#5b8cff",
     "pieces": {
       "weapon": "Stormweaver Rod",
       "shoulders": "Stormweaver Epaulets",
@@ -288,7 +288,7 @@
     "name": "Arcanist Regalia",
     "tag": "arcane",
     "skill": "magic_missile, arcane_orb, disintegrate, black_hole",
-    "color": "#3ddc84",
+    "color": "#d46bff",
     "pieces": {
       "offhand": "Arcanist Codex",
       "helm": "Arcanist Circlet",
@@ -329,7 +329,7 @@
     "name": "Gravewright's Toolkit",
     "tag": "construct",
     "skill": "bone_turret, marrow_mortar, war_totem, mending_lantern",
-    "color": "#3ddc84",
+    "color": "#d9d2b8",
     "pieces": {
       "gloves": "Gravewright's Grips",
       "helm": "Gravewright's Goggles",
@@ -371,7 +371,7 @@
     "name": "Colossus Plate",
     "tag": "colossus",
     "skill": "ossuary_colossus, bone_plating, scrap_burst",
-    "color": "#3ddc84",
+    "color": "#9aa4ad",
     "pieces": {
       "shoulders": "Colossus Pauldrons",
       "chest": "Colossus Ribcage",
@@ -402,6 +402,160 @@
         "mul": {
           "power": 8
         }
+      }
+    }
+  },
+  {
+    "id": "wanderer",
+    "name": "Wanderer's Pair",
+    "tag": "any",
+    "skill": "any build",
+    "color": "#7bd88f",
+    "generic": true,
+    "pieces": {
+      "boots": "Wanderer's Treads",
+      "gloves": "Wanderer's Grips"
+    },
+    "bonuses": {
+      "2": {
+        "player": true,
+        "stats": {
+          "moveSpeed": 15,
+          "atkSpeed": 10
+        },
+        "text": "+15% movement speed and +10% attack speed."
+      }
+    }
+  },
+  {
+    "id": "sentinel",
+    "name": "Sentinel's Pair",
+    "tag": "any",
+    "skill": "any build",
+    "color": "#c0c8d8",
+    "generic": true,
+    "pieces": {
+      "helm": "Sentinel's Helm",
+      "chest": "Sentinel's Cuirass"
+    },
+    "bonuses": {
+      "2": {
+        "player": true,
+        "stats": {
+          "hpPct": 20,
+          "resistPct": 8
+        },
+        "text": "+20% life and 8% less damage taken."
+      }
+    }
+  },
+  {
+    "id": "hunter",
+    "name": "Hunter's Pair",
+    "tag": "any",
+    "skill": "any build",
+    "color": "#ff5f8f",
+    "generic": true,
+    "pieces": {
+      "ring": "Hunter's Signet",
+      "amulet": "Hunter's Fang"
+    },
+    "bonuses": {
+      "2": {
+        "player": true,
+        "stats": {
+          "critChance": 8,
+          "critDmg": 40
+        },
+        "text": "+8% critical chance and +40% critical damage."
+      }
+    }
+  },
+  {
+    "id": "pilgrim",
+    "name": "Pilgrim's Pair",
+    "tag": "any",
+    "skill": "any build",
+    "color": "#a3d65c",
+    "generic": true,
+    "pieces": {
+      "belt": "Pilgrim's Sash",
+      "pants": "Pilgrim's Leggings"
+    },
+    "bonuses": {
+      "2": {
+        "player": true,
+        "stats": {
+          "regenPct": 1.5,
+          "armorPct": 25
+        },
+        "text": "Regenerate 1.5% life per second and +25% armour."
+      }
+    }
+  },
+  {
+    "id": "zealot",
+    "name": "Zealot's Pair",
+    "tag": "any",
+    "skill": "any build",
+    "color": "#ff9f1c",
+    "generic": true,
+    "pieces": {
+      "weapon": "Zealot's Brand",
+      "offhand": "Zealot's Ward"
+    },
+    "bonuses": {
+      "2": {
+        "player": true,
+        "stats": {
+          "dmgPct": 20,
+          "cdr": 8
+        },
+        "text": "+20% damage and 8% shorter cooldowns."
+      }
+    }
+  },
+  {
+    "id": "tinker",
+    "name": "Tinker's Pair",
+    "tag": "any",
+    "skill": "any build",
+    "color": "#4fd1c5",
+    "generic": true,
+    "pieces": {
+      "shoulders": "Tinker's Mantle",
+      "bracers": "Tinker's Cuffs"
+    },
+    "bonuses": {
+      "2": {
+        "player": true,
+        "stats": {
+          "cdr": 12,
+          "areaPct": 15
+        },
+        "text": "12% shorter cooldowns and +15% area."
+      }
+    }
+  },
+  {
+    "id": "aegis",
+    "name": "Aegis Pair",
+    "tag": "any",
+    "skill": "any build",
+    "color": "#8fb8ff",
+    "generic": true,
+    "pieces": {
+      "offhand": "Aegis Bulwark",
+      "shoulders": "Aegis Pauldrons"
+    },
+    "bonuses": {
+      "2": {
+        "player": true,
+        "stats": {
+          "barrierPct": 15,
+          "blockChance": 10
+        },
+        "text": "A barrier of 15% of your life and +10% block chance."
       }
     }
   }

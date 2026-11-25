@@ -235,3 +235,11 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 ## 2026-11-25: Batch 5, buff visuals and boss pathing (Samuel)
 - **Big enemies (radius 10+) path around walls.** They follow a wide flow field (`flowFieldWide`) that keeps away from walls, use 8 directions, and keep pathing even when close unless they have a clear line to you. Samuel's report: standing behind an obstacle made the King walk into it. Tested: the King now reaches you around a wall (2 px vs 112 px before).
 - **Buff visuals.** Self buffs with a duration show on the hero: Storm Avatar grows the hero and adds blue arcs, Phoenix Form gets a flame halo, Iron Skin a metal sheen, Mana Shield a bubble, Smoke Veil fades the hero, Overcharge crackles.
+
+## 2026-11-25: Batch 6, loot (Samuel)
+- **Skill-changing legendaries (12).** Each one is tied to one skill (`skill` field, no tag) and changes its shape: Sunwheel Gauntlets (Searing Strike hits all around), Crown of Lances (8 lances in a ring), Ram's Bulwark (Shield Bash hits all around and pulls), Cinder Step, Raven Wheel, Boomerang Femur, Knife Storm Vest, Stormcoil, Orbit Lens, Halo of Missiles, Rivet Wheel, Whirling Mallet. New `circle` param: a projectile volley spreads evenly all around. They lean strongly toward the class that has the skill (×0.15 for other classes).
+- **Generic 2-piece sets (7)** for any build: Wanderer, Sentinel, Hunter, Pilgrim, Zealot, Tinker, Aegis. Bonuses use a `stats` block (same keys as boons).
+- **Concord Band** (ring): every set needs one fewer piece, with at least 2 worn. Only the Ossuary King drops it (`chase` legendary, `chasePool` mint option, weight 8, about 7% of King legendaries). It can't go in the reliquary.
+- **Defence:** barrier (% of life as an overshield, refills after 4 s without a hit), block chance (halves a hit), and "less damage taken" affixes. Caps: 60% barrier, 50% block, 50% less damage.
+- **Boons:** 10 new, 6 of them trade-offs (Glass Cannon, Berserker, Juggernaut, Overclock, Daredevil, Ruthless); the upside is bigger than the downside. Trade-off boons show a red border.
+- **Looks:** each set has its own colour on its icon, border, name and bonus box, plus a letter badge. The bag has a Sort button (rarity, quality, set, slot). A brainstorm on making looks feel special went to Samuel as a doc.

@@ -380,5 +380,42 @@
    "ring",
    "bracers"
   ]
+ },
+ {
+  "id": "barrier",
+  "text": "+{v}% Life as Barrier",
+  "min": 4,
+  "max": 10,
+  "slots": [
+   "chest",
+   "shoulders",
+   "offhand",
+   "belt"
+  ]
+ },
+ {
+  "id": "block_chance",
+  "text": "+{v}% Block Chance",
+  "min": 3,
+  "max": 8,
+  "slots": [
+   "offhand",
+   "shoulders",
+   "bracers",
+   "helm"
+  ]
+ },
+ {
+  "id": "resist_all",
+  "text": "{v}% Less Damage Taken",
+  "min": 2,
+  "max": 5,
+  "slots": [
+   "helm",
+   "pants",
+   "amulet",
+   "boots",
+   "chest"
+  ]
  }
 ]

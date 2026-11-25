@@ -41,6 +41,8 @@ export interface MintOpts {
   cls?: string;
   /** crafting: this exact set (with slot) */
   set?: string;
+  /** an Ossuary King reward: chase-only legendaries (the Concord Band) can roll */
+  chasePool?: boolean;
 }
 
 function rollRarity(r: Rng, o: MintOpts): Rarity {
@@ -69,10 +71,11 @@ export function mintItem(r: Rng, id: string, o: MintOpts = {}): Item {
   let slot: SlotType = o.slot ?? pick(r, ITEMS.slots);
   let legendary: string | undefined, set: string | undefined, setName = "";
   if (rarity === "legendary" || rarity === "mythic") {
-    let pool = rarity === "mythic" ? MYTHICS : LEGENDARIES;
+    let pool = rarity === "mythic" ? MYTHICS : LEGENDARIES.filter((l) => !l.chase || o.chasePool);
     if (o.slot) pool = pool.filter((l) => l.slot === o.slot);
-    // smart loot: favour slots that don't have a legendary yet
-    const leg = weightedPick(r, pool, (l) => (hasLegInSlot(eq, l.slot) ? 1 : 2.5) * (o.cls ? classAffinity(o.cls, l.tag) : 1));
+    // smart loot: favour slots that don't have a legendary yet; a skill's own legendary leans to the class that has the skill
+    const aff = (l: (typeof pool)[number]) => !o.cls ? 1 : l.skill ? (CLASSES[o.cls]?.skills.includes(l.skill) ? 1 : 0.15) : classAffinity(o.cls, l.tag);
+    const leg = weightedPick(r, pool, (l) => (l.chase ? RIFT.chaseLegendaryWeight : (hasLegInSlot(eq, l.slot) ? 1 : 2.5) * aff(l)));
     legendary = leg.id; slot = leg.slot;
   } else if (rarity === "set") {
     const counts: Record<string, number> = {};
@@ -242,18 +245,32 @@ export interface Stats {
   dmgMin: number; dmgMax: number; dmgPct: number; critChance: number; critDmg: number; atkSpeed: number;
   maxHp: number; armor: number; regen: number; moveSpeed: number; cdr: number; lifeOnHit: number; eliteDmg: number;
   resRegen: number; costRed: number; resMax: number; areaPct: number;
+  /** defence: barrier (% of max life, refills out of combat), block chance (%), less damage taken (%) and leech (% of max life per hit) */
+  barrierPct: number; blockChance: number; resistPct: number; leechPct: number;
   tagDmg: Num; mods: ModDef[]; flags: Num; setCounts: Record<string, number>;
   speed: number; dmgMult: number; takenMult: number;
 }
 
 export interface StatCtx { cls: string; level: number; paragon?: Partial<Record<string, number>>; /** equipped rift gems and their levels */ gems?: Record<string, number>; /** legendary powers worn in the reliquary */ relics?: string[]; /** talent ranks (node id -> rank) */ talents?: Record<string, number>; /** passive tree nodes taken */ passives?: string[]; effLevel?: number; boons?: string[]; riftMods?: string[]; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"] }
 
+/** Stat blocks from boons and generic sets. Negative values are the downside of a trade-off boon. */
+function applyStatBlock(s: Stats, st: Num, armorFlat: number) {
+  s.dmgPct += st.dmgPct ?? 0; s.moveSpeed += st.moveSpeed ?? 0; s.atkSpeed += st.atkSpeed ?? 0; s.cdr += st.cdr ?? 0;
+  s.critChance += st.critChance ?? 0; s.critDmg += st.critDmg ?? 0; s.areaPct += st.areaPct ?? 0;
+  s.barrierPct += st.barrierPct ?? 0; s.blockChance += st.blockChance ?? 0; s.leechPct += st.leechPct ?? 0;
+  if (st.hpPct) s.maxHp = Math.max(1, Math.round(s.maxHp * (1 + st.hpPct / 100)));
+  if (st.armorPct) s.armor = Math.round(s.armor * (1 + st.armorPct / 100) + armorFlat);
+  if (st.regenPct) s.regen += Math.round((s.maxHp * st.regenPct) / 100);
+  s.resistPct += st.resistPct ?? 0;
+  if (st.takenMore) s.takenMult *= 1 + st.takenMore / 100; // a trade-off boon's downside
+}
+
 export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
   const cd = CLASSES[c.cls];
   const lp = levelPower(c.level);
   const s: Stats = {
     dmgMin: Math.round(cd.fists[0] * lp), dmgMax: Math.round(cd.fists[1] * lp), dmgPct: 0, critChance: 5, critDmg: 50, atkSpeed: 0,
-    maxHp: cd.baseHp + cd.hpPerLevel * (c.level - 1), armor: 0, regen: 0, moveSpeed: 0, cdr: 0, lifeOnHit: 0, eliteDmg: 0, resRegen: 0, costRed: 0, resMax: 0, areaPct: 0,
+    maxHp: cd.baseHp + cd.hpPerLevel * (c.level - 1), armor: 0, regen: 0, moveSpeed: 0, cdr: 0, lifeOnHit: 0, eliteDmg: 0, resRegen: 0, costRed: 0, resMax: 0, areaPct: 0, barrierPct: 0, blockChance: 0, resistPct: 0, leechPct: 0,
     tagDmg: {}, mods: [], flags: {}, setCounts: {}, speed: cd.speed, dmgMult: 1, takenMult: 1,
   };
   const worn = new Set<string>(); // legendary powers from items (a relic of the same power adds nothing)
@@ -282,6 +299,9 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
         case "cost_red": s.costRed += a.value; break;
         case "res_max": s.resMax += a.value; break;
         case "area_pct": s.areaPct += a.value; break;
+        case "barrier": s.barrierPct += a.value; break;
+        case "block_chance": s.blockChance += a.value; break;
+        case "resist_all": s.resistPct += a.value; break;
         default: if (a.id.startsWith("tag_")) { const t = a.id.slice(4); s.tagDmg[t] = (s.tagDmg[t] ?? 0) + a.value; }
       }
     }
@@ -290,20 +310,19 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
     if (it.set && !setSeen.has(it.set + ":" + it.slot)) { setSeen.add(it.set + ":" + it.slot); s.setCounts[it.set] = (s.setCounts[it.set] ?? 0) + 1; }
   }
   s.mods.push(...passiveStats(c.cls, c.passives).mods);
-  for (const id of c.relics ?? []) if (LEGENDARY[id] && !LEGENDARY[id].mythic && !worn.has(id)) { worn.add(id); s.mods.push(LEGENDARY[id]); }
+  for (const id of c.relics ?? []) if (LEGENDARY[id] && !LEGENDARY[id].mythic && !LEGENDARY[id].chase && !worn.has(id)) { worn.add(id); s.mods.push(LEGENDARY[id]); }
+  // the Concord Band: each set needs one fewer piece, but never fewer than 2 worn
+  const concord = Object.values(eq).some((it) => it?.legendary && LEGENDARY[it.legendary]?.set?.concord);
+  const setStats: Num[] = [];
   for (const [id, n] of Object.entries(s.setCounts)) {
-    for (const [need, b] of Object.entries(SET[id].bonuses)) if (n >= +need) s.mods.push(b);
+    for (const [need, b] of Object.entries(SET[id].bonuses)) if (n >= +need || (concord && n >= 2 && n + 1 >= +need)) { s.mods.push(b); if (b.stats) setStats.push(b.stats); }
   }
   for (const b of c.boons ?? []) {
     const d = BOON[b];
     if (d.mod) s.mods.push(d.mod);
-    const st = d.stats ?? {};
-    s.dmgPct += st.dmgPct ?? 0; s.moveSpeed += st.moveSpeed ?? 0; s.atkSpeed += st.atkSpeed ?? 0; s.cdr += st.cdr ?? 0;
-    s.critChance += st.critChance ?? 0;
-    if (st.hpPct) s.maxHp = Math.round(s.maxHp * (1 + st.hpPct / 100));
-    if (st.armorPct) s.armor = Math.round(s.armor * (1 + st.armorPct / 100) + 20);
-    if (st.regenPct) s.regen += Math.round((s.maxHp * st.regenPct) / 100);
+    applyStatBlock(s, d.stats ?? {}, 20);
   }
+  for (const st of setStats) applyStatBlock(s, st, 0);
   for (const m of s.mods) if (m.player) for (const [k, v] of Object.entries(m.set ?? {})) s.flags[k] = Math.max(s.flags[k] ?? 0, v);
   for (const id of c.riftMods ?? []) {
     const m = MODIFIER[id];
@@ -337,6 +356,9 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
     }
   }
   if (echoLife) s.maxHp = Math.round(s.maxHp * (1 + echoLife / 100));
+  // defence caps: at most 50% less damage from "less damage taken" gear, 50% block chance, a barrier of 60% of life
+  s.resistPct = Math.min(50, s.resistPct); s.blockChance = Math.min(50, s.blockChance); s.barrierPct = Math.min(60, s.barrierPct);
+  s.takenMult *= 1 - s.resistPct / 100;
   // rift gems
   for (const [id, lvl] of Object.entries(c.gems ?? {})) {
     const [a, b] = gemVals(id, lvl);
@@ -397,6 +419,7 @@ export type InvCmd =
   | { type: "scrap"; bagIndex: number }
   | { type: "scrapBelow"; rarity: Rarity }
   | { type: "scrapAll" }
+  | { type: "sort" }
   | { type: "lock"; bagIndex?: number; slot?: EquipSlot };
 
 export function equipTarget(h: Holder, it: Item, to?: EquipSlot): EquipSlot {
@@ -436,6 +459,14 @@ export function applyInvCmd(h: Holder, cmd: InvCmd): boolean {
     h.bag.splice(cmd.bagIndex, 1);
     h.materials += scrapValue(it); h.shards = (h.shards ?? 0) + shardValue(it);
     return true;
+  }
+  if (cmd.type === "sort") {
+    // best first: rarity, then quality, then each set's pieces together, then slot order
+    const SO = ITEMS.slots as string[], Q = (it: Item) => (it.quality === "primal" ? 2 : it.quality === "ancestral" ? 1 : 0);
+    const sorted = [...h.bag].sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity) || Q(b) - Q(a) || (a.set ?? "").localeCompare(b.set ?? "") || SO.indexOf(a.slot) - SO.indexOf(b.slot) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+    const changed = sorted.some((it, i) => it !== h.bag[i]);
+    h.bag.splice(0, h.bag.length, ...sorted);
+    return changed;
   }
   if (cmd.type === "scrapBelow" || cmd.type === "scrapAll") {
     const lim = cmd.type === "scrapAll" ? 99 : RARITY_ORDER.indexOf(cmd.rarity);

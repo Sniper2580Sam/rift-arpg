@@ -28,9 +28,10 @@ export function fmtTime(s: number) { const m = Math.floor(s / 60), r = Math.floo
 
 const iconCache = new Map<string, string>();
 function icon(bank: SpriteBank, it: Item) {
-  const k = it.slot + it.rarity;
+  const tint = it.set ? SET[it.set]?.color : undefined;
+  const k = it.slot + it.rarity + (tint ?? "");
   if (!iconCache.has(k)) {
-    const spr = bank.icon(it.slot, it.rarity);
+    const spr = bank.icon(it.slot, it.rarity, tint);
     const c = document.createElement("canvas"); c.width = 40; c.height = 40;
     const g = c.getContext("2d")!; g.imageSmoothingEnabled = false; g.drawImage(spr.img, 0, 0, 40, 40);
     iconCache.set(k, c.toDataURL());
@@ -39,7 +40,10 @@ function icon(bank: SpriteBank, it: Item) {
 }
 function cellHtml(bank: SpriteBank, it: Item | undefined, attrs: string, extra = "", label = "") {
   if (!it) return `<button class="cell empty" ${attrs}>${label ? `<span>${label}</span>` : ""}</button>`;
-  return `<button class="cell r-${it.rarity} ${it.quality ? "q-" + it.quality : ""} ${extra}" ${attrs}><img alt="" src="${icon(bank, it)}">${extra.includes("isup") ? '<i class="up">▲</i>' : ""}${it.locked ? '<i class="lk" aria-label="locked">★</i>' : ""}</button>`;
+  const sc = it.set ? SET[it.set]?.color : undefined;
+  const st = sc ? ` style="border-color:${sc};box-shadow:inset 0 0 10px ${sc}88"` : "";
+  const badge = sc ? `<i class="sb" style="color:${sc}">${esc(SET[it.set!].name[0])}</i>` : "";
+  return `<button class="cell r-${it.rarity} ${it.quality ? "q-" + it.quality : ""} ${extra}" ${attrs}${st}><img alt="" src="${icon(bank, it)}">${badge}${extra.includes("isup") ? '<i class="up">▲</i>' : ""}${it.locked ? '<i class="lk" aria-label="locked">★</i>' : ""}</button>`;
 }
 
 export function itemHtml(raw: Item, h?: Holder, ctx?: { cls: string; level: number }): string {
@@ -47,7 +51,7 @@ export function itemHtml(raw: Item, h?: Holder, ctx?: { cls: string; level: numb
   const worn = h ? (Object.entries(h.equipment).find(([, x]) => x === raw)?.[0] as EquipSlot | undefined) : undefined;
   const plus = worn ? h!.slotPlus?.[worn] ?? 0 : 0, crit = worn ? h!.slotCrit?.[worn] : undefined;
   const it = scaledItem(raw, plus, crit);
-  const col = RARITY_COLOR[it.rarity];
+  const col = it.set && SET[it.set] ? SET[it.set].color : RARITY_COLOR[it.rarity];
   let out = `<div class="it-name" style="color:${col}">${it.locked ? "★ " : ""}${esc(it.name)}</div>`;
   if (plus) out += `<div class="it-plus">${SLOT_NAME[worn!]} slot +${plus}: stats +${Math.round((slotMult(plus) - 1) * 100)}%${crit ? ` · ✦ masterwork crit: ${esc(AFFIX_DEF[crit]?.text.replace("{v}", "X") ?? crit)} +50%` : ""}</div>`;
   out += `<div class="it-type">${it.quality ? `<b class="q-${it.quality}">${it.quality === "primal" ? "Primal" : "Ancestral"}</b> ` : ""}${RARITY_NAME[it.rarity]} ${SLOT_NAME[it.slot]} · item level ${it.ilvl}</div>`;
@@ -62,8 +66,10 @@ export function itemHtml(raw: Item, h?: Holder, ctx?: { cls: string; level: numb
   if (it.set) {
     const sd = SET[it.set];
     const have = h ? new Set(Object.values(h.equipment).filter((e) => e?.set === it.set).map((e) => e!.slot)).size : 0;
-    out += `<div class="it-set"><b>${esc(sd.name)}</b> (${have}/6 equipped)`;
-    for (const [n, b] of Object.entries(sd.bonuses)) out += `<div class="${have >= +n ? "on" : ""}">(${n}) ${esc(b.text)}</div>`;
+    const concord = h ? Object.values(h.equipment).some((e) => e?.legendary && LEGENDARY[e.legendary]?.set?.concord) : false;
+    const total = Object.keys(sd.pieces).length;
+    out += `<div class="it-set" style="border-color:${sd.color}"><b style="color:${sd.color}">${esc(sd.name)}</b> (${have}/${total} equipped${concord ? ", Concord −1" : ""})`;
+    for (const [n, b] of Object.entries(sd.bonuses)) out += `<div class="${have >= +n || (concord && have >= 2 && have + 1 >= +n) ? "on" : ""}">(${n}) ${esc(b.text)}</div>`;
     out += `</div>`;
   }
   if (h && ctx && !worn) {
@@ -338,7 +344,7 @@ export class UI {
     return `
       <div class="statline">Damage ${st.dmgMin}–${st.dmgMax} (+${st.dmgPct}%) · Crit ${st.critChance}%/+${st.critDmg}% · AS +${st.atkSpeed}% · Life ${st.maxHp} · Armor ${st.armor}${st.cdr ? ` · CDR ${st.cdr}%` : ""}${st.regen ? ` · ${st.regen} life/s` : ""}${st.lifeOnHit ? ` · ${Math.round(st.lifeOnHit)} life per hit` : ""}<br>Powers: ${st.mods.filter((m) => !(m as any).text).length} · Sets: ${sets || "none"} · Materials ${materials ?? p?.materials ?? 0} · Shards ${p?.shards ?? h.shards ?? 0}</div>
       <div class="doll">${doll}</div>
-      <div class="bag-head"><span>Bag ${h.bag.length}/${BAG_SIZE}</span><span><button class="tiny-btn" data-scrapbelow="rare">Scrap common+magic</button><button class="tiny-btn" data-scrapbelow="legendary">Scrap all but legendary/set</button><button class="tiny-btn warn" data-scrapbelow="all">Scrap all (not ★ locked)</button></span></div>
+      <div class="bag-head"><span>Bag ${h.bag.length}/${BAG_SIZE}</span><span><button class="tiny-btn" data-scrapbelow="rare">Scrap common+magic</button><button class="tiny-btn" data-scrapbelow="legendary">Scrap all but legendary/set</button><button class="tiny-btn warn" data-scrapbelow="all">Scrap all (not ★ locked)</button><button class="tiny-btn" id="bag-sort">Sort</button></span></div>
       <div class="bag">${bag}</div>
       <div class="detail">${detail}</div>
       ${allowReroll && p ? this.arsenalHtml(p, char(p)) + this.stashHtml(p) : ""}`;
@@ -413,6 +419,7 @@ export class UI {
       else { el.dataset.armed = "1"; el.textContent = "Tap again to scrap"; }
     });
     const bind = (id: string, f: () => void) => { const el = this.root.querySelector<HTMLElement>(id); if (el) el.onclick = f; };
+    bind("#bag-sort", () => { H.invCmd({ type: "sort" }); this.sel = null; re(); });
     const i = this.sel?.where === "bag" ? this.sel.i : -1;
     const equip = (to?: EquipSlot) => { const it = c.bag[i]; const slot = equipTarget(c, it, to); H.invCmd({ type: "equip", bagIndex: i, to }); this.sel = { where: "eq", slot }; re(); };
     bind("#equip", () => equip()); bind("#equip-r1", () => equip("ring1")); bind("#equip-r2", () => equip("ring2"));
@@ -787,7 +794,7 @@ export class UI {
   showBoons(offer: string[], onPick: (id: string) => void, onLater?: () => void) {
     this.root.className = "screen";
     this.root.innerHTML = `<div class="panel boons"><h2>Choose a boon</h2><div class="dim small">Lasts until the end of this rift.</div>
-      <div class="boon-list">${offer.map((id) => `<button class="boon" data-boon="${id}"><b>${esc(BOON[id].name)}</b><span>${esc(BOON[id].desc)}</span></button>`).join("")}</div>
+      <div class="boon-list">${offer.map((id) => `<button class="boon${BOON[id].trade ? " trade" : ""}" data-boon="${id}"><b>${esc(BOON[id].name)}${BOON[id].trade ? ` <small>trade-off</small>` : ""}</b><span>${esc(BOON[id].desc)}</span></button>`).join("")}</div>
       ${onLater ? `<button id="boon-later">Later</button>` : ""}</div>`;
     this.root.querySelectorAll<HTMLElement>("[data-boon]").forEach((el) => el.onclick = () => onPick(el.dataset.boon!));
     const later = this.root.querySelector<HTMLElement>("#boon-later"); if (later && onLater) later.onclick = onLater;
