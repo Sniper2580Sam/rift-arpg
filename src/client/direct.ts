@@ -1,6 +1,6 @@
 // Direct co-op for the test builds: no game server. Players find each other by room code through the free
-// public PeerJS matchmaking server, then talk phone-to-phone over WebRTC (PeerJS's free relay helps when
-// a direct path fails). The host's phone runs the game; every phone keeps its own save, like solo.
+// public PeerJS matchmaking server, then talk phone-to-phone over WebRTC. When a direct path fails, Cloudflare's
+// TURN relay carries it (on the Cloudflare Pages build), or PeerJS's own free relay elsewhere. The host's phone runs the game; every phone keeps its own save, like solo.
 import { Peer, DataConnection } from "peerjs";
 import type { PlayerSetup } from "../sim/sim";
 import type { Lobby, Member, PeerInfo } from "./net";
@@ -17,10 +17,19 @@ export function savedName(): string {
 }
 export function saveName(n: string) { try { localStorage.setItem(NAME_KEY, n); } catch { /* ignore */ } }
 
+/** Cloudflare's TURN relay, when the app is hosted on Cloudflare Pages: /api/turn hands out short-lived
+ *  credentials (functions/api/turn.ts). Elsewhere (the offline file, the artifact page) PeerJS's own defaults apply. */
+let relayIce: any[] | null = null;
+const relayReady: Promise<void> = location.protocol.startsWith("http") && !new URLSearchParams(location.search).get("peer")
+  ? fetch("api/turn", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d?.relay && Array.isArray(d.iceServers)) relayIce = d.iceServers; }).catch(() => {})
+  : Promise.resolve();
+/** Wait briefly for relay credentials before opening a connection (never longer than 2 s). */
+const withRelay = (f: () => void) => { Promise.race([relayReady, new Promise((r) => setTimeout(r, 2000))]).then(f); };
+
 /** Normally the free public PeerJS server. ?peer=host:port points at another one (used by the tests). */
 function peerOpts(): any {
   const q = new URLSearchParams(location.search).get("peer");
-  if (!q) return { debug: 0 };
+  if (!q) return relayIce ? { debug: 0, config: { iceServers: relayIce } } : { debug: 0 };
   const [host, port] = q.split(":");
   return { debug: 0, host, port: Number(port || 9000), path: "/", secure: false, config: { iceServers: [] } };
 }
@@ -56,6 +65,9 @@ export class Direct {
     if (this.peer || this.connecting) return;
     this.connecting = true; this.onLobby();
     let code = ""; for (let i = 0; i < 4; i++) code += LETTERS[Math.floor(Math.random() * LETTERS.length)];
+    withRelay(() => this.openHost(code, attempt));
+  }
+  private openHost(code: string, attempt: number) {
     const peer = new Peer(PREFIX + code, peerOpts());
     peer.on("open", () => {
       this.peer = peer; this.connecting = false;
@@ -86,6 +98,9 @@ export class Direct {
     code = code.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
     if (code.length !== 4) return this.onServer({ t: "joinFail", reason: "Room codes are 4 letters." });
     this.connecting = true; this.onLobby();
+    withRelay(() => this.openGuest(code));
+  }
+  private openGuest(code: string) {
     const peer = new Peer(peerOpts());
     peer.on("open", () => {
       this.peer = peer;

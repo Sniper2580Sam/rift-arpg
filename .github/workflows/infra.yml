@@ -1,0 +1,46 @@
+# Creates or updates the Cloudflare side (Pages project + TURN relay key) from infra/main.tf.
+# Run it from the Actions tab ("Run workflow"), or it runs when infra/ changes on main.
+name: Infra
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["infra/**", ".github/workflows/infra.yml"]
+concurrency: infra
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TF_VAR_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      STATE_BUCKET: riftbound-tfstate
+    steps:
+      - name: Skip until Cloudflare is set up
+        id: ready
+        run: if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] && [ -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; else echo "No Cloudflare secrets yet: nothing to do (see CLOUDFLARE.md)." >> "$GITHUB_STEP_SUMMARY"; fi
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - name: State bucket in R2 (created once)
+        if: steps.ready.outputs.go == '1'
+        run: npx --yes wrangler@3 r2 bucket create "$STATE_BUCKET" || echo "bucket already there"
+      - name: R2 keys from the API token
+        if: steps.ready.outputs.go == '1'
+        # R2's S3 keys can be derived from an API token: key id = the token's id, secret = SHA-256 of the token
+        run: |
+          id=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/tokens/verify | jq -r .result.id)
+          if [ -z "$id" ] || [ "$id" = "null" ]; then id=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/user/tokens/verify | jq -r .result.id); fi
+          echo "::add-mask::$id"
+          secret=$(printf %s "$CLOUDFLARE_API_TOKEN" | sha256sum | cut -d' ' -f1)
+          echo "::add-mask::$secret"
+          echo "AWS_ACCESS_KEY_ID=$id" >> "$GITHUB_ENV"
+          echo "AWS_SECRET_ACCESS_KEY=$secret" >> "$GITHUB_ENV"
+      - name: Terraform
+        if: steps.ready.outputs.go == '1'
+        working-directory: infra
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=$STATE_BUCKET" \
+            -backend-config="endpoints={s3=\"https://$CLOUDFLARE_ACCOUNT_ID.r2.cloudflarestorage.com\"}"
+          terraform apply -input=false -auto-approve
+          echo "Game URL: $(terraform output -raw url)" >> "$GITHUB_STEP_SUMMARY"
