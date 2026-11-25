@@ -270,6 +270,8 @@ export function createSim(cfg: SimConfig): SimState {
     }
   }
   if (kind === "bounty") setupBounty(s, floors);
+  // smaller maps (Catacombs) hold fewer packs: never ask for more than most of what spawned, so a full clear always opens the guardian
+  if (kind === "rift") { let avail = 0; for (const e of s.enemies) if (!e.noProgress) avail += (ENEMIES[e.kind]?.progress ?? 0) * (e.elite ? 4 : 1); if (avail > 0) s.rift.need = Math.min(s.rift.need, Math.round(avail * RIFT.progressCap)); }
   if (kind === "vault") s.rift.need = 1e9; // no guardian: loot until the timer runs out
   // a Gilded Imp sometimes hides in a rift: it runs when it sees you, and escapes if you're too slow
   const I = RIFT.imp;
@@ -1824,6 +1826,8 @@ function updateRift(s: SimState) {
       else offerBoon(s, p);
     }
   }
+  // safety net: nothing left that counts (all cleared, or ambushes capped) opens the guardian
+  if (r.kind === "rift" && !r.guardianSpawned && r.progress < r.need && s.tick % 30 === 0 && !s.enemies.some((e) => !e.dead && !e.noProgress)) r.progress = r.need;
   if (!r.guardianSpawned && r.progress >= r.need) {
     r.guardianSpawned = true;
     const p = s.players.find((q) => !q.dead) ?? s.players[0];

@@ -1,6 +1,6 @@
 // Every map layout generates, is connected, places packs, and a bot can clear it. The Good Luck map runs fast enough.
 import { createSim, step, NO_INPUT, PlayerInput, SimState, pickMap, shieldFactor } from "../src/sim/sim";
-import { HIDEOUT, MAPS, spotTile } from "../src/sim/data";
+import { HIDEOUT, MAPS, spotTile, ENEMIES } from "../src/sim/data";
 import { isWallAt, moveWithWalls, nearestOpen } from "../src/sim/map";
 const proc = (globalThis as any).process;
 let fails = 0;
@@ -134,6 +134,15 @@ check("eggs are rare", (counts.goodluck ?? 0) < 400 && (counts.goodluck ?? 0) > 
     check(`hideout ${th.id}/${l.id}`, bad.length === 0, bad.slice(0, 4).join(", "));
   }
   check("every layout places every spot", HIDEOUT.layouts.every((l) => !l.spots || [...HIDEOUT.stations, ...HIDEOUT.portals].every((s) => l.spots![s.id])));
+}
+{ // a full clear always opens the guardian, on every map and tier (Catacombs used to stop near 60%)
+  let worst = 9;
+  for (const m of MAPS.filter((m) => m.weight > 0 && m.id !== "vault")) for (const tier of [1, 3, 10, 20]) for (let seed = 1; seed <= 6; seed++) {
+    const s = createSim({ seed, tier, map: m.id, mods: ["champions", "fortified"], players: [setup, { ...setup, pid: 1 }] } as any);
+    let sum = 0; for (const e of s.enemies) if (!e.noProgress) sum += (ENEMIES[e.kind]?.progress ?? 0) * (e.elite ? 4 : 1);
+    worst = Math.min(worst, sum / s.rift.need);
+  }
+  check("a full clear fills the progress bar", worst >= 1, `(worst ${(worst * 100).toFixed(0)}% of need)`);
 }
 if (fails) { console.log(`${fails} map checks failed`); proc.exit(1); }
 console.log("maps: all checks passed");

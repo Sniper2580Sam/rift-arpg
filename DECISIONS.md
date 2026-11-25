@@ -312,3 +312,7 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 - **Bring an item up to your level** (Blacksmith, select an item): base damage or armour and flat affixes grow as if it had dropped at your level. Cost per level gained: common 1, magic 2, rare 4, legendary/set 10, mythic 25 materials; ancestral or primal costs double.
 - **Random rare (60) or legendary (300) for a slot you pick**, at your level. Rares from level 5, legendaries from level 20, following loot by level. Seeded from the craft count, so the server makes the same item.
 - Balance guess: a scrapped legendary gives 20 materials, so about 15 scrapped legendaries buy one targeted legendary. Untested in real play.
+
+## 2026-11-25: Co-op playtest fixes (Samuel: boss didn't spawn after a full clear; leaving the app drops players)
+- **Guardian progress**: small maps (Catacombs) spawned only about 60% of the progress needed, so the rest had to come from ambush waves. The need is now capped at 85% of what spawns (`progressCap`), and if nothing that counts is left alive the guardian opens anyway. Test: a full clear fills the bar on every map, tier and mod set.
+- **Rejoin**: when the link drops (a phone sends the app to the background), a guest keeps retrying the same room for 2 minutes and gets its old seat back (matched by a per-session token), rejoining the run from a snapshot. The host re-registers its room code when the app comes back. Hosting on Cloudflare doesn't change this: the TURN relay only helps phones on different networks connect.

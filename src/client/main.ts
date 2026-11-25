@@ -1695,7 +1695,9 @@ function wireOnline(o: Online | Direct) {
       case "joinFail": ui.toast(m.reason, "#ff6a6a"); break;
       case "dropOk": if (coop?.role === "host") coop.hostCmds.push({ type: "spawnLoot", owner: m.owner, item: m.item, x: m.x, y: m.y }); break;
       case "peerLeft": if (coop?.role === "host") hostDropPeer(m.pid); break;
-      case "roomClosed": if (coop?.role === "guest" && sim) { ui.toast("The host closed the room.", "#ff6a6a"); endRun(); } break;
+      case "roomClosed": if (coop?.role === "guest" && sim) { ui.toast("Lost the host.", "#ff6a6a"); endRun(); } break;
+      case "reconnecting": ui.toast("Connection lost. Reconnecting to the host…", "#ffd23f"); break;
+      case "reconnected": ui.toast("Reconnected", "#7dff9a"); break;
     }
   };
   o.onPeerOpen = (pid) => {

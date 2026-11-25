@@ -49,6 +49,13 @@ export class Direct {
   private chunkId = 0;
   private running = false;
   private myPid = 1;
+  /** Phones drop WebRTC when the app goes to the background. A guest keeps trying the same room for a while,
+   *  asking for its old seat back (matched by this token), and the host re-registers its room code. */
+  private token = Math.random().toString(36).slice(2);
+  private code = "";
+  private rejoinUntil = 0;
+  private rejoinTimer: any = null;
+  get reconnecting() { return this.rejoinUntil > 0; }
 
   onLobby: () => void = () => {};
   onServer: (m: any) => void = () => {};
@@ -56,7 +63,14 @@ export class Direct {
   onPeerClose: (pid: number) => void = () => {};
   onPeerMsg: (pid: number, m: any) => void = () => {};
 
-  constructor(private self: Self) {}
+  constructor(private self: Self) {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "visible") return;
+      const p = this.peer as any;
+      if (this.lobby?.host && p && p.disconnected && !p.destroyed) { try { p.reconnect(); } catch { /* retried on the next return */ } }
+      if (this.reconnecting && !this.peer && !this.connecting) this.retryJoin(0);
+    });
+  }
 
   setName(n: string) { this.name = n.trim().slice(0, 16) || this.name; saveName(this.name); this.pushSetup(); }
 
@@ -79,16 +93,27 @@ export class Direct {
       if (e?.type === "unavailable-id" && attempt < 5) { peer.destroy(); this.connecting = false; this.host(attempt + 1); return; }
       if (!this.peer) { peer.destroy(); this.connecting = false; this.fail(e); }
     });
-    peer.on("disconnected", () => { try { peer.reconnect(); } catch { /* the room keeps working for people already in it */ } });
+    peer.on("disconnected", () => { setTimeout(() => { if (this.peer === peer && peer.disconnected && !peer.destroyed) try { peer.reconnect(); } catch { /* tried again when the app comes back */ } }, 1000); });
   }
   private accept(c: DataConnection) {
     const used = new Set([0, ...this.conns.keys()]);
     let pid = 1; while (used.has(pid)) pid++;
     if (pid >= MAX) { c.on("open", () => { c.send({ t: "full" }); setTimeout(() => c.close(), 500); }); return; }
     this.conns.set(pid, c);
-    c.on("data", (d) => this.recv(pid, d));
-    c.on("close", () => this.drop(pid));
-    c.on("error", () => this.drop(pid));
+    const ref = { pid };
+    c.on("data", (d: any) => {
+      // a returning guest: free its old seat (the old connection may not have timed out yet) and give it back
+      if (d?.t === "hello" && d.token && !this.peerInfo.has(ref.pid)) {
+        const old = [...this.peerInfo.values()].find((q) => (q as any).token === d.token && q.pid !== ref.pid);
+        if (old) {
+          const oc = this.conns.get(old.pid); this.drop(old.pid); try { oc?.close(); } catch { /* gone already */ }
+          this.conns.delete(ref.pid); ref.pid = old.pid; this.conns.set(ref.pid, c);
+        }
+      }
+      this.recv(ref.pid, d);
+    });
+    c.on("close", () => { if (this.conns.get(ref.pid) === c) this.drop(ref.pid); });
+    c.on("error", () => { if (this.conns.get(ref.pid) === c) this.drop(ref.pid); });
   }
   setRunning(on: boolean) { this.running = on; if (this.lobby?.host) this.refreshMembers(); }
 
@@ -97,8 +122,27 @@ export class Direct {
     if (this.peer || this.connecting) return;
     code = code.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
     if (code.length !== 4) return this.onServer({ t: "joinFail", reason: "Room codes are 4 letters." });
+    this.code = code; this.rejoinUntil = 0;
     this.connecting = true; this.onLobby();
     withRelay(() => this.openGuest(code));
+  }
+  private retryJoin(delay = 3000) {
+    clearTimeout(this.rejoinTimer);
+    if (!this.reconnecting) return;
+    if (Date.now() > this.rejoinUntil) { this.giveUp(); return; }
+    this.rejoinTimer = setTimeout(() => { if (this.reconnecting && !this.peer && !this.connecting) { this.connecting = true; withRelay(() => this.openGuest(this.code)); } }, delay);
+  }
+  private giveUp() {
+    clearTimeout(this.rejoinTimer); this.rejoinUntil = 0;
+    this.conns.clear(); this.open.clear(); this.teardown();
+    this.onServer({ t: "roomClosed" }); this.onLobby();
+  }
+  /** Close a failed rejoin attempt and schedule the next one. */
+  private failAttempt(peer: Peer) {
+    this.conns.delete(0); this.connecting = false;
+    try { peer.destroy(); } catch { /* ignore */ }
+    if (this.peer === peer) this.peer = null;
+    this.retryJoin();
   }
   private openGuest(code: string) {
     const peer = new Peer(peerOpts());
@@ -106,14 +150,19 @@ export class Direct {
       this.peer = peer;
       const c = peer.connect(PREFIX + code, { reliable: true, serialization: "json" });
       this.conns.set(0, c);
-      const timer = setTimeout(() => { if (!this.open.has(0)) { this.leave(); this.onServer({ t: "joinFail", reason: "Couldn't reach that room. Check the code, or the networks may need a relay." }); } }, 15000);
-      c.on("open", () => { clearTimeout(timer); const s = this.self(); c.send({ t: "hello", name: this.name, setup: s.setup, pity: s.pity, cls: s.cls, level: s.level }); });
+      const timer = setTimeout(() => {
+        if (this.open.has(0) || this.conns.get(0) !== c) return;
+        if (this.reconnecting) { this.failAttempt(peer); return; }
+        this.leave(); this.onServer({ t: "joinFail", reason: "Couldn't reach that room. Check the code, or the networks may need a relay." });
+      }, this.reconnecting ? 8000 : 15000);
+      c.on("open", () => { clearTimeout(timer); const s = this.self(); c.send({ t: "hello", name: this.name, setup: s.setup, pity: s.pity, cls: s.cls, level: s.level, token: this.token }); });
       c.on("data", (d) => this.recv(0, d));
-      c.on("close", () => this.hostGone());
-      c.on("error", () => this.hostGone());
+      c.on("close", () => { if (this.conns.get(0) === c) this.hostGone(); });
+      c.on("error", () => { if (this.conns.get(0) === c) this.hostGone(); });
     });
     peer.on("error", (e: any) => {
       this.connecting = false;
+      if (this.reconnecting && !this.open.has(0)) { this.failAttempt(peer); return; }
       if (e?.type === "peer-unavailable") { this.leave(); this.onServer({ t: "joinFail", reason: `No room ${code}. Check the code.` }); }
       else if (!this.lobby) { this.leave(); this.fail(e); }
     });
@@ -122,6 +171,16 @@ export class Direct {
     if (!this.conns.has(0)) return;
     const was = this.open.has(0);
     this.conns.delete(0); this.open.delete(0);
+    if (was && this.lobby && !this.reconnecting) {
+      // keep the room and the run; try to get back in for up to 2 minutes (the host may be away from the app)
+      try { this.peer?.destroy(); } catch { /* ignore */ }
+      this.peer = null; this.connecting = false;
+      this.rejoinUntil = Date.now() + 120000;
+      this.onServer({ t: "reconnecting" }); this.onLobby();
+      this.retryJoin(1000);
+      return;
+    }
+    if (this.reconnecting) { const p = this.peer; if (p) this.failAttempt(p); else this.retryJoin(); return; }
     this.teardown();
     if (was) { this.onPeerClose(0); this.onServer({ t: "roomClosed" }); }
     this.onLobby();
@@ -136,6 +195,7 @@ export class Direct {
 
   // ---------------------------------------------------------------- shared
   leave() {
+    clearTimeout(this.rejoinTimer); this.rejoinUntil = 0;
     if (this.lobby?.host) for (const c of this.conns.values()) c.close();
     else this.conns.get(0)?.close();
     this.conns.clear(); this.open.clear(); this.peerInfo.clear();
@@ -172,7 +232,7 @@ export class Direct {
     if (this.lobby?.host || (!this.lobby && pid !== 0)) {
       if (d?.t === "hello" || d?.t === "setup") {
         const first = !this.peerInfo.has(pid);
-        this.peerInfo.set(pid, { pid, name: String(d.name ?? "Friend").slice(0, 16), setup: { ...d.setup, pid }, pity: d.pity ?? { ancestral: false, primal: false }, cls: d.cls, level: d.level } as PeerInfo);
+        this.peerInfo.set(pid, { pid, name: String(d.name ?? "Friend").slice(0, 16), setup: { ...d.setup, pid }, pity: d.pity ?? { ancestral: false, primal: false }, cls: d.cls, level: d.level, token: typeof d.token === "string" ? d.token.slice(0, 20) : (this.peerInfo.get(pid) as any)?.token } as PeerInfo);
         if (first) { this.open.add(pid); this.sendR(pid, { t: "welcome", pid }); this.refreshMembers(); this.onPeerOpen(pid); } else this.refreshMembers();
         return;
       }
@@ -180,7 +240,8 @@ export class Direct {
       if (d?.t === "full") { this.leave(); this.onServer({ t: "joinFail", reason: "That room is full (6 players)." }); return; }
       if (d?.t === "welcome") { this.myPid = d.pid; return; }
       if (d?.t === "members") {
-        if (!this.lobby) { this.open.add(0); this.connecting = false; }
+        if (!this.lobby || this.reconnecting) { this.open.add(0); this.connecting = false; }
+        if (this.reconnecting) { clearTimeout(this.rejoinTimer); this.rejoinUntil = 0; this.onServer({ t: "reconnected" }); }
         this.lobby = { code: d.code, pid: this.myPid, host: false, members: d.members, running: d.running };
         this.onLobby();
         return;

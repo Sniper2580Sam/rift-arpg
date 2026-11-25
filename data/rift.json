@@ -34,6 +34,7 @@
   "name": "The Sunken Ossuary",
   "timeLimit": 720,
   "progressNeeded": 900,
+  "progressCap": 0.85,
   "mapWidth": 84,
   "mapHeight": 84,
   "tileSize": 16,
