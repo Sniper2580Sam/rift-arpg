@@ -1,4 +1,4 @@
-import { passiveStats, talentStats,
+import { passiveStats, talentMods, talentStats,
   gemVals, AFFIX, AFFIXES, BOON, CLASSES, EquipSlot, ITEMS, LEGENDARIES, LEGENDARY, MODIFIER, ModDef, MYTHICS, Num, RARITY_ORDER, RIFT,
   Rarity, SET, SETS, SKILL, SlotType, classAffinity, levelPower, slotTypeOf,
 } from "./data";
@@ -280,7 +280,7 @@ export interface Stats {
   speed: number; dmgMult: number; takenMult: number;
 }
 
-export interface StatCtx { cls: string; level: number; paragon?: Partial<Record<string, number>>; /** equipped rift gems and their levels */ gems?: Record<string, number>; /** legendary powers worn in the reliquary */ relics?: string[]; /** talent ranks (node id -> rank) */ talents?: Record<string, number>; /** passive tree nodes taken */ passives?: string[]; effLevel?: number; boons?: string[]; riftMods?: string[]; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"] }
+export interface StatCtx { cls: string; level: number; paragon?: Partial<Record<string, number>>; /** equipped rift gems and their levels */ gems?: Record<string, number>; /** legendary powers worn in the reliquary */ relics?: string[]; /** talent ranks (node id -> rank) and the subclass they belong to */ talents?: Record<string, number>; subclass?: string; /** passive tree nodes taken */ passives?: string[]; effLevel?: number; boons?: string[]; riftMods?: string[]; slotPlus?: Holder["slotPlus"]; slotCrit?: Holder["slotCrit"] }
 
 /** Stat blocks from boons and generic sets. Negative values are the downside of a trade-off boon. */
 function applyStatBlock(s: Stats, st: Num, armorFlat: number) {
@@ -338,7 +338,7 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
     // a set counts each piece once: two copies of the same set ring are one piece
     if (it.set && !setSeen.has(it.set + ":" + it.slot)) { setSeen.add(it.set + ":" + it.slot); s.setCounts[it.set] = (s.setCounts[it.set] ?? 0) + 1; }
   }
-  s.mods.push(...passiveStats(c.cls, c.passives).mods);
+  s.mods.push(...passiveStats(c.cls, c.passives).mods, ...talentMods(c.cls, c.subclass, c.talents));
   for (const id of c.relics ?? []) if (LEGENDARY[id] && !LEGENDARY[id].mythic && !LEGENDARY[id].chase && !worn.has(id)) { worn.add(id); s.mods.push(LEGENDARY[id]); }
   // the Concord Band: each set needs one fewer piece, but never fewer than 2 worn
   const concord = Object.values(eq).some((it) => it?.legendary && LEGENDARY[it.legendary]?.set?.concord);
@@ -372,7 +372,7 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
   if (pv("haste")) { s.cdr += pv("haste"); s.moveSpeed += pv("haste"); }
   // talents (points from Trials) and the passive tree (points from Paragon)
   const ps = passiveStats(c.cls, c.passives);
-  const statMap: Record<string, number> = { ...talentStats(c.cls, c.talents) };
+  const statMap: Record<string, number> = { ...talentStats(c.cls, c.subclass, c.talents) };
   for (const [k, v] of Object.entries(ps.stats)) statMap[k] = (statMap[k] ?? 0) + v;
   for (const [k, v] of Object.entries(statMap)) {
     if (k.startsWith("tag:")) { const t = k.slice(4); s.tagDmg[t] = (s.tagDmg[t] ?? 0) + v; continue; }
@@ -381,6 +381,8 @@ export function computeStats(eq: Holder["equipment"], c: StatCtx): Stats {
       case "armorPct": s.armor = Math.round(s.armor * (1 + v / 100)); break;
       case "takenPct": s.takenMult *= 1 - v / 100; break;
       case "regenPct": s.regen += Math.round((s.maxHp * v) / 100); break;
+      case "barrierPct": s.barrierPct += v; break;
+      case "blockChance": s.blockChance += v; break;
       case "dmgPct": case "critChance": case "critDmg": case "atkSpeed": case "moveSpeed": case "cdr": case "lifeOnHit": case "eliteDmg": case "areaPct": case "resRegen": case "costRed": case "resMax": (s as any)[k] += v; break;
     }
   }

@@ -1,8 +1,8 @@
 // Batch 6 loot: skill-changing legendaries, the Concord Band, generic 2-piece sets, defence, trade-off boons, bag sort.
 import { createSim, step, NO_INPUT, PlayerSetup, refreshAll, damagePlayer as damagePlayerForTest } from "../src/sim/sim";
-import { mintItem, computeStats, Holder, applyInvCmd, capRarity } from "../src/sim/items";
+import { mintItem, computeStats, Holder, applyInvCmd, capRarity, resolveSkill } from "../src/sim/items";
 import { makeRng } from "../src/sim/rng";
-import { CLASSES, LEGENDARY, SET, SlotType, EquipSlot } from "../src/sim/data";
+import { CLASSES, LEGENDARY, SET, TALENTS, SlotType, EquipSlot } from "../src/sim/data";
 const proc = (globalThis as any).process;
 const assert = (c: boolean, m: string) => { if (!c) { console.error("FAIL", m); proc.exit(1); } };
 function setup(pid: number, cls = "ashknight", level = 1, equipment: Holder["equipment"] = {}): PlayerSetup {
@@ -70,4 +70,20 @@ function setup(pid: number, cls = "ashknight", level = 1, equipment: Holder["equ
   assert(capRarity("set", 10) === "rare" && capRarity("set", 22) === "legendary" && capRarity("legendary", 2) === "magic" && capRarity("mythic", 30) === "mythic", "capRarity");
   assert(mintItem(makeRng(1), "f", { rarity: "legendary", level: 12 }).rarity === "rare", "forced legendary at 12 is a rare");
   console.log(`ok   loot by level: L1 ${JSON.stringify(l1)} · L19 ${JSON.stringify(l19)} · L24 ${JSON.stringify(l24)} · L30 ${JSON.stringify(l30)}`);
+}
+
+// every subclass: all nodes taken, every skill resolves to finite numbers, and a short fight runs
+{
+  let n = 0;
+  for (const [cls, subs] of Object.entries(TALENTS.classes)) for (const S of subs) {
+    const talents = Object.fromEntries(S.nodes.map((x) => [x.id, x.max]));
+    const st = computeStats({}, { cls, level: 30, talents, subclass: S.id });
+    for (const id of CLASSES[cls].skills) { const r = resolveSkill(id, undefined, st); for (const [k, v] of Object.entries(r.p)) assert(Number.isFinite(v), `${S.id} ${id}.${k} = ${v}`); }
+    const ps = setup(0, cls, 30, {}); ps.talents = talents; ps.subclass = S.id;
+    const s = createSim({ seed: 3, players: [ps] });
+    for (let t = 0; t < 30 * 8; t++) step(s, { 0: { ...NO_INPUT, ax: 1, act: 1 | (t % 20 === 0 ? 2 : 0) | (t % 45 === 0 ? 4 : 0) | (t % 90 === 0 ? 8 : 0) } });
+    assert(Number.isFinite(s.players[0].hp), `${S.id} hp`);
+    n++;
+  }
+  console.log(`ok   ${n} subclasses: every skill resolves and fights`);
 }

@@ -1,7 +1,7 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
 import { makeRng } from "../sim/rng";
-import { passiveCanAdd, passiveCanRemove, runeLevel, talentCanAdd, talentCanRemove, talentPoints, SET, setComplete, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
+import { passiveCanAdd, passiveCanRemove, runeLevel, talentCanAdd, talentPoints, talentRespec, subclassOf, SET, setComplete, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
 import { chiselItem, echoCost, hallowItem, mintItem, Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
@@ -22,7 +22,7 @@ export type HubOp =
   | { t: "slotCrit"; slot: EquipSlot }
   | { t: "buy"; key: string }
   | { t: "paragon"; stat?: string; d?: number; reset?: boolean }
-  | { t: "talent"; id?: string; d?: number; reset?: boolean }
+  | { t: "talent"; id?: string; d?: number; reset?: boolean; sub?: string }
   | { t: "passive"; id?: string; d?: number; reset?: boolean }
   | { t: "gem"; slot: number; id: string | null }
   | { t: "buyAether"; pack: string }
@@ -135,11 +135,17 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       return false;
     }
     case "talent": {
-      // spend or refund talent points (one per Trial level cleared); free to respec
-      if (op.reset) { c.talents = {}; return true; }
+      // talents: pick a subclass, then spend points (one per Trial level beaten) in its tree.
+      // Points can't be taken back one by one: a respec (or a new subclass) clears the tree, and the points
+      // return when you beat your best Trial again.
+      if (op.reset) { talentRespec(c); return true; }
+      if (op.sub !== undefined) {
+        if (!subclassOf(c.cls, op.sub)) return false;
+        if (op.sub !== c.subclass) { talentRespec(c); c.subclass = op.sub; }
+        return true;
+      }
       const a = { ...(c.talents ?? {}) }, id = String(op.id ?? "");
-      if (op.d === 1 && talentCanAdd(c.cls, a, id, talentPoints(c.trialBest))) { a[id] = (a[id] ?? 0) + 1; c.talents = a; return true; }
-      if (op.d === -1 && talentCanRemove(c.cls, a, id)) { a[id]--; if (!a[id]) delete a[id]; c.talents = a; return true; }
+      if (op.d === 1 && talentCanAdd(c.cls, c.subclass, a, id, talentPoints(c))) { a[id] = (a[id] ?? 0) + 1; c.talents = a; return true; }
       return false;
     }
     case "paragon": {

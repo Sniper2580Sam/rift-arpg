@@ -1,5 +1,5 @@
 // Local profile for OFFLINE_TEST builds (live builds keep this on the backend). Versioned save schema with migrations.
-import { AFFIX, CLASSES, CosChoice, EquipSlot, HideoutLayout, Life, RIFT, Rarity, lifeStats, paragonXp, xpForLevel } from "../sim/data";
+import { AFFIX, CLASSES, TALENTS, CosChoice, EquipSlot, HideoutLayout, Life, RIFT, Rarity, lifeStats, paragonXp, xpForLevel } from "../sim/data";
 import { Holder, Item, mintItem, noteFinds } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import type { LootFilter, PlayerSetup, SimState } from "../sim/sim";
@@ -22,7 +22,7 @@ export interface CharSave {
   /** rift gems owned (id -> level) and socketed (up to 3) */
   gems?: Record<string, number>; gemSlots?: string[];
   /** best Trial level cleared in time (one talent point each) and talent ranks spent */
-  trialBest?: number; talents?: Record<string, number>;
+  trialBest?: number; talents?: Record<string, number>; /** talent subclass (Ascendancy style); after a respec, the best Trial beaten since */ subclass?: string; trialRe?: number;
   /** passive tree nodes taken (one point per Paragon level) */
   passives?: string[];
   /** set pieces crafted (seeds the next craft) */
@@ -109,6 +109,8 @@ export function migrate(raw: any): Profile | null {
     // the old per-item + (merging) moves onto the slot the item is worn in
     for (const c of Object.values(p.chars)) {
       c.slotPlus ??= {};
+      // talents moved to subclasses: ranks in the old class trees are refunded
+      if (c.talents && Object.keys(c.talents).some((id) => !(TALENTS.classes[c.cls] ?? []).some((s) => s.nodes.some((n) => n.id === id)))) c.talents = {};
       for (const [sl, it] of Object.entries(c.equipment)) if ((it as any)?.plus) c.slotPlus[sl as EquipSlot] = Math.max(c.slotPlus[sl as EquipSlot] ?? 0, (it as any).plus);
       for (const it of [...Object.values(c.equipment), ...c.bag]) if (it) { delete (it as any).plus; delete (it as any).charges; }
     }
@@ -162,7 +164,7 @@ export function holderOf(p: Profile): Holder {
 
 export function setupFor(p: Profile, pid = 0, name = "You"): PlayerSetup {
   const c = char(p);
-  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, feathers: c.feathers ?? 0, vaultKeys: c.vaultKeys ?? 0, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, pAlloc: c.pAlloc ?? {}, gems: c.gems ?? {}, gemSlots: c.gemSlots ?? [], talents: c.talents ?? {}, passives: c.passives ?? [], relics: Object.values(c.relicSlots ?? {}).filter((id): id is string => !!id && (p.relics ?? []).includes(id)) };
+  return { pid, name, cls: c.cls, level: c.level, xp: c.xp, equipment: c.equipment, bag: c.bag, materials: p.materials, shards: p.shards ?? 0, slotPlus: c.slotPlus ?? {}, slotCrit: c.slotCrit ?? {}, sigils: c.sigils, feathers: c.feathers ?? 0, vaultKeys: c.vaultKeys ?? 0, runes: c.runes, pet: p.pet, filter: p.filter, loadout: c.loadout, cos: p.cos, paragon: c.paragon ?? 0, pxp: c.pxp ?? 0, pAlloc: c.pAlloc ?? {}, gems: c.gems ?? {}, gemSlots: c.gemSlots ?? [], talents: c.talents ?? {}, subclass: c.subclass, passives: c.passives ?? [], relics: Object.values(c.relicSlots ?? {}).filter((id): id is string => !!id && (p.relics ?? []).includes(id)) };
 }
 
 /** Pull the player's persistent state back out of a running sim (items picked up, XP, levels). Boons are not kept. */

@@ -1,156 +1,396 @@
 {
- "gate": 3,
- "note": "One talent point per Trial level cleared in time. Node rows open at 0, 3, 6 and 9 points spent in that branch. Free to respec.",
+ "note": "Pick a subclass, then spend Trial points in its tree (one per Trial level beaten). Respeccing clears the tree; beat your best Trial again to earn the points back.",
  "classes": {
   "ashknight": [
    {
-    "name": "Pyre",
+    "id": "pyreblade",
+    "name": "Pyreblade",
     "color": "#ff8a1f",
+    "desc": "Fire and fury: burning hits and bigger blazes.",
     "nodes": [
      {
-      "id": "ak_kindle",
+      "id": "as_pyreblade_s1",
       "name": "Kindled Blade",
-      "max": 3,
-      "stat": "dmgPct",
-      "per": 3,
-      "text": "+{v}% damage"
-     },
-     {
-      "id": "ak_sear",
-      "name": "Searing Heat",
-      "max": 3,
+      "max": 5,
+      "gate": 0,
       "stat": "tag:fire",
       "per": 6,
       "text": "+{v}% fire damage"
      },
      {
-      "id": "ak_brutal",
+      "id": "as_pyreblade_s2",
       "name": "Brutal Edge",
-      "max": 3,
+      "max": 5,
+      "gate": 0,
       "stat": "critDmg",
       "per": 8,
       "text": "+{v}% crit damage"
      },
      {
-      "id": "ak_inferno",
+      "id": "as_pyreblade_n1",
+      "name": "Wildfire",
+      "max": 1,
+      "gate": 6,
+      "notable": true,
+      "capstone": false,
+      "text": "Fire skills set enemies burning.",
+      "mod": {
+       "tag": "fire",
+       "set": {
+        "igniteMult": 0.6
+       }
+      }
+     },
+     {
+      "id": "as_pyreblade_s3",
+      "name": "Searing Heat",
+      "max": 5,
+      "gate": 6,
+      "stat": "dmgPct",
+      "per": 3,
+      "text": "+{v}% damage"
+     },
+     {
+      "id": "as_pyreblade_n2",
+      "name": "Flashpoint",
+      "max": 1,
+      "gate": 12,
+      "notable": true,
+      "capstone": false,
+      "text": "Fire skills are 30% larger.",
+      "mod": {
+       "tag": "fire",
+       "mul": {
+        "radius": 1.3
+       }
+      }
+     },
+     {
+      "id": "as_pyreblade_s4",
       "name": "Inferno Heart",
-      "max": 3,
+      "max": 5,
+      "gate": 12,
       "stat": "areaPct",
-      "per": 6,
+      "per": 5,
       "text": "+{v}% area of effect"
+     },
+     {
+      "id": "as_pyreblade_cap",
+      "name": "Living Pyre",
+      "max": 1,
+      "gate": 20,
+      "notable": true,
+      "capstone": true,
+      "text": "Fire skills deal 50% more damage.",
+      "mod": {
+       "tag": "fire",
+       "mul": {
+        "power": 1.5
+       }
+      }
+     },
+     {
+      "id": "as_pyreblade_s5",
+      "name": "Executioner",
+      "max": 5,
+      "gate": 20,
+      "stat": "eliteDmg",
+      "per": 5,
+      "text": "+{v}% damage to elites and bosses"
      }
     ]
    },
    {
-    "name": "Bulwark",
+    "id": "bastion",
+    "name": "Bastion",
     "color": "#c9b8ff",
+    "desc": "An immovable wall: block, barrier and a second life.",
     "nodes": [
      {
-      "id": "ak_hide",
+      "id": "as_bastion_s1",
       "name": "Ashen Hide",
-      "max": 3,
+      "max": 5,
+      "gate": 0,
       "stat": "armorPct",
       "per": 6,
       "text": "+{v}% armour"
      },
      {
-      "id": "ak_scar",
+      "id": "as_bastion_s2",
       "name": "Scarred",
-      "max": 3,
+      "max": 5,
+      "gate": 0,
       "stat": "hpPct",
       "per": 4,
       "text": "+{v}% life"
      },
      {
-      "id": "ak_unbowed",
+      "id": "as_bastion_n1",
+      "name": "Last Stand",
+      "max": 1,
+      "gate": 6,
+      "notable": true,
+      "capstone": false,
+      "text": "Take 30% less damage below half life.",
+      "mod": {
+       "player": true,
+       "set": {
+        "lowLifeDR": 0.3
+       }
+      }
+     },
+     {
+      "id": "as_bastion_s3",
+      "name": "Shield Arm",
+      "max": 5,
+      "gate": 6,
+      "stat": "blockChance",
+      "per": 2,
+      "text": "+{v}% block chance"
+     },
+     {
+      "id": "as_bastion_n2",
+      "name": "Shield Wall",
+      "max": 1,
+      "gate": 12,
+      "notable": true,
+      "capstone": false,
+      "text": "Shield Bash hits all around you.",
+      "mod": {
+       "skill": "shield_bash",
+       "set": {
+        "arcCos": -1
+       }
+      }
+     },
+     {
+      "id": "as_bastion_s4",
+      "name": "Ember Ward",
+      "max": 5,
+      "gate": 12,
+      "stat": "barrierPct",
+      "per": 3,
+      "text": "+{v}% life as barrier"
+     },
+     {
+      "id": "as_bastion_cap",
+      "name": "Undying",
+      "max": 1,
+      "gate": 20,
+      "notable": true,
+      "capstone": true,
+      "text": "Once a minute, a killing blow leaves you at full life instead.",
+      "mod": {
+       "player": true,
+       "set": {
+        "cheatDeath": 60
+       }
+      }
+     },
+     {
+      "id": "as_bastion_s5",
       "name": "Unbowed",
-      "max": 3,
+      "max": 5,
+      "gate": 20,
       "stat": "takenPct",
       "per": 2,
       "text": "-{v}% damage taken"
-     },
-     {
-      "id": "ak_mend",
-      "name": "Ember Mend",
-      "max": 3,
-      "stat": "lifeOnHit",
-      "per": 2,
-      "text": "+{v} life per hit"
      }
     ]
    },
    {
-    "name": "Warpath",
+    "id": "warlord",
+    "name": "Warlord",
     "color": "#ffd23f",
+    "desc": "Shouts and tempo: faster cooldowns, longer buffs.",
     "nodes": [
      {
-      "id": "ak_momentum",
-      "name": "Momentum",
-      "max": 3,
-      "stat": "moveSpeed",
-      "per": 2,
-      "text": "+{v}% move speed"
-     },
-     {
-      "id": "ak_rhythm",
+      "id": "as_warlord_s1",
       "name": "Battle Rhythm",
-      "max": 3,
+      "max": 5,
+      "gate": 0,
       "stat": "atkSpeed",
       "per": 2,
       "text": "+{v}% attack speed"
      },
      {
-      "id": "ak_stoke",
-      "name": "Stoked",
-      "max": 3,
-      "stat": "resMax",
-      "per": 6,
-      "text": "+{v} max Embers"
-     },
-     {
-      "id": "ak_warlord",
-      "name": "Warlord",
-      "max": 3,
+      "id": "as_warlord_s2",
+      "name": "Warlord's Pace",
+      "max": 5,
+      "gate": 0,
       "stat": "cdr",
       "per": 2,
       "text": "-{v}% cooldowns"
+     },
+     {
+      "id": "as_warlord_n1",
+      "name": "Rallying Cry",
+      "max": 1,
+      "gate": 6,
+      "notable": true,
+      "capstone": false,
+      "text": "Shout cooldowns are 30% shorter.",
+      "mod": {
+       "tag": "shout",
+       "mul": {
+        "cooldown": 0.7
+       }
+      }
+     },
+     {
+      "id": "as_warlord_s3",
+      "name": "Momentum",
+      "max": 5,
+      "gate": 6,
+      "stat": "moveSpeed",
+      "per": 2,
+      "text": "+{v}% move speed"
+     },
+     {
+      "id": "as_warlord_n2",
+      "name": "Battle Trance",
+      "max": 1,
+      "gate": 12,
+      "notable": true,
+      "capstone": false,
+      "text": "Take 15% less damage while a buff is active.",
+      "mod": {
+       "player": true,
+       "set": {
+        "buffDR": 0.15
+       }
+      }
+     },
+     {
+      "id": "as_warlord_s4",
+      "name": "Stoked",
+      "max": 5,
+      "gate": 12,
+      "stat": "resMax",
+      "per": 6,
+      "text": "+{v} max resource"
+     },
+     {
+      "id": "as_warlord_cap",
+      "name": "Warmaster",
+      "max": 1,
+      "gate": 20,
+      "notable": true,
+      "capstone": true,
+      "text": "Shouts last 50% longer.",
+      "mod": {
+       "tag": "shout",
+       "mul": {
+        "duration": 1.5
+       }
+      }
+     },
+     {
+      "id": "as_warlord_s5",
+      "name": "Commander",
+      "max": 5,
+      "gate": 20,
+      "stat": "dmgPct",
+      "per": 3,
+      "text": "+{v}% damage"
      }
     ]
    }
   ],
   "gloomstalker": [
    {
-    "name": "Marksman",
-    "color": "#7dff9a",
+    "id": "deadeye",
+    "name": "Deadeye",
+    "color": "#ffe08a",
+    "desc": "Projectiles: more arrows, piercing shots.",
     "nodes": [
      {
-      "id": "gs_aim",
+      "id": "gl_deadeye_s1",
       "name": "Steady Aim",
-      "max": 3,
-      "stat": "dmgPct",
-      "per": 3,
-      "text": "+{v}% damage"
-     },
-     {
-      "id": "gs_pierce",
-      "name": "Piercing Shots",
-      "max": 3,
-      "stat": "tag:pierce",
+      "max": 5,
+      "gate": 0,
+      "stat": "tag:projectile",
       "per": 6,
-      "text": "+{v}% pierce damage"
+      "text": "+{v}% projectile damage"
      },
      {
-      "id": "gs_eye",
-      "name": "Hawk Eye",
-      "max": 3,
+      "id": "gl_deadeye_s2",
+      "name": "Keen Eye",
+      "max": 5,
+      "gate": 0,
       "stat": "critChance",
       "per": 1,
       "text": "+{v}% crit chance"
      },
      {
-      "id": "gs_hunter",
-      "name": "Apex Hunter",
-      "max": 3,
+      "id": "gl_deadeye_n1",
+      "name": "Split Shot",
+      "max": 1,
+      "gate": 6,
+      "notable": true,
+      "capstone": false,
+      "text": "Projectile skills fire 1 more projectile.",
+      "mod": {
+       "tag": "projectile",
+       "add": {
+        "count": 1
+       }
+      }
+     },
+     {
+      "id": "gl_deadeye_s3",
+      "name": "Quick Draw",
+      "max": 5,
+      "gate": 6,
+      "stat": "atkSpeed",
+      "per": 2,
+      "text": "+{v}% attack speed"
+     },
+     {
+      "id": "gl_deadeye_n2",
+      "name": "Piercing Shots",
+      "max": 1,
+      "gate": 12,
+      "notable": true,
+      "capstone": false,
+      "text": "Projectiles pierce.",
+      "mod": {
+       "tag": "projectile",
+       "set": {
+        "pierce": 1
+       }
+      }
+     },
+     {
+      "id": "gl_deadeye_s4",
+      "name": "Vital Shot",
+      "max": 5,
+      "gate": 12,
+      "stat": "critDmg",
+      "per": 8,
+      "text": "+{v}% crit damage"
+     },
+     {
+      "id": "gl_deadeye_cap",
+      "name": "Far Shot",
+      "max": 1,
+      "gate": 20,
+      "notable": true,
+      "capstone": true,
+      "text": "Projectile skills deal 40% more damage and fly 20% further.",
+      "mod": {
+       "tag": "projectile",
+       "mul": {
+        "power": 1.4,
+        "range": 1.2
+       }
+      }
+     },
+     {
+      "id": "gl_deadeye_s5",
+      "name": "Hunter",
+      "max": 5,
+      "gate": 20,
       "stat": "eliteDmg",
       "per": 5,
       "text": "+{v}% damage to elites and bosses"
@@ -158,310 +398,793 @@
     ]
    },
    {
-    "name": "Shadow",
-    "color": "#9fa8ff",
+    "id": "hexer",
+    "name": "Hexer",
+    "color": "#7dd8ff",
+    "desc": "Curses and cold: slow them, then break them.",
     "nodes": [
      {
-      "id": "gs_veil",
-      "name": "Veiled",
-      "max": 3,
-      "stat": "takenPct",
-      "per": 2,
-      "text": "-{v}% damage taken"
-     },
-     {
-      "id": "gs_hardy",
-      "name": "Hardy",
-      "max": 3,
-      "stat": "hpPct",
-      "per": 4,
-      "text": "+{v}% life"
-     },
-     {
-      "id": "gs_frost",
-      "name": "Rime Arrows",
-      "max": 3,
+      "id": "gl_hexer_s1",
+      "name": "Rime",
+      "max": 5,
+      "gate": 0,
       "stat": "tag:cold",
       "per": 6,
       "text": "+{v}% cold damage"
      },
      {
-      "id": "gs_leech",
-      "name": "Blood Trail",
-      "max": 3,
-      "stat": "lifeOnHit",
-      "per": 2,
-      "text": "+{v} life per hit"
+      "id": "gl_hexer_s2",
+      "name": "Spreading Hex",
+      "max": 5,
+      "gate": 0,
+      "stat": "areaPct",
+      "per": 5,
+      "text": "+{v}% area of effect"
+     },
+     {
+      "id": "gl_hexer_n1",
+      "name": "Frostbite",
+      "max": 1,
+      "gate": 6,
+      "notable": true,
+      "capstone": false,
+      "text": "Cold skills slow 20% more.",
+      "mod": {
+       "tag": "cold",
+       "add": {
+        "slowPct": 20
+       }
+      }
+     },
+     {
+      "id": "gl_hexer_s3",
+      "name": "Malice",
+      "max": 5,
+      "gate": 6,
+      "stat": "dmgPct",
+      "per": 3,
+      "text": "+{v}% damage"
+     },
+     {
+      "id": "gl_hexer_n2",
+      "name": "Vulnerable",
+      "max": 1,
+      "gate": 12,
+      "notable": true,
+      "capstone": false,
+      "text": "Your hits make enemies take 10% more damage.",
+      "mod": {
+       "tag": "any",
+       "set": {
+        "vulnOnHit": 10
+       }
+      }
+     },
+     {
+      "id": "gl_hexer_s4",
+      "name": "Grim Focus",
+      "max": 5,
+      "gate": 12,
+      "stat": "eliteDmg",
+      "per": 5,
+      "text": "+{v}% damage to elites and bosses"
+     },
+     {
+      "id": "gl_hexer_cap",
+      "name": "Doom",
+      "max": 1,
+      "gate": 20,
+      "notable": true,
+      "capstone": true,
+      "text": "Area skills deal 40% more damage.",
+      "mod": {
+       "tag": "aoe",
+       "mul": {
+        "power": 1.4
+       }
+      }
+     },
+     {
+      "id": "gl_hexer_s5",
+      "name": "Dark Pact",
+      "max": 5,
+      "gate": 20,
+      "stat": "costRed",
+      "per": 3,
+      "text": "-{v}% resource costs"
      }
     ]
    },
    {
-    "name": "Wild",
-    "color": "#ffd23f",
+    "id": "beastmaster",
+    "name": "Beastmaster",
+    "color": "#b8ff9a",
+    "desc": "Ravens and beasts: a bigger, stronger pack.",
     "nodes": [
      {
-      "id": "gs_fleet",
+      "id": "gl_beastmaster_s1",
+      "name": "Pack Bond",
+      "max": 5,
+      "gate": 0,
+      "stat": "tag:summon",
+      "per": 6,
+      "text": "+{v}% summon damage"
+     },
+     {
+      "id": "gl_beastmaster_s2",
+      "name": "Wild Vigour",
+      "max": 5,
+      "gate": 0,
+      "stat": "hpPct",
+      "per": 4,
+      "text": "+{v}% life"
+     },
+     {
+      "id": "gl_beastmaster_n1",
+      "name": "The Pack",
+      "max": 1,
+      "gate": 6,
+      "notable": true,
+      "capstone": false,
+      "text": "Summons get 1 more minion.",
+      "mod": {
+       "tag": "summon",
+       "add": {
+        "count": 1
+       }
+      }
+     },
+     {
+      "id": "gl_beastmaster_s3",
+      "name": "Call of the Wild",
+      "max": 5,
+      "gate": 6,
+      "stat": "cdr",
+      "per": 2,
+      "text": "-{v}% cooldowns"
+     },
+     {
+      "id": "gl_beastmaster_n2",
+      "name": "Feral",
+      "max": 1,
+      "gate": 12,
+      "notable": true,
+      "capstone": false,
+      "text": "Summons last 50% longer.",
+      "mod": {
+       "tag": "summon",
+       "mul": {
+        "duration": 1.5
+       }
+      }
+     },
+     {
+      "id": "gl_beastmaster_s4",
       "name": "Fleet Foot",
-      "max": 3,
+      "max": 5,
+      "gate": 12,
       "stat": "moveSpeed",
       "per": 2,
       "text": "+{v}% move speed"
      },
      {
-      "id": "gs_quick",
-      "name": "Quick Draw",
-      "max": 3,
-      "stat": "atkSpeed",
-      "per": 2,
-      "text": "+{v}% attack speed"
+      "id": "gl_beastmaster_cap",
+      "name": "Alpha",
+      "max": 1,
+      "gate": 20,
+      "notable": true,
+      "capstone": true,
+      "text": "Summons deal 60% more damage.",
+      "mod": {
+       "tag": "summon",
+       "mul": {
+        "power": 1.6
+       }
+      }
      },
      {
-      "id": "gs_calm",
-      "name": "Calm Mind",
-      "max": 3,
-      "stat": "resRegen",
-      "per": 1,
-      "text": "+{v} Focus per second"
-     },
-     {
-      "id": "gs_pack",
-      "name": "Pack Leader",
-      "max": 3,
-      "stat": "tag:summon",
-      "per": 8,
-      "text": "+{v}% summon damage"
+      "id": "gl_beastmaster_s5",
+      "name": "Shared Blood",
+      "max": 5,
+      "gate": 20,
+      "stat": "regenPct",
+      "per": 0.2,
+      "text": "regenerate {v}% life per second"
      }
     ]
    }
   ],
   "stormcaller": [
    {
+    "id": "tempest",
     "name": "Tempest",
     "color": "#5fb0ff",
+    "desc": "Lightning: more jumps, harder strikes.",
     "nodes": [
      {
-      "id": "sc_charge",
+      "id": "st_tempest_s1",
       "name": "Charged",
-      "max": 3,
-      "stat": "dmgPct",
-      "per": 3,
-      "text": "+{v}% damage"
-     },
-     {
-      "id": "sc_volt",
-      "name": "High Voltage",
-      "max": 3,
+      "max": 5,
+      "gate": 0,
       "stat": "tag:lightning",
       "per": 6,
       "text": "+{v}% lightning damage"
      },
      {
-      "id": "sc_arc",
-      "name": "Arc Surge",
-      "max": 3,
+      "id": "st_tempest_s2",
+      "name": "Static Mind",
+      "max": 5,
+      "gate": 0,
+      "stat": "critChance",
+      "per": 1,
+      "text": "+{v}% crit chance"
+     },
+     {
+      "id": "st_tempest_n1",
+      "name": "Arc",
+      "max": 1,
+      "gate": 6,
+      "notable": true,
+      "capstone": false,
+      "text": "Lightning skills jump to 1 more enemy.",
+      "mod": {
+       "tag": "lightning",
+       "add": {
+        "chain": 1
+       }
+      }
+     },
+     {
+      "id": "st_tempest_s3",
+      "name": "Quickening",
+      "max": 5,
+      "gate": 6,
+      "stat": "atkSpeed",
+      "per": 2,
+      "text": "+{v}% attack speed"
+     },
+     {
+      "id": "st_tempest_n2",
+      "name": "Overload",
+      "max": 1,
+      "gate": 12,
+      "notable": true,
+      "capstone": false,
+      "text": "Lightning hits make enemies take 10% more damage.",
+      "mod": {
+       "tag": "lightning",
+       "set": {
+        "vulnOnHit": 10
+       }
+      }
+     },
+     {
+      "id": "st_tempest_s4",
+      "name": "Overcharge",
+      "max": 5,
+      "gate": 12,
+      "stat": "dmgPct",
+      "per": 3,
+      "text": "+{v}% damage"
+     },
+     {
+      "id": "st_tempest_cap",
+      "name": "Thunderlord",
+      "max": 1,
+      "gate": 20,
+      "notable": true,
+      "capstone": true,
+      "text": "Lightning skills deal 50% more damage.",
+      "mod": {
+       "tag": "lightning",
+       "mul": {
+        "power": 1.5
+       }
+      }
+     },
+     {
+      "id": "st_tempest_s5",
+      "name": "Ion Edge",
+      "max": 5,
+      "gate": 20,
       "stat": "critDmg",
       "per": 8,
       "text": "+{v}% crit damage"
-     },
-     {
-      "id": "sc_storm",
-      "name": "Eye of the Storm",
-      "max": 3,
-      "stat": "areaPct",
-      "per": 6,
-      "text": "+{v}% area of effect"
      }
     ]
    },
    {
-    "name": "Ward",
-    "color": "#c9b8ff",
+    "id": "arcanist",
+    "name": "Arcanist",
+    "color": "#c06aff",
+    "desc": "Arcane: cheaper, bigger, stronger spells.",
     "nodes": [
      {
-      "id": "sc_ward",
-      "name": "Runeward",
-      "max": 3,
-      "stat": "armorPct",
-      "per": 6,
-      "text": "+{v}% armour"
-     },
-     {
-      "id": "sc_vigor",
-      "name": "Vigour",
-      "max": 3,
-      "stat": "hpPct",
-      "per": 4,
-      "text": "+{v}% life"
-     },
-     {
-      "id": "sc_shell",
-      "name": "Static Shell",
-      "max": 3,
-      "stat": "takenPct",
-      "per": 2,
-      "text": "-{v}% damage taken"
-     },
-     {
-      "id": "sc_arcane",
-      "name": "Arcane Lore",
-      "max": 3,
+      "id": "st_arcanist_s1",
+      "name": "Arcane Mind",
+      "max": 5,
+      "gate": 0,
       "stat": "tag:arcane",
       "per": 6,
       "text": "+{v}% arcane damage"
+     },
+     {
+      "id": "st_arcanist_s2",
+      "name": "Thrift",
+      "max": 5,
+      "gate": 0,
+      "stat": "costRed",
+      "per": 3,
+      "text": "-{v}% resource costs"
+     },
+     {
+      "id": "st_arcanist_n1",
+      "name": "Focus",
+      "max": 1,
+      "gate": 6,
+      "notable": true,
+      "capstone": false,
+      "text": "Arcane skills cost 20% less.",
+      "mod": {
+       "tag": "arcane",
+       "mul": {
+        "cost": 0.8
+       }
+      }
+     },
+     {
+      "id": "st_arcanist_s3",
+      "name": "Deep Well",
+      "max": 5,
+      "gate": 6,
+      "stat": "resMax",
+      "per": 6,
+      "text": "+{v} max resource"
+     },
+     {
+      "id": "st_arcanist_n2",
+      "name": "Orbit",
+      "max": 1,
+      "gate": 12,
+      "notable": true,
+      "capstone": false,
+      "text": "Arcane skills are 25% larger.",
+      "mod": {
+       "tag": "arcane",
+       "mul": {
+        "radius": 1.25
+       }
+      }
+     },
+     {
+      "id": "st_arcanist_s4",
+      "name": "Flow",
+      "max": 5,
+      "gate": 12,
+      "stat": "resRegen",
+      "per": 1,
+      "text": "+{v} resource per second"
+     },
+     {
+      "id": "st_arcanist_cap",
+      "name": "Archmage",
+      "max": 1,
+      "gate": 20,
+      "notable": true,
+      "capstone": true,
+      "text": "Arcane skills deal 50% more damage.",
+      "mod": {
+       "tag": "arcane",
+       "mul": {
+        "power": 1.5
+       }
+      }
+     },
+     {
+      "id": "st_arcanist_s5",
+      "name": "Spellblade",
+      "max": 5,
+      "gate": 20,
+      "stat": "dmgPct",
+      "per": 3,
+      "text": "+{v}% damage"
      }
     ]
    },
    {
-    "name": "Flow",
-    "color": "#ffd23f",
+    "id": "chronomancer",
+    "name": "Chronomancer",
+    "color": "#a8e4ff",
+    "desc": "Time: faster cooldowns, shields and a rewind.",
     "nodes": [
      {
-      "id": "sc_wells",
-      "name": "Deep Wells",
-      "max": 3,
-      "stat": "resMax",
-      "per": 8,
-      "text": "+{v} max Mana"
-     },
-     {
-      "id": "sc_thrift",
-      "name": "Thrift",
-      "max": 3,
-      "stat": "costRed",
-      "per": 2,
-      "text": "-{v}% resource cost"
-     },
-     {
-      "id": "sc_haste",
-      "name": "Quickening",
-      "max": 3,
+      "id": "st_chronomancer_s1",
+      "name": "Haste",
+      "max": 5,
+      "gate": 0,
       "stat": "cdr",
       "per": 2,
       "text": "-{v}% cooldowns"
      },
      {
-      "id": "sc_glide",
-      "name": "Glide",
-      "max": 3,
+      "id": "st_chronomancer_s2",
+      "name": "Swift Step",
+      "max": 5,
+      "gate": 0,
       "stat": "moveSpeed",
       "per": 2,
       "text": "+{v}% move speed"
+     },
+     {
+      "id": "st_chronomancer_n1",
+      "name": "Blink Again",
+      "max": 1,
+      "gate": 6,
+      "notable": true,
+      "capstone": false,
+      "text": "Dash skills get 1 more charge.",
+      "mod": {
+       "tag": "dash",
+       "add": {
+        "charges": 1
+       }
+      }
+     },
+     {
+      "id": "st_chronomancer_s3",
+      "name": "Time Shell",
+      "max": 5,
+      "gate": 6,
+      "stat": "barrierPct",
+      "per": 3,
+      "text": "+{v}% life as barrier"
+     },
+     {
+      "id": "st_chronomancer_n2",
+      "name": "Stasis",
+      "max": 1,
+      "gate": 12,
+      "notable": true,
+      "capstone": false,
+      "text": "Take 20% less damage while a buff is active.",
+      "mod": {
+       "player": true,
+       "set": {
+        "buffDR": 0.2
+       }
+      }
+     },
+     {
+      "id": "st_chronomancer_s4",
+      "name": "Slow Time",
+      "max": 5,
+      "gate": 12,
+      "stat": "takenPct",
+      "per": 2,
+      "text": "-{v}% damage taken"
+     },
+     {
+      "id": "st_chronomancer_cap",
+      "name": "Rewind",
+      "max": 1,
+      "gate": 20,
+      "notable": true,
+      "capstone": true,
+      "text": "Once every 90 seconds, a killing blow rewinds you to full life.",
+      "mod": {
+       "player": true,
+       "set": {
+        "cheatDeath": 90
+       }
+      }
+     },
+     {
+      "id": "st_chronomancer_s5",
+      "name": "Echo",
+      "max": 5,
+      "gate": 20,
+      "stat": "atkSpeed",
+      "per": 2,
+      "text": "+{v}% attack speed"
      }
     ]
    }
   ],
   "bonewright": [
    {
-    "name": "Artifice",
-    "color": "#e8dcb0",
+    "id": "artificer",
+    "name": "Artificer",
+    "color": "#d9d2b8",
+    "desc": "Constructs: more turrets, sturdier builds.",
     "nodes": [
      {
-      "id": "bw_craft",
-      "name": "Fine Craft",
-      "max": 3,
-      "stat": "dmgPct",
-      "per": 3,
-      "text": "+{v}% damage"
+      "id": "bo_artificer_s1",
+      "name": "Blueprints",
+      "max": 5,
+      "gate": 0,
+      "stat": "tag:construct",
+      "per": 6,
+      "text": "+{v}% construct damage"
      },
      {
-      "id": "bw_minion",
-      "name": "Loyal Works",
-      "max": 3,
-      "stat": "tag:summon",
-      "per": 8,
-      "text": "+{v}% summon damage"
-     },
-     {
-      "id": "bw_crit",
-      "name": "Weak Points",
-      "max": 3,
-      "stat": "critChance",
-      "per": 1,
-      "text": "+{v}% crit chance"
-     },
-     {
-      "id": "bw_quake",
-      "name": "Heavy Frames",
-      "max": 3,
+      "id": "bo_artificer_s2",
+      "name": "Wide Reach",
+      "max": 5,
+      "gate": 0,
       "stat": "areaPct",
-      "per": 6,
+      "per": 5,
       "text": "+{v}% area of effect"
-     }
-    ]
-   },
-   {
-    "name": "Ossuary",
-    "color": "#c9b8ff",
-    "nodes": [
-     {
-      "id": "bw_plate",
-      "name": "Bone Plate",
-      "max": 3,
-      "stat": "armorPct",
-      "per": 6,
-      "text": "+{v}% armour"
      },
      {
-      "id": "bw_marrow",
-      "name": "Marrow Deep",
-      "max": 3,
-      "stat": "hpPct",
-      "per": 4,
-      "text": "+{v}% life"
+      "id": "bo_artificer_n1",
+      "name": "Spare Parts",
+      "max": 1,
+      "gate": 6,
+      "notable": true,
+      "capstone": false,
+      "text": "You can keep 1 more of each construct.",
+      "mod": {
+       "tag": "construct",
+       "add": {
+        "count": 1
+       }
+      }
      },
      {
-      "id": "bw_brace",
-      "name": "Braced",
-      "max": 3,
-      "stat": "takenPct",
-      "per": 2,
-      "text": "-{v}% damage taken"
-     },
-     {
-      "id": "bw_knit",
-      "name": "Knit Bone",
-      "max": 3,
-      "stat": "regenPct",
-      "per": 0.3,
-      "text": "{v}% life regen per second"
-     }
-    ]
-   },
-   {
-    "name": "Workshop",
-    "color": "#ffd23f",
-    "nodes": [
-     {
-      "id": "bw_gears",
-      "name": "Oiled Gears",
-      "max": 3,
-      "stat": "atkSpeed",
-      "per": 2,
-      "text": "+{v}% attack speed"
-     },
-     {
-      "id": "bw_supply",
-      "name": "Supply Lines",
-      "max": 3,
-      "stat": "resRegen",
-      "per": 1,
-      "text": "+{v} Marrow per second"
-     },
-     {
-      "id": "bw_tools",
-      "name": "Spare Tools",
-      "max": 3,
+      "id": "bo_artificer_s3",
+      "name": "Quick Build",
+      "max": 5,
+      "gate": 6,
       "stat": "cdr",
       "per": 2,
       "text": "-{v}% cooldowns"
      },
      {
-      "id": "bw_boss",
-      "name": "Siegebreaker",
-      "max": 3,
-      "stat": "eliteDmg",
-      "per": 5,
-      "text": "+{v}% damage to elites and bosses"
+      "id": "bo_artificer_n2",
+      "name": "Reinforced",
+      "max": 1,
+      "gate": 12,
+      "notable": true,
+      "capstone": false,
+      "text": "Constructs last 50% longer.",
+      "mod": {
+       "tag": "construct",
+       "mul": {
+        "duration": 1.5
+       }
+      }
+     },
+     {
+      "id": "bo_artificer_s4",
+      "name": "Fine Tuning",
+      "max": 5,
+      "gate": 12,
+      "stat": "dmgPct",
+      "per": 3,
+      "text": "+{v}% damage"
+     },
+     {
+      "id": "bo_artificer_cap",
+      "name": "Masterwork",
+      "max": 1,
+      "gate": 20,
+      "notable": true,
+      "capstone": true,
+      "text": "Constructs deal 50% more damage.",
+      "mod": {
+       "tag": "construct",
+       "mul": {
+        "power": 1.5
+       }
+      }
+     },
+     {
+      "id": "bo_artificer_s5",
+      "name": "Overclock",
+      "max": 5,
+      "gate": 20,
+      "stat": "atkSpeed",
+      "per": 2,
+      "text": "+{v}% attack speed"
+     }
+    ]
+   },
+   {
+    "id": "juggernaut",
+    "name": "Juggernaut",
+    "color": "#9aa4ad",
+    "desc": "The Colossus and the mallet: big, tough, heavy.",
+    "nodes": [
+     {
+      "id": "bo_juggernaut_s1",
+      "name": "Heavy Frame",
+      "max": 5,
+      "gate": 0,
+      "stat": "tag:melee",
+      "per": 6,
+      "text": "+{v}% melee damage"
+     },
+     {
+      "id": "bo_juggernaut_s2",
+      "name": "Bone Mass",
+      "max": 5,
+      "gate": 0,
+      "stat": "hpPct",
+      "per": 4,
+      "text": "+{v}% life"
+     },
+     {
+      "id": "bo_juggernaut_n1",
+      "name": "Colossal",
+      "max": 1,
+      "gate": 6,
+      "notable": true,
+      "capstone": false,
+      "text": "The Colossus lasts 30% longer.",
+      "mod": {
+       "tag": "colossus",
+       "mul": {
+        "duration": 1.3
+       }
+      }
+     },
+     {
+      "id": "bo_juggernaut_s3",
+      "name": "Plating",
+      "max": 5,
+      "gate": 6,
+      "stat": "armorPct",
+      "per": 6,
+      "text": "+{v}% armour"
+     },
+     {
+      "id": "bo_juggernaut_n2",
+      "name": "Heavy Hands",
+      "max": 1,
+      "gate": 12,
+      "notable": true,
+      "capstone": false,
+      "text": "Melee hits knock back 50% further and heal 0.5% of max life.",
+      "mod": {
+       "tag": "melee",
+       "mul": {
+        "knockback": 1.5
+       },
+       "set": {
+        "healPerHit": 0.005
+       }
+      }
+     },
+     {
+      "id": "bo_juggernaut_s4",
+      "name": "Stubborn",
+      "max": 5,
+      "gate": 12,
+      "stat": "takenPct",
+      "per": 2,
+      "text": "-{v}% damage taken"
+     },
+     {
+      "id": "bo_juggernaut_cap",
+      "name": "Titan",
+      "max": 1,
+      "gate": 20,
+      "notable": true,
+      "capstone": true,
+      "text": "The Colossus deals 50% more damage.",
+      "mod": {
+       "tag": "colossus",
+       "mul": {
+        "power": 1.5
+       }
+      }
+     },
+     {
+      "id": "bo_juggernaut_s5",
+      "name": "Bulk",
+      "max": 5,
+      "gate": 20,
+      "stat": "blockChance",
+      "per": 2,
+      "text": "+{v}% block chance"
+     }
+    ]
+   },
+   {
+    "id": "scrapper",
+    "name": "Scrapper",
+    "color": "#e8a05a",
+    "desc": "Shrapnel and salvage: physical hits that pay you back.",
+    "nodes": [
+     {
+      "id": "bo_scrapper_s1",
+      "name": "Jagged",
+      "max": 5,
+      "gate": 0,
+      "stat": "tag:physical",
+      "per": 6,
+      "text": "+{v}% physical damage"
+     },
+     {
+      "id": "bo_scrapper_s2",
+      "name": "Weak Points",
+      "max": 5,
+      "gate": 0,
+      "stat": "critChance",
+      "per": 1,
+      "text": "+{v}% crit chance"
+     },
+     {
+      "id": "bo_scrapper_n1",
+      "name": "Shrapnel",
+      "max": 1,
+      "gate": 6,
+      "notable": true,
+      "capstone": false,
+      "text": "Area skills are 20% larger.",
+      "mod": {
+       "tag": "aoe",
+       "mul": {
+        "radius": 1.2
+       }
+      }
+     },
+     {
+      "id": "bo_scrapper_s3",
+      "name": "Rapid Fire",
+      "max": 5,
+      "gate": 6,
+      "stat": "atkSpeed",
+      "per": 2,
+      "text": "+{v}% attack speed"
+     },
+     {
+      "id": "bo_scrapper_n2",
+      "name": "Recycler",
+      "max": 1,
+      "gate": 12,
+      "notable": true,
+      "capstone": false,
+      "text": "Kills refund 10% of your cooldowns.",
+      "mod": {
+       "tag": "any",
+       "set": {
+        "refundOnKill": 0.1
+       }
+      }
+     },
+     {
+      "id": "bo_scrapper_s4",
+      "name": "Salvage",
+      "max": 5,
+      "gate": 12,
+      "stat": "lifeOnHit",
+      "per": 2,
+      "text": "+{v} life per hit"
+     },
+     {
+      "id": "bo_scrapper_cap",
+      "name": "Scrap Storm",
+      "max": 1,
+      "gate": 20,
+      "notable": true,
+      "capstone": true,
+      "text": "Physical skills deal 40% more damage.",
+      "mod": {
+       "tag": "physical",
+       "mul": {
+        "power": 1.4
+       }
+      }
+     },
+     {
+      "id": "bo_scrapper_s5",
+      "name": "Cruel Edges",
+      "max": 5,
+      "gate": 20,
+      "stat": "critDmg",
+      "per": 8,
+      "text": "+{v}% crit damage"
      }
     ]
    }

@@ -123,9 +123,10 @@ export function gemVals(id: string, level: number): [number, number] {
 }
 export const gemText = (id: string, level: number) => { const [a, b] = gemVals(id, level); return GEM[id]?.text.replace("{a}", String(a)).replace("{b}", String(b)) ?? ""; };
 // ------------------------------------------------------------------ talents (points from Trials)
-export interface TalentNode { id: string; name: string; max: number; stat: string; per: number; text: string }
-export interface TalentBranch { name: string; color: string; nodes: TalentNode[] }
-export const TALENTS = talentsJson as { gate: number; note: string; classes: Record<string, TalentBranch[]> };
+export interface TalentNode { id: string; name: string; max: number; gate: number; stat?: string; per?: number; text: string; notable?: boolean; capstone?: boolean; mod?: ModDef }
+/** A subclass (Ascendancy style): pick one per character, then spend Trial points in its tree. */
+export interface Subclass { id: string; name: string; color: string; desc: string; nodes: TalentNode[] }
+export const TALENTS = talentsJson as unknown as { note: string; classes: Record<string, Subclass[]> };
 // ------------------------------------------------------------------ tier scaling (shared by the sim, the server and the menus)
 /** Abyssal tiers (16+): a 4th rift modifier, more elites, better ancestral and primal odds. */
 export const isAbyssal = (t: number) => t >= RIFT.tiers.abyssFrom;
@@ -185,35 +186,37 @@ export function passiveStats(cls: string, taken: string[] | undefined): { stats:
 /** The Trial level you face next: one past your best, up to the cap. */
 export const nextTrial = (best: number | undefined) => Math.min(RIFT.trial.maxLevel, (best ?? 0) + 1);
 export const talentSpent = (a: Record<string, number> | undefined) => Object.values(a ?? {}).reduce((x, y) => x + y, 0);
-/** One point per Trial level cleared in time. */
-export const talentPoints = (trialBest: number | undefined) => Math.max(0, Math.min(RIFT.trial.maxLevel, trialBest ?? 0));
-/** Can one more rank go into this node? Rows open at 0, 3, 6, 9 points spent in that branch. */
-export function talentCanAdd(cls: string, a: Record<string, number>, id: string, points: number): boolean {
-  for (const b of TALENTS.classes[cls] ?? []) {
-    const j = b.nodes.findIndex((n) => n.id === id);
-    if (j < 0) continue;
-    const inBranch = b.nodes.reduce((x, n) => x + (a[n.id] ?? 0), 0);
-    return (a[id] ?? 0) < b.nodes[j].max && inBranch >= j * TALENTS.gate && talentSpent(a) < points;
-  }
-  return false;
+/** Talent progress: your best Trial, and (after a respec) the best Trial beaten since. */
+export interface TrialProgress { trialBest?: number; trialRe?: number }
+/** One point per Trial level beaten in time. After a respec, points come back by beating your best Trial again. */
+export const talentPoints = (c: TrialProgress) => Math.max(0, Math.min(RIFT.trial.maxLevel, c.trialRe ?? c.trialBest ?? 0));
+/** The Trial the portal opens: your best again while earning back a respec, otherwise one past it. */
+export const trialTarget = (c: TrialProgress) => ((c.trialRe ?? c.trialBest ?? 0) < (c.trialBest ?? 0) ? c.trialBest! : nextTrial(c.trialBest));
+/** A Trial beaten in time: a new best moves up by one; after a respec it earns the points back. */
+export function trialPassed(c: TrialProgress, tier: number) {
+  const best = c.trialBest ?? 0;
+  if (tier > best) c.trialBest = Math.min(tier, best + 1);
+  if (c.trialRe !== undefined) { c.trialRe = Math.min(c.trialBest ?? 0, Math.max(c.trialRe, tier)); if (c.trialRe >= (c.trialBest ?? 0)) delete c.trialRe; }
 }
-/** Can a rank come out of this node without stranding a higher row of its branch? */
-export function talentCanRemove(cls: string, a: Record<string, number>, id: string): boolean {
-  if (!(a[id] > 0)) return false;
-  for (const b of TALENTS.classes[cls] ?? []) {
-    if (!b.nodes.some((n) => n.id === id)) continue;
-    const b2 = { ...a, [id]: a[id] - 1 };
-    let run = 0;
-    for (let j = 0; j < b.nodes.length; j++) { if ((b2[b.nodes[j].id] ?? 0) > 0 && run < j * TALENTS.gate) return false; run += b2[b.nodes[j].id] ?? 0; }
-    return true;
-  }
-  return false;
+/** Respec: the tree empties and its points are gone until you beat your best Trial again. */
+export function talentRespec(c: TrialProgress & { talents?: Record<string, number> }) {
+  if (talentSpent(c.talents)) { c.talents = {}; if (c.trialBest) c.trialRe = 0; }
 }
-/** Talent totals by stat key for a class (ranks outside the tree are ignored). */
-export function talentStats(cls: string, a: Record<string, number> | undefined): Record<string, number> {
+export const subclassOf = (cls: string, sub: string | undefined) => (TALENTS.classes[cls] ?? []).find((s) => s.id === sub);
+/** Can one more rank go into this node? Nodes open as you spend in your subclass (0, 6, 12, 20 points). */
+export function talentCanAdd(cls: string, sub: string | undefined, a: Record<string, number>, id: string, points: number): boolean {
+  const S = subclassOf(cls, sub), n = S?.nodes.find((x) => x.id === id);
+  if (!S || !n) return false;
+  return (a[id] ?? 0) < n.max && talentSpent(a) >= n.gate && talentSpent(a) < points;
+}
+/** Talent totals by stat key, and the skill-changing notables, for your subclass (other ranks are ignored). */
+export function talentStats(cls: string, sub: string | undefined, a: Record<string, number> | undefined): Record<string, number> {
   const out: Record<string, number> = {};
-  for (const b of TALENTS.classes[cls] ?? []) for (const n of b.nodes) { const r = Math.min(n.max, a?.[n.id] ?? 0); if (r) out[n.stat] = (out[n.stat] ?? 0) + r * n.per; }
+  for (const n of subclassOf(cls, sub)?.nodes ?? []) { const r = Math.min(n.max, a?.[n.id] ?? 0); if (r && n.stat) out[n.stat] = (out[n.stat] ?? 0) + r * (n.per ?? 0); }
   return out;
+}
+export function talentMods(cls: string, sub: string | undefined, a: Record<string, number> | undefined): ModDef[] {
+  return (subclassOf(cls, sub)?.nodes ?? []).filter((n) => n.mod && (a?.[n.id] ?? 0) > 0).map((n) => n.mod!);
 }
 
 /** The highest level a gem can reach from a timed clear of this tier. */

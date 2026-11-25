@@ -5,7 +5,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { readFileSync } from "fs";
 import { KV, fileKV, fileProfileNames, upstashKV, writer } from "./store";
 import { WebSocketServer, WebSocket } from "ws";
-import { RIFT, nextTrial } from "../sim/data";
+import { RIFT, trialTarget } from "../sim/data";
 import { Affix, rerollOptions } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { PlayerSetup } from "../sim/sim";
@@ -169,7 +169,7 @@ wss.on("connection", (ws) => {
         const ch = char(p);
         const kind = m.kind === "chase" ? "chase" : m.kind === "endless" ? "endless" : m.kind === "bounty" ? "bounty" : m.kind === "trial" ? "trial" : m.kind === "vault" ? "vault" : "rift";
         let tier = Math.max(1, Math.min(m.tier | 0, ch.highestTier));
-        if (kind === "trial") tier = nextTrial(ch.trialBest);
+        if (kind === "trial") tier = trialTarget(ch);
         if (kind === "vault") { if ((ch.vaultKeys ?? 0) <= 0) return tx(c, { t: "runFail", reason: "No Gilded Key." }); ch.vaultKeys = (ch.vaultKeys ?? 0) - 1; putProfile(c.name, p); tier = ch.highestTier; } // always the next level up, never beyond
         const boss = kind === "chase" && m.boss === "seraph" ? "seraph" : "king";
         if (kind === "chase" && boss === "seraph") { if ((ch.feathers ?? 0) <= 0) return tx(c, { t: "runFail", reason: "No Pale Feather." }); ch.feathers = (ch.feathers ?? 0) - 1; putProfile(c.name, p); tier = Math.max(3, tier); }

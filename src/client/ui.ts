@@ -5,7 +5,7 @@ import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { drawFxPreview } from "./fxpreview";
-import { setComplete, setFound, PASSIVES, passiveCanAdd, passiveCanRemove, passiveNode, passiveStart, runeLevel, tierHpMult, lootChances, isAbyssal, TALENTS, talentCanAdd, talentCanRemove, talentPoints, talentSpent, nextTrial, SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { setComplete, setFound, PASSIVES, passiveCanAdd, passiveCanRemove, passiveNode, passiveStart, runeLevel, tierHpMult, lootChances, isAbyssal, TALENTS, talentCanAdd, talentPoints, subclassOf, trialTarget, talentSpent, nextTrial, SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { echoCost, BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -233,7 +233,12 @@ export class UI {
       this.root.querySelectorAll<HTMLElement>("[data-pass]").forEach((el) => el.onclick = () => { const [k, d] = el.dataset.pass!.split(":"); H.op?.({ t: "passive", id: k, d: +d }); re(); });
       const pr2 = this.root.querySelector<HTMLElement>("[data-pass-reset]"); if (pr2) pr2.onclick = () => { H.op?.({ t: "passive", reset: true }); this.psel = ""; re(); };
       this.root.querySelectorAll<HTMLElement>("[data-tal]").forEach((el) => el.onclick = () => { const [k, d] = el.dataset.tal!.split(":"); H.op?.({ t: "talent", id: k, d: +d }); re(); });
-      const tr = this.root.querySelector<HTMLElement>("[data-tal-reset]"); if (tr) tr.onclick = () => { H.op?.({ t: "talent", reset: true }); re(); };
+      const tr = this.root.querySelector<HTMLElement>("[data-tal-reset]"); if (tr) tr.onclick = () => { if (tr.dataset.sure !== "1") { tr.dataset.sure = "1"; tr.textContent = "Tap again: clear your talents"; return; } H.op?.({ t: "talent", reset: true }); re(); };
+      this.root.querySelectorAll<HTMLElement>("[data-tsub]").forEach((el) => el.onclick = () => {
+        const c0 = char(p);
+        if (c0.subclass && c0.subclass !== el.dataset.tsub && talentSpent(c0.talents) && el.dataset.sure !== "1") { el.dataset.sure = "1"; el.textContent = "Tap again: switch and clear talents"; return; }
+        H.op?.({ t: "talent", sub: el.dataset.tsub }); re();
+      });
       const pr = this.root.querySelector<HTMLElement>("[data-pg-reset]"); if (pr) pr.onclick = () => { H.op?.({ t: "paragon", reset: true }); re(); };
     }
     if (this.tab === "looks" || this.tab === "shop") this.bindLooks(p, H, re);
@@ -264,7 +269,7 @@ export class UI {
       <div class="dim small">Waves keep coming and get stronger, and faster quickly when you clear them fast. The party shares ${RIFT.endless.lives} lives. Loot comes at the end, more the further you get.</div>
       <button id="vault" class="vault" ${(c.vaultKeys ?? 0) > 0 ? "" : "disabled"}>Open the Gilded Vault (uses 1 Gilded Key · you have ${c.vaultKeys ?? 0})</button>
       <div class="dim small">Gilded Imps hide in some rifts from tier ${RIFT.imp.fromTier}. Catch one within ${RIFT.imp.escapeAfter}s of it spotting you for loot and a key. The Vault is ${RIFT.vault.timeLimit}s of treasure and pays ${RIFT.vault.chisels} Gilded Chisels.</div>
-      <button id="trial" class="trial">Trial ${nextTrial(c.trialBest)} · ${talentPoints(c.trialBest)}/${RIFT.trial.maxLevel} talent points earned</button>
+      <button id="trial" class="trial">Trial ${trialTarget(c)} · ${talentPoints(c)}/${RIFT.trial.maxLevel} talent points${c.trialRe !== undefined ? " · earning back a respec" : " earned"}</button>
       <div class="dim small">${esc(RIFT.trial.desc)} No loot: Trials pay in talent points, which you spend under Skills.</div>
       <button id="chase" class="chase" ${c.sigils > 0 ? "" : "disabled"}>Challenge the Ossuary King at T${Math.max(3, Math.min(t, c.highestTier))} (uses 1 Bone Sigil · you have ${c.sigils})</button>
       <div class="dim small">Bone Sigils drop from guardians at tier ${T.sigilFrom}+. The King is a 3-phase fight with a ${Math.round(RIFT.chase.mythicChance * 100)}% mythic chance.</div>
@@ -323,7 +328,7 @@ export class UI {
     $("#weekly").onclick = () => H.enter({ tier: WEEKLY_TIER, seed: null, kind: "rift", weekly: true });
     $("#endless").onclick = () => H.enter({ tier: this.tier, seed: null, kind: "endless" });
     $("#vault").onclick = () => H.enter({ tier: c.highestTier, seed: null, kind: "vault" });
-    $("#trial").onclick = () => H.enter({ tier: nextTrial(c.trialBest), seed: null, kind: "trial" });
+    $("#trial").onclick = () => H.enter({ tier: trialTarget(c), seed: null, kind: "trial" });
     $("#chase").onclick = () => H.enter({ tier: Math.max(3, Math.min(this.tier, c.highestTier)), seed: null, kind: "chase" });
     $("#seraph").onclick = () => H.enter({ tier: Math.max(3, Math.min(this.tier, c.highestTier)), seed: null, kind: "chase", boss: "seraph" });
   }
@@ -602,18 +607,25 @@ export class UI {
       ${sel.kind === "start" ? "" : taken.includes(sel.id) ? `<button data-pass="${sel.id}:-1" ${passiveCanRemove(c.cls, taken, sel.id) ? "" : "disabled"}>Refund</button>${passiveCanRemove(c.cls, taken, sel.id) ? "" : ` <span class="dim small">other nodes depend on it</span>`}` : `<button data-pass="${sel.id}:1" ${passiveCanAdd(c.cls, taken, sel.id, pts) ? "" : "disabled"}>Take (1 point)</button>${free <= 0 ? ` <span class="dim small">no points</span>` : !passiveCanAdd(c.cls, taken, sel.id, pts) ? ` <span class="dim small">take a linked node first</span>` : ""}`}</div>` : `<div class="dim small">Tap a node. Dashed big nodes are keystones that change how a skill works.</div>`;
     return `<div class="setting">${head}<svg class="ptree" viewBox="0 0 ${W} ${W}" width="100%">${lines}${nodes}</svg>${info}<div class="opts"><button data-pass-reset ${taken.length ? "" : "disabled"}>Refund all</button></div></div>`;
   }
-  /** Class talent tree: three branches, points from Trials. Rows open as you spend in a branch. */
+  /** Talents (Ascendancy style): pick a subclass, then spend Trial points in its tree. A respec clears the tree
+   *  and the points come back when you beat your best Trial again. */
   private talentsHtml(c: CharSave) {
-    const tree = TALENTS.classes[c.cls] ?? [], a = c.talents ?? {}, pts = talentPoints(c.trialBest), free = pts - talentSpent(a);
-    if (!pts) return `<div class="setting dim small">Talents: pass Trials (a portal in your hideout, or the Play tab) to earn talent points for your class tree.</div>`;
-    const br = (b: (typeof tree)[number]) => {
-      const spent = b.nodes.reduce((x, n) => x + (a[n.id] ?? 0), 0);
-      return `<div class="tal-br"><b style="color:${b.color}">${esc(b.name)}</b> <span class="dim small">${spent} spent</span>${b.nodes.map((n, j) => {
-        const r = a[n.id] ?? 0, open = spent - r >= j * TALENTS.gate || r > 0;
-        return `<div class="pg-row${open ? "" : " dim"}"><span><b>${esc(n.name)}</b> <span class="dim small">${r}/${n.max} · ${esc(n.text.replace("{v}", String(+(Math.max(1, r) * n.per).toFixed(1))))}${r ? "" : " per rank"}${open ? "" : ` · opens at ${j * TALENTS.gate} in ${esc(b.name)}`}</span></span><span class="opts"><button data-tal="${n.id}:-1" ${talentCanRemove(c.cls, a, n.id) ? "" : "disabled"}>−</button><button data-tal="${n.id}:1" ${talentCanAdd(c.cls, a, n.id, pts) ? "" : "disabled"}>+</button></span></div>`;
-      }).join("")}</div>`;
+    const subs = TALENTS.classes[c.cls] ?? [], a = c.talents ?? {}, pts = talentPoints(c), spent = talentSpent(a), free = pts - spent;
+    const S = subclassOf(c.cls, c.subclass);
+    const earnBack = c.trialRe !== undefined ? `<div class="warn-t small">Respecced: beat Trial ${c.trialBest} again to earn your ${c.trialBest} points back (${c.trialRe}/${c.trialBest} so far).</div>` : "";
+    const pick = (x: (typeof subs)[number]) => `<div class="sub-card" style="--c:${x.color}"><b style="color:${x.color}">${esc(x.name)}</b><div class="dim small">${esc(x.desc)}</div>
+      <div class="small">${x.nodes.filter((n) => n.notable).map((n) => `${n.capstone ? "★" : "◆"} <b>${esc(n.name)}</b>: ${esc(n.text)}`).join("<br>")}</div>
+      <button data-tsub="${x.id}" class="${c.subclass === x.id ? "on" : ""}">${c.subclass === x.id ? "Current" : S && spent ? "Switch (clears your talents)" : "Choose"}</button></div>`;
+    if (!S) return `<div class="setting"><b>Choose a subclass</b> <span class="dim small">${pts} talent point${pts === 1 ? "" : "s"} from Trials · you can switch later, but switching clears your talents and you earn the points back by beating your best Trial again</span>${earnBack}<div class="sub-cards">${subs.map(pick).join("")}</div></div>`;
+    const node = (n: (typeof S.nodes)[number]) => {
+      const r = a[n.id] ?? 0, open = spent >= n.gate, can = talentCanAdd(c.cls, c.subclass, a, n.id, pts);
+      const val = n.stat ? esc(n.text.replace("{v}", String(+(Math.max(1, r) * (n.per ?? 0)).toFixed(1)))) + (r ? "" : " per rank") : esc(n.text);
+      return `<div class="pg-row${open ? "" : " dim"}${n.notable ? " notable" : ""}"><span><b>${n.capstone ? "★ " : n.notable ? "◆ " : ""}${esc(n.name)}</b> <span class="dim small">${r}/${n.max} · ${val}${open ? "" : ` · opens at ${n.gate} spent`}</span></span><span class="opts"><button data-tal="${n.id}:1" ${can ? "" : "disabled"}>+</button></span></div>`;
     };
-    return `<div class="setting"><b>Talents</b> <span class="dim small">${free} of ${pts} point${pts === 1 ? "" : "s"} to spend · next from Trial ${nextTrial(c.trialBest)}</span>${tree.map(br).join("")}<div class="opts"><button data-tal-reset ${talentSpent(a) ? "" : "disabled"}>Refund all</button></div></div>`;
+    return `<div class="setting"><b style="color:${S.color}">${esc(S.name)}</b> <span class="dim small">${free} of ${pts} point${pts === 1 ? "" : "s"} to spend · ${pts ? "" : "pass Trials to earn points · "}next point from Trial ${trialTarget(c)}</span>${earnBack}
+      <div class="dim small">${esc(S.desc)}</div>${S.nodes.map(node).join("")}
+      <div class="opts"><button data-tal-reset class="warn" ${spent ? "" : "disabled"}>Respec (clears talents · beat Trial ${c.trialBest ?? 0} again for the points)</button></div>
+      <details class="small"><summary>Other subclasses</summary><div class="sub-cards">${subs.filter((x) => x.id !== S.id).map(pick).join("")}</div></details></div>`;
   }
   private paragonHtml(c: CharSave) {
     const L = RIFT.levels.max;

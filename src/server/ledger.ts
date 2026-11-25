@@ -1,6 +1,6 @@
 // Server-side item authority: minting drops for a run, and validating what a player brings back.
 // Pure functions (no I/O) so they can be unit tested.
-import { lootChances, chiselsForRun, coresForRun, trophiesForRun, dustForRun, aetherForFeats, aetherForRun, CLASSES, GEM, GEMS, gemCap, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
+import { trialPassed, lootChances, chiselsForRun, coresForRun, trophiesForRun, dustForRun, aetherForFeats, aetherForRun, CLASSES, GEM, GEMS, gemCap, RIFT, bumpLife, chapterKey, lifeStats, newChapters, newFeats, tierJump } from "../sim/data";
 import { Item, MintOpts, mintItem, noteFinds, scrapValue, shardValue } from "../sim/items";
 import { Rng, next } from "../sim/rng";
 import type { CharSave, Profile } from "../client/profile";
@@ -158,7 +158,7 @@ function countRun(p: Profile, c: CharSave, rep: SaveReport, m: RunMember, run: R
   p.journey = { season: p.season.n, stats: bumpLife(season, tally) };
   if (run.completed && run.kind === "chase") { if (run.boss === "seraph") c.seraphs = (c.seraphs ?? 0) + 1; else c.kings = (c.kings ?? 0) + 1; }
   if (wave > (c.bestWave ?? 0)) c.bestWave = wave;
-  if (run.kind === "trial" && run.completed && run.inTime && run.tier > (c.trialBest ?? 0)) c.trialBest = Math.min(run.tier, (c.trialBest ?? 0) + 1);
+  if (run.kind === "trial" && run.completed && run.inTime) trialPassed(c, run.tier);
   const fe = newFeats(p), ch = newChapters(p, p.journey.stats as any);
   const keys = [...fe.map((a) => a.id), ...ch.map(chapterKey)];
   if (keys.length) p.feats = [...(p.feats ?? []), ...keys];

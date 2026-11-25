@@ -4,6 +4,7 @@ import { applyHubOp } from "../src/shared/ops";
 import { RunInfo, RunMember, applySave, mintFor, sanitizeOpts } from "../src/server/ledger";
 import { computeStats, mintItem, resolveSkill, scrapValue } from "../src/sim/items";
 import { makeRng } from "../src/sim/rng";
+import { talentPoints, trialTarget } from "../src/sim/data";
 
 let fails = 0;
 const check = (name: string, cond: boolean) => { console.log(`${cond ? "ok  " : "FAIL"} ${name}`); if (!cond) fails++; };
@@ -201,23 +202,29 @@ const base = (p: ReturnType<typeof newProfile>) => { const c = p.chars.ashknight
   check("echo adds damage and life", b.dmgPct === b0.dmgPct + 7.5 && b.maxHp > b0.maxHp && a.maxHp === b0.maxHp);
 }
 
-{ // Trials and talents: a passed trial raises trialBest by one; points gate by branch rows; talents add stats
+{ // Trials and talents: a passed trial raises trialBest by one; pick a subclass; nodes open as you spend; a respec costs the points until you beat your best Trial again
   const p = newProfile(), c = p.chars.ashknight;
   applySave(p, "ashknight", base(p) as any, member(), { kind: "trial", tier: 1, completed: true, inTime: true, time: 80 }, 1);
-  check("trial 1 passed gives a point", c.trialBest === 1);
+  check("trial 1 passed gives a point", c.trialBest === 1 && talentPoints(c) === 1);
   applySave(p, "ashknight", base(p) as any, member(), { kind: "trial", tier: 2, completed: true, inTime: false, time: 120 }, 1);
   check("a late trial gives nothing", c.trialBest === 1);
-  check("can spend a row-1 point", applyHubOp(p, { t: "talent", id: "ak_kindle", d: 1 }) === true);
-  check("no points left", applyHubOp(p, { t: "talent", id: "ak_kindle", d: 1 }) === false);
+  check("no subclass: can't spend", applyHubOp(p, { t: "talent", id: "as_pyreblade_s1", d: 1 }) === false);
+  check("pick a subclass", applyHubOp(p, { t: "talent", sub: "pyreblade" }) === true && c.subclass === "pyreblade");
+  check("can spend a first-row point", applyHubOp(p, { t: "talent", id: "as_pyreblade_s1", d: 1 }) === true);
+  check("no points left", applyHubOp(p, { t: "talent", id: "as_pyreblade_s1", d: 1 }) === false);
+  check("no taking points back one by one", applyHubOp(p, { t: "talent", id: "as_pyreblade_s1", d: -1 }) === false);
   c.trialBest = 10;
-  check("row 2 is shut below 3 in branch", applyHubOp(p, { t: "talent", id: "ak_sear", d: 1 }) === false);
-  applyHubOp(p, { t: "talent", id: "ak_kindle", d: 1 }); applyHubOp(p, { t: "talent", id: "ak_kindle", d: 1 });
-  check("row 2 opens at 3", applyHubOp(p, { t: "talent", id: "ak_sear", d: 1 }) === true);
-  check("can't strand row 2", applyHubOp(p, { t: "talent", id: "ak_kindle", d: -1 }) === false);
-  check("other class's node refused", applyHubOp(p, { t: "talent", id: "gs_aim", d: 1 }) === false);
-  const s0 = computeStats({}, { cls: "ashknight", level: 30 }), s1 = computeStats({}, { cls: "ashknight", level: 30, talents: c.talents });
-  check("talents add stats", s1.dmgPct === s0.dmgPct + 9 && (s1.tagDmg.fire ?? 0) === (s0.tagDmg.fire ?? 0) + 6);
-  check("refund all", applyHubOp(p, { t: "talent", reset: true }) === true && !Object.keys(c.talents ?? {}).length);
+  check("notable shut below 6 spent", applyHubOp(p, { t: "talent", id: "as_pyreblade_n1", d: 1 }) === false);
+  for (let i = 0; i < 4; i++) applyHubOp(p, { t: "talent", id: "as_pyreblade_s1", d: 1 });
+  applyHubOp(p, { t: "talent", id: "as_pyreblade_s2", d: 1 });
+  check("notable opens at 6", applyHubOp(p, { t: "talent", id: "as_pyreblade_n1", d: 1 }) === true);
+  check("other subclass's node refused", applyHubOp(p, { t: "talent", id: "as_bastion_s1", d: 1 }) === false);
+  const s0 = computeStats({}, { cls: "ashknight", level: 30 }), s1 = computeStats({}, { cls: "ashknight", level: 30, talents: c.talents, subclass: c.subclass });
+  check("talents add stats and the notable's mod", (s1.tagDmg.fire ?? 0) === (s0.tagDmg.fire ?? 0) + 30 && s1.mods.some((m) => m.set?.igniteMult === 0.6));
+  check("switching subclass clears the tree and costs the points", applyHubOp(p, { t: "talent", sub: "bastion" }) === true && !Object.keys(c.talents ?? {}).length && talentPoints(c) === 0 && c.trialRe === 0);
+  check("the portal offers your best Trial again", trialTarget(c) === 10);
+  applySave(p, "ashknight", base(p) as any, member(), { kind: "trial", tier: 10, completed: true, inTime: true, time: 100 }, 1);
+  check("beating it again brings all the points back", talentPoints(c) === 10 && c.trialRe === undefined && trialTarget(c) === 11);
 }
 
 { // Gilded Vault: pays chisels; a chisel adds an affix or re-rolls two, the same on client and server, once per item

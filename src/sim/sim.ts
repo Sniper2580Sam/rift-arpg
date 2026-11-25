@@ -36,6 +36,7 @@ export interface PlayerSetup {
   relics?: string[];
   /** talent ranks (node id -> rank), points come from Trials */
   talents?: Record<string, number>;
+  subclass?: string;
   /** passive tree nodes taken (points from Paragon levels) */
   passives?: string[];
   /** cosmetics: visual only, never read by the sim */
@@ -50,7 +51,7 @@ export interface Player extends Holder {
   skills: string[]; cds: Num; charges: Num; chargeT: Num; swingT: number; swingCount: number;
   dashT: number; dashDx: number; dashDy: number; dashHit: number[]; dashSkill: string; trailT: number;
   paragon: number; pxp: number; pAlloc: Partial<Record<ParagonStat, number>>;
-  gems: Record<string, number>; gemSlots: string[]; relics: string[]; talents: Record<string, number>; passives: string[];
+  gems: Record<string, number>; gemSlots: string[]; relics: string[]; talents: Record<string, number>; subclass?: string; passives: string[];
   /** life-on-hit healed in the current second (capped, so many-hit skills can't out-heal everything) */
   leech: number;
   invuln: number; deaths?: number; chillT?: number; thornT?: number; dead: boolean; deadT: number; /** revive progress from a nearby ally (seconds) */ reviveT?: number; /** a self-buff skill that is running (visual only) */ aura?: string; auraT?: number; /** recent hits for the death recap */ dmgLog?: { src: string; amt: number; t: number }[]; buff: Buff; boons: string[]; cheatT: number; /** barrier (overshield) left, and seconds since the last hit */ barrier?: number; hurtT?: number;
@@ -293,7 +294,7 @@ export function addPlayer(s: SimState, ps: PlayerSetup): Player {
   const cls = ps.cls;
   const p: Player = {
     paragon: ps.paragon ?? 0, pxp: ps.pxp ?? 0, pAlloc: { ...(ps.pAlloc ?? {}) },
-    relics: (ps.relics ?? []).slice(0, 3), talents: { ...(ps.talents ?? {}) }, passives: [...(ps.passives ?? [])], gems: { ...(ps.gems ?? {}) }, gemSlots: (ps.gemSlots ?? []).filter((g) => ps.gems?.[g] && GEM[g]).slice(0, GEMS.slots),
+    relics: (ps.relics ?? []).slice(0, 3), talents: { ...(ps.talents ?? {}) }, subclass: ps.subclass, passives: [...(ps.passives ?? [])], gems: { ...(ps.gems ?? {}) }, gemSlots: (ps.gemSlots ?? []).filter((g) => ps.gems?.[g] && GEM[g]).slice(0, GEMS.slots),
     pid: ps.pid, name: ps.name, cls, level: ps.level, xp: ps.xp, sigils: ps.sigils, feathers: ps.feathers ?? 0, vaultKeys: ps.vaultKeys ?? 0, runes: { ...ps.runes }, pet: ps.pet, filter: ps.filter, cos: { ...ps.cos },
     equipment: clone(ps.equipment), bag: clone(ps.bag), materials: ps.materials, shards: ps.shards ?? 0, slotPlus: { ...(ps.slotPlus ?? {}) }, slotCrit: { ...(ps.slotCrit ?? {}) },
     x: s.startX + (s.players.length % 2) * 12 - 6, y: s.startY + Math.floor(s.players.length / 2) * 12, px: 0, py: 0, r: 5, hp: 1, fx: 1, fy: 0, moving: false, walk: 0,
@@ -320,7 +321,7 @@ export function refreshAll(s: SimState) {
 }
 function refreshPlayer(s: SimState, p: Player, minEff: number) {
   const ratio = p.stats ? p.hp / p.stats.maxHp : 1;
-  p.stats = computeStats(p.equipment, { cls: p.cls, level: p.level, effLevel: Math.max(p.level, minEff), paragon: p.pAlloc, gems: Object.fromEntries(p.gemSlots.map((g) => [g, p.gems[g] ?? 1])), relics: p.relics, talents: p.talents, passives: p.passives, boons: p.boons, riftMods: s.rift.mods, slotPlus: p.slotPlus, slotCrit: p.slotCrit });
+  p.stats = computeStats(p.equipment, { cls: p.cls, level: p.level, effLevel: Math.max(p.level, minEff), paragon: p.pAlloc, gems: Object.fromEntries(p.gemSlots.map((g) => [g, p.gems[g] ?? 1])), relics: p.relics, talents: p.talents, subclass: p.subclass, passives: p.passives, boons: p.boons, riftMods: s.rift.mods, slotPlus: p.slotPlus, slotCrit: p.slotCrit });
   p.sk = {};
   for (const id of p.skills) p.sk[id] = resolveSkill(id, p.runes[id], p.stats);
   if (!p.dead) p.hp = Math.max(1, Math.min(p.stats.maxHp, p.stats.maxHp * ratio));
