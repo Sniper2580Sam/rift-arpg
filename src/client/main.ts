@@ -1,5 +1,5 @@
 // Client: fixed-step loop around the pure sim, code-drawn pixel renderer, game feel, HUD, hub flow.
-import { runeLevel, chiselsForRun, nextTrial, talentPoints, talentSpent, paragonSpent, trialPassed, trialTarget, coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SET, SKILL, xpForLevel } from "../sim/data";
+import { isAbyssal, runeLevel, chiselsForRun, nextTrial, talentPoints, talentSpent, paragonSpent, trialPassed, trialTarget, coresForRun, trophiesForRun, dustForRun, SHOP, aetherForFeats, aetherForRun, GEM, RunTally, bumpLife, SEASON_JOURNEY, chapterKey, newChapters, lifeStats, newFeats, rewardName, CLASSES, ENEMIES, HIDEOUT, guardianDef, paragonXp, HideoutSpot, MAP, MODIFIER, RIFT, hideoutTheme, ownsKey, tierJump, VFX, VfxStyle, Rarity, SET, SKILL, xpForLevel } from "../sim/data";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { InvCmd, Item, applyInvCmd, noteFinds, rerollCost } from "../sim/items";
 import { DT, Enemy, HostCmd, NO_INPUT, Player, PlayerCmd, PlayerInput, SimConfig, SimEvent, SimState, applyPlayerCmd, createSim, skillReady, stateHash, step, rollModifiers, resMax, RunKind, ChaseBoss, endlessLivesLeft } from "../sim/sim";
@@ -11,7 +11,7 @@ import { driveQueue, driveRecheck, startDrive } from "./gdrive";
 import { HubOp, applyHubOp } from "../shared/ops";
 import { RARITY_COLOR, Sprite, buildSprites, renderMap } from "./sprites";
 import { allSpots, decorIcon, labels as hideLabels, drawDecor, drawPortal, drawShowcase, drawStation, drawThemeAir, drawThemeFloor, spotPos } from "./hideout";
-import { UI, fmtTime, modsLine, GearSub, SkillSub } from "./ui";
+import { UI, fmtTime, modsLine, GearSub, SkillSub, HubHandlers } from "./ui";
 import { Online, onlineAvailable, signIn, signOut } from "./net";
 import { Direct } from "./direct";
 
@@ -172,7 +172,7 @@ function hideoutButtons() {
   root.className = "hudbtns";
   const n = hideNear;
   const guest = coop?.role === "guest";
-  const act = !n ? "" : n.kind ? `<button id="h-act" class="h-act">${guest ? `${esc(n.name)} · host opens` : `Enter ${esc(n.name)}${n.kind === "chase" ? ` (${n.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`})` : n.kind === "trial" ? ` ${trialTarget(char(profile))}` : n.kind === "vault" ? ` (${char(profile).vaultKeys ?? 0} keys)` : n.kind === "rift" || n.kind === "endless" ? ` · T${ui.tier}` : ""}`}</button>` : `<button id="h-act" class="h-act">${esc(n.name)}</button>`;
+  const act = !n ? "" : n.kind ? `<button id="h-act" class="h-act">${guest ? `${esc(n.name)} · host opens` : `Enter ${esc(n.name)}${n.kind === "chase" ? ` (${n.id === "seraph" ? `${char(profile).feathers ?? 0} feathers` : `${char(profile).sigils} sigils`})` : n.kind === "trial" ? ` ${trialTarget(char(profile))}` : n.kind === "vault" ? ` (${char(profile).vaultKeys ?? 0} keys)` : n.kind === "rift" || n.kind === "endless" ? ` · T${curTier()}` : ""}`}</button>` : `<button id="h-act" class="h-act">${esc(n.name)}</button>`;
   root.innerHTML = `${act}<button id="h-menu">Menu</button>${guest ? `<button id="h-leave">Leave room</button>` : ""}`;
   const a = document.getElementById("h-act"); if (a) a.onclick = () => useSpot(n!);
   document.getElementById("h-menu")!.onclick = () => openMenu();
@@ -182,23 +182,28 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 /** Unspent points shown under the hideout's talent and passive-tree stations. */
 function stationNote(id: string): string {
   const c = char(profile);
+  if (id === "difficulty") return `Tier ${curTier()}${isAbyssal(curTier()) ? " · Abyssal" : ""}`;
   if (id === "altar") { const f = talentPoints(c) - talentSpent(c.talents); return !c.subclass && talentPoints(c) ? "pick a subclass" : f > 0 ? `${f} point${f === 1 ? "" : "s"} to spend` : ""; }
   if (id === "starchart") { const f = (c.paragon ?? 0) - (c.passives?.length ?? 0) + ((c.paragon ?? 0) - paragonSpent(c.pAlloc ?? {})); return f > 0 ? `${f} point${f === 1 ? "" : "s"} to spend` : ""; }
   return "";
 }
 /** Bosses use the tier picked on the Play tab (at least 3, at most your highest). */
-const bossTier = () => Math.max(3, Math.min(ui.tier, char(profile).highestTier));
+/** The difficulty picked at the Difficulty Obelisk (or on the Play tab), saved on the character. */
+const curTier = () => { const c = char(profile); return Math.max(1, Math.min(c.tier ?? c.highestTier, c.highestTier)); };
+/** Bosses use the picked tier, at least 3. */
+const bossTier = () => Math.max(3, curTier());
 function useSpot(n: HideoutSpot) {
   if (n.kind) {
     const c = char(profile);
     if (n.kind === "chase" && n.id === "seraph") { if ((c.feathers ?? 0) <= 0) { ui.toast(`You need a Pale Feather (the King leaves one, and guardians drop them at tier ${RIFT.seraph.featherFrom}+).`, "#bfe8ff"); return; } startRun({ tier: bossTier(), seed: null, kind: "chase", boss: "seraph" }); }
     else if (n.kind === "chase") { if (c.sigils <= 0) { ui.toast("You need a Bone Sigil (they drop from guardians at tier 3+).", "#ffd23f"); return; } startRun({ tier: bossTier(), seed: null, kind: "chase" }); }
-    else if (n.kind === "vault") { if ((c.vaultKeys ?? 0) <= 0) { ui.toast("You need a Gilded Key: catch a Gilded Imp in a rift (tier 2+) before it escapes.", "#ffd23f"); return; } startRun({ tier: c.highestTier, seed: null, kind: "vault" }); }
+    else if (n.kind === "vault") { if ((c.vaultKeys ?? 0) <= 0) { ui.toast("You need a Gilded Key: catch a Gilded Imp in a rift (tier 2+) before it escapes.", "#ffd23f"); return; } startRun({ tier: curTier(), seed: null, kind: "vault" }); }
     else if (n.kind === "trial") startRun({ tier: trialTarget(c), seed: null, kind: "trial" });
-    else startRun({ tier: Math.min(Math.max(1, ui.tier), c.highestTier), seed: null, kind: n.kind as RunKind });
+    else startRun({ tier: curTier(), seed: null, kind: n.kind as RunKind });
     return;
   }
   if (n.tab === "decorate") return startDecorating();
+  if (n.tab === "difficulty") { menuOpen = true; if (sim) pause(); ui.showDifficulty(profile, hubHandlers(), () => { menuOpen = false; ui.hide(); resume(); hideoutButtons(); }); return; }
   // each workstation opens its own sub-tab (Blacksmith -> rerolls and upgrades, Jeweler -> gems, ...)
   if (n.sub && n.tab === "gear") ui.gearSub = n.sub as GearSub;
   if (n.sub && n.tab === "skills") ui.skillSub = n.sub as SkillSub;
@@ -478,7 +483,10 @@ function readInput(): PlayerInput {
 function goHub() { if (checkFeats()) saveProfile(profile); enterHideout(); }
 function showMenu() {
   if (!sim) { mode = "hub"; screen = "hub"; }
-  ui.showHub(profile, {
+  ui.showHub(profile, hubHandlers());
+}
+function hubHandlers(): HubHandlers {
+  return {
     close: sim ? closeMenu : undefined,
     enter: startRun,
     invCmd: (cmd) => hubOp({ t: "inv", cmd }),
@@ -494,7 +502,7 @@ function showMenu() {
     coop: !online ? undefined : online.direct
       ? { name: online.name, lobby: online.lobby, direct: true, connecting: online.connecting, host: () => (online as Direct).host(), join: (code) => (online as Direct).join(code), leave: () => online!.leave(), setName: (n: string) => { (online as Direct).setName(n); refreshMenu(); } }
       : { name: online.name, lobby: online.lobby, host: () => online!.host(), join: (code) => online!.join(code), leave: () => online!.leave(), signOut: () => { signOut(); location.reload(); } },
-  });
+  };
 }
 
 input.onKey = (k) => {
@@ -887,7 +895,7 @@ function render(alpha: number, dt: number) {
       }
       list.push({ y, f: () => drawStation(g, st, x, y, t, hideNear === st, stationNote(st.id)) });
     }
-    for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `T${bossTier()} · ${char(profile).feathers ?? 0} feathers` : `T${bossTier()} · ${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : po.kind === "trial" ? `trial ${trialTarget(char(profile))}` : po.kind === "vault" ? `${char(profile).vaultKeys ?? 0} keys` : `tier ${Math.min(ui.tier, char(profile).highestTier)}`) }); }
+    for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `T${bossTier()} · ${char(profile).feathers ?? 0} feathers` : `T${bossTier()} · ${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : po.kind === "trial" ? `trial ${trialTarget(char(profile))}` : po.kind === "vault" ? `${char(profile).vaultKeys ?? 0} keys` : `tier ${curTier()}`) }); }
   }
   for (const q of s.players) {
     if (q.dead) { list.push({ y: q.y, f: () => drawFallen(g, q, q.x, q.y, t) }); continue; }

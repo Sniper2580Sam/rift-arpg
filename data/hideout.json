@@ -113,6 +113,14 @@
    "fx": 0.8,
    "fy": 0.36,
    "desc": "The passive tree and Paragon (points from Paragon levels)"
+  },
+  {
+   "id": "difficulty",
+   "name": "Difficulty Obelisk",
+   "tab": "difficulty",
+   "fx": 0.35,
+   "fy": 0.64,
+   "desc": "Set the tier for every activity"
   }
  ],
  "portals": [

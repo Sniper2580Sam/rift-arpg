@@ -170,7 +170,7 @@ wss.on("connection", (ws) => {
         const kind = m.kind === "chase" ? "chase" : m.kind === "endless" ? "endless" : m.kind === "bounty" ? "bounty" : m.kind === "trial" ? "trial" : m.kind === "vault" ? "vault" : "rift";
         let tier = Math.max(1, Math.min(m.tier | 0, ch.highestTier));
         if (kind === "trial") tier = trialTarget(ch);
-        if (kind === "vault") { if ((ch.vaultKeys ?? 0) <= 0) return tx(c, { t: "runFail", reason: "No Gilded Key." }); ch.vaultKeys = (ch.vaultKeys ?? 0) - 1; putProfile(c.name, p); tier = ch.highestTier; } // always the next level up, never beyond
+        if (kind === "vault") { if ((ch.vaultKeys ?? 0) <= 0) return tx(c, { t: "runFail", reason: "No Gilded Key." }); ch.vaultKeys = (ch.vaultKeys ?? 0) - 1; putProfile(c.name, p); } // always the next level up, never beyond
         const boss = kind === "chase" && m.boss === "seraph" ? "seraph" : "king";
         if (kind === "chase" && boss === "seraph") { if ((ch.feathers ?? 0) <= 0) return tx(c, { t: "runFail", reason: "No Pale Feather." }); ch.feathers = (ch.feathers ?? 0) - 1; putProfile(c.name, p); tier = Math.max(3, tier); }
         else if (kind === "chase") { if (ch.sigils <= 0) return tx(c, { t: "runFail", reason: "No Bone Sigil." }); ch.sigils--; putProfile(c.name, p); tier = Math.max(3, tier); }

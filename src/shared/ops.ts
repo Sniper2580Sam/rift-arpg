@@ -23,6 +23,7 @@ export type HubOp =
   | { t: "buy"; key: string }
   | { t: "paragon"; stat?: string; d?: number; reset?: boolean }
   | { t: "talent"; id?: string; d?: number; reset?: boolean; sub?: string }
+  | { t: "tier"; v: number }
   | { t: "passive"; id?: string; d?: number; reset?: boolean }
   | { t: "gem"; slot: number; id: string | null }
   | { t: "buyAether"; pack: string }
@@ -133,6 +134,12 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       if (op.d === 1 && passiveCanAdd(c.cls, taken, id, c.paragon ?? 0)) { c.passives = [...taken, id]; return true; }
       if (op.d === -1 && passiveCanRemove(c.cls, taken, id)) { c.passives = taken.filter((x) => x !== id); return true; }
       return false;
+    }
+    case "tier": {
+      // one difficulty for every activity (Trials keep their own ladder)
+      const v = Math.max(1, Math.min(c.highestTier, op.v | 0));
+      if (c.tier === v) return false;
+      c.tier = v; return true;
     }
     case "talent": {
       // talents: pick a subclass, then spend points (one per Trial level beaten) in its tree.

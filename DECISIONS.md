@@ -272,3 +272,8 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 
 ## 2026-11-25: Hideout stations for each tree (Samuel)
 - **Talent Altar** (opens Skills → Talents) and **Star Chart** (opens Skills → Passive tree; Paragon is the next sub-tab). Each shows your unspent points under it ("3 points to spend", "pick a subclass"). The Skill Shrine now opens only skills and runes.
+
+## 2026-11-25: Difficulty Obelisk (Samuel: "set the difficulty and that applies for all activities")
+- **One tier on the character** (`c.tier`, 1 up to your highest tier). The Obelisk station in the hideout sets it, and so does the Rift Board's tier picker. Rifts, bounties, Endless, the Gilded Vault and both chase bosses (minimum T3) use it. Each portal shows the tier it will open.
+- **Trials keep their own ladder** (the next Trial, or your best Trial while you earn talent points back), because Trial tiers are what give talent points.
+- The vault used to always run at your highest tier. It now uses the chosen tier, clamped on the server.

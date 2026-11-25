@@ -22,7 +22,7 @@ export interface CharSave {
   /** rift gems owned (id -> level) and socketed (up to 3) */
   gems?: Record<string, number>; gemSlots?: string[];
   /** best Trial level cleared in time (one talent point each) and talent ranks spent */
-  trialBest?: number; talents?: Record<string, number>; /** talent subclass (Ascendancy style); after a respec, the best Trial beaten since */ subclass?: string; trialRe?: number;
+  trialBest?: number; talents?: Record<string, number>; /** talent subclass (Ascendancy style); after a respec, the best Trial beaten since */ subclass?: string; trialRe?: number; /** the difficulty you picked (tier) for rifts, bounties, Endless, bosses and the Vault */ tier?: number;
   /** passive tree nodes taken (one point per Paragon level) */
   passives?: string[];
   /** set pieces crafted (seeds the next craft) */

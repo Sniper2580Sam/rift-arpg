@@ -161,7 +161,7 @@ export class UI {
   showHub(p: Profile, H: HubHandlers) {
     this.invOpen = false;
     const c = char(p);
-    this.tier = Math.min(Math.max(1, this.tier), c.highestTier);
+    this.tier = Math.min(Math.max(1, c.tier ?? c.highestTier), c.highestTier);
     this.root.className = "screen";
     const cd = CLASSES[c.cls];
     const tabs = (["play", "gear", "skills", "looks", "shop", "journey", "settings"] as Tab[]).map((t) => `<button class="tab ${this.tab === t ? "on" : ""}" data-tab="${t}"${t === "settings" ? ` aria-label="Settings"` : ""}>${t === "settings" ? "⚙" : t[0].toUpperCase() + t.slice(1)}</button>`).join("");
@@ -245,20 +245,43 @@ export class UI {
     if (this.tab === "settings") { this.bindSettings(p, H, re); this.bindDrive(); }
   }
 
-  private playTab(p: Profile, c: CharSave, H: HubHandlers) {
+  /** The difficulty picker: one tier for rifts, bounties, Endless, bosses and the Vault (saved on the character). */
+  tierRowHtml(c: CharSave) {
     const t = this.tier, T = RIFT.tiers;
     const hp = tierHpMult(t), leg = 1 + T.legendaryGrowth * (t - 1);
     const anc = lootChances(t).anc;
+    return `<div class="tier-row">
+        <button id="t-down" aria-label="Lower tier">−</button>
+        <div class="tier"><b>Tier ${t}${isAbyssal(t) ? ` <span class="abyss">Abyssal</span>` : ""}</b><small>${isAbyssal(t) ? "4 modifiers · more elites · " : ""}enemy life ×${hp < 100 ? hp.toFixed(1) : Math.round(hp).toLocaleString("en-US")} · legendary odds ×${leg.toFixed(2)}${anc ? ` · ancestral ${Math.round(anc * 100)}%` : ""}${t >= T.primalFrom ? " · primals can drop" : ""}</small></div>
+        <button id="t-up" aria-label="Higher tier" ${t >= c.highestTier ? "disabled" : ""}>+</button>
+      </div>`;
+  }
+  bindTier(c: CharSave, H: HubHandlers, re: () => void) {
+    const set = (v: number) => { this.tier = Math.max(1, Math.min(c.highestTier, v)); H.op?.({ t: "tier", v: this.tier }); re(); };
+    const d = this.root.querySelector<HTMLElement>("#t-down"), u = this.root.querySelector<HTMLElement>("#t-up");
+    if (d) d.onclick = () => set(this.tier - 1);
+    if (u) u.onclick = () => set(this.tier + 1);
+  }
+  /** The Difficulty Obelisk in the hideout: just the tier picker. */
+  showDifficulty(p: Profile, H: HubHandlers, onClose: () => void) {
+    const c = char(p);
+    this.tier = Math.min(Math.max(1, c.tier ?? c.highestTier), c.highestTier);
+    this.root.className = "screen";
+    this.root.innerHTML = `<div class="panel diff"><div class="inv-head"><b>Difficulty</b><button id="diff-close">Done</button></div>
+      ${this.tierRowHtml(c)}
+      <div class="dim small">This tier is used by rifts, bounties, Endless, the Gilded Vault and the bosses (the Ossuary King and Pale Seraph start at tier 3). Trials keep their own ladder. Highest unlocked: ${c.highestTier}.</div></div>`;
+    const re = () => this.showDifficulty(p, H, onClose);
+    this.bindTier(c, H, re);
+    this.root.querySelector<HTMLElement>("#diff-close")!.onclick = onClose;
+  }
+  private playTab(p: Profile, c: CharSave, H: HubHandlers) {
+    const t = this.tier, T = RIFT.tiers;
     const week = isoWeek();
     const wbest = p.weekly.week === week && p.weekly.best ? fmtTime(p.weekly.best) : "—";
     const classes = Object.entries(CLASSES).map(([id, d]) => `<button class="cls-card ${p.active === id ? "on" : ""}" data-cls="${id}"><b>${d.name}</b><span>Lv ${p.chars[id].level} · ${d.role}</span><small>${esc(d.desc)}</small></button>`).join("");
     return `${H.coop ? this.coopBox(H.coop) : ""}
       <div class="classes">${classes}</div>
-      <div class="tier-row">
-        <button id="t-down" aria-label="Lower tier">−</button>
-        <div class="tier"><b>Tier ${t}${isAbyssal(t) ? ` <span class="abyss">Abyssal</span>` : ""}</b><small>${isAbyssal(t) ? "4 modifiers · more elites · " : ""}enemy life ×${hp < 100 ? hp.toFixed(1) : Math.round(hp).toLocaleString("en-US")} · legendary odds ×${leg.toFixed(2)}${anc ? ` · ancestral ${Math.round(anc * 100)}%` : ""}${t >= T.primalFrom ? " · primals can drop" : ""}</small></div>
-        <button id="t-up" aria-label="Higher tier" ${t >= c.highestTier ? "disabled" : ""}>+</button>
-      </div>
+      ${this.tierRowHtml(c)}
       <div class="dim small">Clear a tier in time to unlock the next one. Tiers ${RIFT.tiers.abyssFrom}–${RIFT.tiers.max} are Abyssal. Enemy life doubles every 5 tiers. A normal clear takes 8–10 min (${Math.round(RIFT.timeLimit / 60)} min timer); under ${RIFT.tierJumps[1][0] / 60} min unlocks 2, under ${RIFT.tierJumps[0][0] / 60} min unlocks 3. Highest: ${c.highestTier}. Ancestral pity: ${c.pityAnc}/${T.ancestralPity}.</div>
       <button id="enter" class="big">Enter a rift</button>
       <div class="row">
@@ -317,9 +340,8 @@ export class UI {
       if (nm && co.setName) nm.onchange = () => co.setName!(nm.value);
       if (co.lobby && !co.lobby.host) for (const id of ["#enter", "#weekly", "#chase", "#seraph"]) { const el = this.root.querySelector<HTMLButtonElement>(id); if (el) el.disabled = true; }
     }
-    this.root.querySelectorAll<HTMLElement>("[data-cls]").forEach((el) => el.onclick = () => { H.setClass(el.dataset.cls!); this.tier = char(p).highestTier; re(); });
-    $("#t-down").onclick = () => { this.tier = Math.max(1, this.tier - 1); re(); };
-    $("#t-up").onclick = () => { this.tier = Math.min(c.highestTier, this.tier + 1); re(); };
+    this.root.querySelectorAll<HTMLElement>("[data-cls]").forEach((el) => el.onclick = () => { H.setClass(el.dataset.cls!); re(); });
+    this.bindTier(c, H, re);
     $("#enter").onclick = () => {
       const v = ($("#seed") as HTMLInputElement).value.trim().toUpperCase();
       const n = v ? parseInt(v, 36) : NaN;
@@ -327,7 +349,7 @@ export class UI {
     };
     $("#weekly").onclick = () => H.enter({ tier: WEEKLY_TIER, seed: null, kind: "rift", weekly: true });
     $("#endless").onclick = () => H.enter({ tier: this.tier, seed: null, kind: "endless" });
-    $("#vault").onclick = () => H.enter({ tier: c.highestTier, seed: null, kind: "vault" });
+    $("#vault").onclick = () => H.enter({ tier: this.tier, seed: null, kind: "vault" });
     $("#trial").onclick = () => H.enter({ tier: trialTarget(c), seed: null, kind: "trial" });
     $("#chase").onclick = () => H.enter({ tier: Math.max(3, Math.min(this.tier, c.highestTier)), seed: null, kind: "chase" });
     $("#seraph").onclick = () => H.enter({ tier: Math.max(3, Math.min(this.tier, c.highestTier)), seed: null, kind: "chase", boss: "seraph" });
