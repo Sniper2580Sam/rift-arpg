@@ -1,7 +1,7 @@
 // Hub operations on a profile. The offline build runs them locally; the live build runs them on the
 // client (instant feedback) AND on the server, whose copy is the one that counts.
 import { makeRng } from "../sim/rng";
-import { passiveCanAdd, passiveCanRemove, runeLevel, talentCanAdd, talentCanRemove, talentPoints, SET, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
+import { passiveCanAdd, passiveCanRemove, runeLevel, talentCanAdd, talentCanRemove, talentPoints, SET, setComplete, SlotType, LEGENDARY, RELIC_SLOTS, RelicSlot, lifeStats, relicSlotOf, relicUnlock, SHOP, GEMS, ITEMS, RIFT, paragonSpent, CLASSES, COSMETICS, COS_KINDS, CosKind, EquipSlot, HIDEOUT, LOADOUT_SIZE, SKILL, cosAccess, ownsKey, shopCatalogue, validLoadout, VFX } from "../sim/data";
 import { chiselItem, echoCost, hallowItem, mintItem, Affix, BAG_SIZE, InvCmd, Item, applyInvCmd, rerollCost, rollSlotCrit, slotCost, SLOT_MAX } from "../sim/items";
 import { BUILD_SLOTS, CharSave, Profile, STASH_SIZE, char, holderOf, newProfile, startNewSeason } from "../client/profile";
 
@@ -118,6 +118,8 @@ export function applyHubOp(p: Profile, op: HubOp): boolean | Profile {
       if (op.k.startsWith("cos.")) {
         // cosmetics: free ones, earned ones, and premium ones you own (the shop is free in the test build)
         const kind = op.k.slice(4) as CosKind;
+        // a set look: a free dye earned by finding every piece of that set (the collection)
+        if (kind === "dye" && typeof op.v === "string" && op.v.startsWith("set:")) { if (!setComplete(p.codex, op.v.slice(4))) return false; p.cos = { ...(p.cos ?? {}), dye: op.v }; return true; }
         if (!COS_KINDS.includes(kind) || !COSMETICS[kind].some((x) => x.id === op.v)) return false;
         if (!cosAccess(p, kind, op.v, c.cls).ok) return false;
         p.cos = { ...(p.cos ?? {}), [kind]: op.v }; return true;

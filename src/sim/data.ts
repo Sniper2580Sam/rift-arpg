@@ -301,6 +301,9 @@ export function cosAccess(p: UnlockCtx, kind: CosKind, id: string, cls?: string)
   return (p.owned ?? []).includes(`cos:${kind}:${id}`) ? { ok: true } : { ok: false, why: "premium", text: "Premium · in the Shop" };
 }
 export const ownsKey = (p: UnlockCtx, key: string) => (p.owned ?? []).includes(key);
+/** The collection: how many of a set's pieces you have ever found; a complete set page unlocks its look (a free dye). */
+export const setFound = (codex: string[] | undefined, id: string) => Object.keys(SET[id]?.pieces ?? {}).filter((sl) => (codex ?? []).includes(`S:${id}:${sl}`)).length;
+export const setComplete = (codex: string[] | undefined, id: string) => !!SET[id] && setFound(codex, id) === Object.keys(SET[id].pieces).length;
 /** All premium shop keys, with a display name and section. Prices are 0 in the test build. */
 // ------------------------------------------------------------------ premium currency (cosmetics only, never power)
 export const SHOP = shopJson as { currency: string; symbol: string; prices: Record<string, number>; classArmorDiscount: number; packs: { id: string; amount: number }[];

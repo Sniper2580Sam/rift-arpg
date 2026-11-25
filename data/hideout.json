@@ -66,7 +66,8 @@
    "tab": "journey",
    "fx": 0.5,
    "fy": 0.42,
-   "desc": "Feats and the season journey"
+   "desc": "Feats and the season journey",
+   "sub": "feats"
   },
   {
    "id": "jeweler",
@@ -85,6 +86,15 @@
    "fx": 0.7,
    "fy": 0.5,
    "desc": "Legendary powers and boss trophies"
+  },
+  {
+   "id": "showcase",
+   "name": "Showcase",
+   "tab": "journey",
+   "sub": "collection",
+   "fx": 0.5,
+   "fy": 0.6,
+   "desc": "Your collection, and your hero on show"
   }
  ],
  "portals": [

@@ -109,6 +109,17 @@ export function drawPortal(g: CanvasRenderingContext2D, s: HideoutSpot, x: numbe
   if (sub) label(g, sub, x, y + 11, "#b8a8d0", false, 7);
 }
 
+/** The Showcase: a lit plinth with the hideout owner's hero standing on it in their gear and looks. */
+export function drawShowcase(g: CanvasRenderingContext2D, s: HideoutSpot, x: number, y: number, t: number, near: boolean, hero: (x: number, y: number) => number) {
+  g.fillStyle = "rgba(255,215,106,0.12)"; g.beginPath(); g.ellipse(x, y - 2, 16, 7, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#2e2838"; g.fillRect(Math.round(x - 9), Math.round(y - 4), 18, 5);
+  g.fillStyle = "#c9a23a"; g.fillRect(Math.round(x - 9), Math.round(y - 4), 18, 1); g.fillRect(Math.round(x - 9), Math.round(y), 18, 1);
+  const h = hero(x, y - 4);
+  for (let i = 0; i < 3; i++) { const k = (t * 0.5 + i / 3) % 1; g.globalAlpha = 0.8 * (1 - k); g.fillStyle = "#ffe9a0"; g.fillRect(Math.round(x - 8 + i * 8), Math.round(y - 4 - k * 18), 1, 1); }
+  g.globalAlpha = 1;
+  label(g, s.name, x, y - h - 10, near ? "#ffd23f" : "#c9b8ff", near);
+}
+
 /** Station and portal names are queued in world units and drawn later at screen resolution, so they stay sharp. */
 export const labels: { text: string; x: number; y: number; color: string; bold: boolean; size: number }[] = [];
 function label(_g: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, bold: boolean, size = 8) {

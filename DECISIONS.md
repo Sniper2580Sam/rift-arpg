@@ -257,3 +257,9 @@ Every skill effect in the Shop has a Preview button. The preview box shows your 
 - **First find:** the first time you pick up a legendary power or a set piece, a card shows it and adds it to your **collection** (`profile.codex`, account-wide, kept across seasons; the server records it from accepted saves, including scrapped finds; old saves start with what they own).
 - **Bag:** ancestral items shimmer gold, primal items pulse red.
 - **On the hero:** 4+ pieces of a set dress the hero in the set's colours (premium armour still wins; "Set looks on hero" toggle in Settings). A full 6-piece set adds a ring and sparks. Legendary weapon: glowing embers (crimson for mythic). Legendary helm: a gold glint. Legendary boots: an ember trail. Primal: a red ember; mythic: crimson motes.
+
+## 2026-11-25: Looks 3
+- **Collection** (Journey → Collection): every set piece and legendary power ever found, by set and by class, across seasons.
+- **Free set looks:** finding every piece of a set unlocks its colours as a free look (Looks → Set looks; dye id `set:<id>`, checked against the collection on the server). Paid looks stay in the Shop, so earned looks don't replace them.
+- **Showcase** station in the hideout: your hero on a lit plinth in your current gear look (co-op visitors see the host's). It opens the Collection.
+- **Bag:** a chip per set in your bag; tap one to fade everything else.

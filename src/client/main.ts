@@ -10,7 +10,7 @@ import { queue as cloudQueue, startCloud } from "./cloud";
 import { driveQueue, driveRecheck, startDrive } from "./gdrive";
 import { HubOp, applyHubOp } from "../shared/ops";
 import { RARITY_COLOR, Sprite, buildSprites, renderMap } from "./sprites";
-import { allSpots, decorIcon, labels as hideLabels, drawDecor, drawPortal, drawStation, drawThemeAir, drawThemeFloor, spotPos } from "./hideout";
+import { allSpots, decorIcon, labels as hideLabels, drawDecor, drawPortal, drawShowcase, drawStation, drawThemeAir, drawThemeFloor, spotPos } from "./hideout";
 import { UI, fmtTime, modsLine, GearSub, SkillSub } from "./ui";
 import { Online, onlineAvailable, signIn, signOut } from "./net";
 import { Direct } from "./direct";
@@ -195,6 +195,7 @@ function useSpot(n: HideoutSpot) {
   // each workstation opens its own sub-tab (Blacksmith -> rerolls and upgrades, Jeweler -> gems, ...)
   if (n.sub && n.tab === "gear") ui.gearSub = n.sub as GearSub;
   if (n.sub && n.tab === "skills") ui.skillSub = n.sub as SkillSub;
+  if (n.sub && n.tab === "journey") ui.journeySub = n.sub as "feats" | "collection";
   openMenu(n.tab);
 }
 /** Decorating: a tray of themes and decorations. Walk to a spot and tap an item to place it on your tile. */
@@ -861,7 +862,23 @@ function render(alpha: number, dt: number) {
   }
   if (hth) {
     for (const d of s.rift.hideout?.decor ?? []) { const x = (d.x + 0.5) * s.map.ts, y = (d.y + 1) * s.map.ts - 2; list.push({ y: d.id === "rug" ? -1e9 : y, f: () => drawDecor(g, d.id, x, y, t) }); }
-    for (const st of HIDEOUT.stations) { const [x, y] = spotPos(s.map, hth, st); list.push({ y, f: () => drawStation(g, st, x, y, t, hideNear === st) }); }
+    for (const st of HIDEOUT.stations) {
+      const [x, y] = spotPos(s.map, hth, st);
+      if (st.id === "showcase") {
+        // the owner's hero on a plinth, in their current gear look (co-op visitors see the host's)
+        const host = s.players.find((q) => q.pid === 0) ?? s.players[0];
+        list.push({ y, f: () => drawShowcase(g, st, x, y, t, hideNear === st, (hx, hy) => {
+          if (!host) return 12;
+          const look = gearLook(host);
+          const cos = look.set && profile.settings.setLooks !== false ? { ...(host.cos ?? {}), dye: "set:" + look.set } : host.cos ?? {};
+          const fr = drawHeroCos(g, bank, { pid: host.pid, cls: host.cls, cos, fx: 0.4, fy: 0.9, moving: false, walk: 0, swingK: 0 }, hx, hy, t, emitFx);
+          gearMarks(g, { ...host, moving: false, fx: 0.4 } as Player, look, hx, hy, fr.h, t);
+          return fr.h;
+        }) });
+        continue;
+      }
+      list.push({ y, f: () => drawStation(g, st, x, y, t, hideNear === st) });
+    }
     for (const po of HIDEOUT.portals) { const [x, y] = spotPos(s.map, hth, po); list.push({ y: -1e8, f: () => drawPortal(g, po, x, y, t, hideNear === po, po.kind === "chase" ? (po.id === "seraph" ? `T${bossTier()} · ${char(profile).feathers ?? 0} feathers` : `T${bossTier()} · ${char(profile).sigils} sigils`) : po.kind === "endless" ? `best wave ${char(profile).bestWave ?? 0}` : po.kind === "trial" ? `trial ${nextTrial(char(profile).trialBest)}` : po.kind === "vault" ? `${char(profile).vaultKeys ?? 0} keys` : `tier ${Math.min(ui.tier, char(profile).highestTier)}`) }); }
   }
   for (const q of s.players) {

@@ -5,7 +5,7 @@ import type { RunKind } from "../sim/sim";
 import { driveAvailable, driveSignIn, driveSignOut, driveStatus } from "./gdrive";
 import { drawHeroCos, drawPetCos, Emit } from "./cosdraw";
 import { drawFxPreview } from "./fxpreview";
-import { PASSIVES, passiveCanAdd, passiveCanRemove, passiveNode, passiveStart, runeLevel, tierHpMult, lootChances, isAbyssal, TALENTS, talentCanAdd, talentCanRemove, talentPoints, talentSpent, nextTrial, SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
+import { setComplete, setFound, PASSIVES, passiveCanAdd, passiveCanRemove, passiveNode, passiveStart, runeLevel, tierHpMult, lootChances, isAbyssal, TALENTS, talentCanAdd, talentCanRemove, talentPoints, talentSpent, nextTrial, SETS, classAffinity, RELIC_SLOTS, RelicSlot, relicSlotOf, relicUnlock, SHOP, GEM, GEMS, gemText, ACHIEVEMENTS, SEASON_JOURNEY, chapterKey, lifeStats, rewardName, BOON, CLASSES, COSMETICS, CosKind, VFX, HIDEOUT, PARAGON_STATS, paragonSpent, paragonXp, cosAccess, ownsKey, shopCatalogue, validLoadout, EquipSlot, ITEMS, LEGENDARY, MODIFIER, PETS, RARITY_ORDER, RIFT, Rarity, SET, SKILL, slotTypeOf } from "../sim/data";
 import { echoCost, BAG_SIZE, Holder, InvCmd, Item, Stats, affixQuality, affixText, computeStats, equipTarget, powerText, rerollCost, rerollOptions, Affix, scaledItem, slotCost, slotMult, SLOT_MAX } from "../sim/items";
 import { makeRng } from "../sim/rng";
 import { RARITY_COLOR, SpriteBank } from "./sprites";
@@ -138,6 +138,9 @@ export class UI {
   root = $("#ui");
   tab: Tab = "play";
   gearSub: GearSub = "items";
+  journeySub: "feats" | "collection" = "feats";
+  /** bag: highlight one set's pieces */
+  bagSet = "";
   skillSub: SkillSub = "skills";
   sel: { where: "bag"; i: number } | { where: "eq"; slot: EquipSlot } | { where: "stash"; i: number } | null = null;
   buildSel = -1;
@@ -184,7 +187,7 @@ export class UI {
     if (this.tab === "looks") body = this.looksTab(p);
     if (this.tab === "shop") body = this.shopTab(p, H);
     if (this.tab !== "shop") { this.tryOn = {}; this.fxTry = ""; }
-    if (this.tab === "journey") body = this.journeyTab(p);
+    if (this.tab === "journey") body = subBar([["feats", "Feats"], ["collection", "Collection"]], this.journeySub, "data-jsub") + (this.journeySub === "collection" ? this.collectionHtml(p) : this.journeyTab(p));
     if (this.tab === "settings") body = this.settingsTab(p);
     this.root.innerHTML = `
       <div class="panel hub">
@@ -197,6 +200,7 @@ export class UI {
       </div>`;
     this.root.querySelectorAll<HTMLElement>("[data-tab]").forEach((el) => el.onclick = () => { this.tab = el.dataset.tab as Tab; this.sel = null; this.rerollState = null; this.showHub(p, H); });
     this.root.querySelectorAll<HTMLElement>("[data-gsub]").forEach((el) => el.onclick = () => { this.gearSub = el.dataset.gsub as GearSub; this.sel = null; this.rerollState = null; this.showHub(p, H); });
+    this.root.querySelectorAll<HTMLElement>("[data-jsub]").forEach((el) => el.onclick = () => { this.journeySub = el.dataset.jsub as "feats" | "collection"; this.showHub(p, H); });
     this.root.querySelectorAll<HTMLElement>("[data-ssub]").forEach((el) => el.onclick = () => { this.skillSub = el.dataset.ssub as SkillSub; this.showHub(p, H); });
     const re = () => this.showHub(p, H);
     const cl = this.root.querySelector<HTMLElement>("#hub-close"); if (cl) cl.onclick = () => H.close!();
@@ -343,7 +347,7 @@ export class UI {
     let bag = "";
     for (let i = 0; i < BAG_SIZE; i++) {
       const it = h.bag[i];
-      bag += it ? cellHtml(this.bank, it, `data-bag="${i}"`, `${sel?.where === "bag" && sel.i === i ? "on" : ""} ${isUpgrade(h, it, ctx) ? "isup" : ""}`) : `<div class="cell empty"></div>`;
+      bag += it ? cellHtml(this.bank, it, `data-bag="${i}"`, `${sel?.where === "bag" && sel.i === i ? "on" : ""} ${isUpgrade(h, it, ctx) ? "isup" : ""} ${this.bagSet && it.set !== this.bagSet ? "faded" : ""}`) : `<div class="cell empty"></div>`;
     }
     let detail = `<div class="dim">Tap an item. ▲ marks upgrades. Set bonuses and legendary powers change how skills work.</div>`;
     if (selItem) {
@@ -370,6 +374,7 @@ export class UI {
       <div class="statline">Damage ${st.dmgMin}–${st.dmgMax} (+${st.dmgPct}%) · Crit ${st.critChance}%/+${st.critDmg}% · AS +${st.atkSpeed}% · Life ${st.maxHp} · Armor ${st.armor}${st.cdr ? ` · CDR ${st.cdr}%` : ""}${st.regen ? ` · ${st.regen} life/s` : ""}${st.lifeOnHit ? ` · ${Math.round(st.lifeOnHit)} life per hit` : ""}<br>Powers: ${st.mods.filter((m) => !(m as any).text).length} · Sets: ${sets || "none"} · Materials ${materials ?? p?.materials ?? 0} · Shards ${p?.shards ?? h.shards ?? 0}</div>
       <div class="doll">${doll}</div>
       <div class="bag-head"><span>Bag ${h.bag.length}/${BAG_SIZE}</span><span><button class="tiny-btn" data-scrapbelow="rare">Scrap common+magic</button><button class="tiny-btn" data-scrapbelow="legendary">Scrap all but legendary/set</button><button class="tiny-btn warn" data-scrapbelow="all">Scrap all (not ★ locked)</button><button class="tiny-btn" id="bag-sort">Sort</button></span></div>
+      ${(() => { const ids = [...new Set(h.bag.map((it) => it.set).filter(Boolean))] as string[]; if (this.bagSet && !ids.includes(this.bagSet)) this.bagSet = ""; return ids.length ? `<div class="set-chips">${ids.map((id) => `<button class="tiny-btn ${this.bagSet === id ? "on" : ""}" data-bagset="${id}" style="border-color:${SET[id].color};color:${SET[id].color}">${esc(SET[id].name)}</button>`).join("")}</div>` : ""; })()}
       <div class="bag">${bag}</div>
       <div class="detail">${detail}</div>
       ${allowReroll && p && this.gearSub === "stash" ? this.stashHtml(p) + this.arsenalHtml(p, char(p)) : ""}`;
@@ -445,6 +450,7 @@ export class UI {
     });
     const bind = (id: string, f: () => void) => { const el = this.root.querySelector<HTMLElement>(id); if (el) el.onclick = f; };
     bind("#bag-sort", () => { H.invCmd({ type: "sort" }); this.sel = null; re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-bagset]").forEach((el) => el.onclick = () => { this.bagSet = this.bagSet === el.dataset.bagset ? "" : el.dataset.bagset!; re(); });
     const i = this.sel?.where === "bag" ? this.sel.i : -1;
     const equip = (to?: EquipSlot) => { const it = c.bag[i]; const slot = equipTarget(c, it, to); H.invCmd({ type: "equip", bagIndex: i, to }); this.sel = { where: "eq", slot }; re(); };
     bind("#equip", () => equip()); bind("#equip-r1", () => equip("ring1")); bind("#equip-r2", () => equip("ring2"));
@@ -643,10 +649,33 @@ export class UI {
       <div class="dim small">${esc(String((COSMETICS[kind].find((c) => c.id === worn) as any)?.desc ?? ""))}</div></div>`;
     };
     return `<div class="look-prev"><canvas id="lookPrev" width="64" height="40"></canvas><div class="dim small">Cosmetics only change how you look. Colours are free, ◆ styles are earned by playing, ★ styles come from the Shop (free in this test build).</div></div>
-      ${group("dye", "Colour", (cur.armor && cur.armor !== "default") ? "shows with the base armour" : "")}${group("armor", "Armour", "")}${group("wings", "Wings", "")}${group("weapon", "Weapon", "")}${group("petSkin", "Pet skin", p.pet === "none" ? "pick a pet in Settings to see it" : "")}${this.fxGroup(p)}`;
+      ${group("dye", "Colour", (cur.armor && cur.armor !== "default") ? "shows with the base armour" : "")}${this.setLooksHtml(p)}${group("armor", "Armour", "")}${group("wings", "Wings", "")}${group("weapon", "Weapon", "")}${group("petSkin", "Pet skin", p.pet === "none" ? "pick a pet in Settings to see it" : "")}${this.fxGroup(p)}`;
+  }
+  /** Set looks: wear a set's colours for free once your collection has every piece of it. */
+  private setLooksHtml(p: Profile) {
+    const cur = p.cos?.dye;
+    return `<div class="setting"><b>Set looks</b> <span class="dim small">earned by finding every piece of a set (Journey → Collection)</span><div class="opts">${SETS.map((s) => {
+      const ok = setComplete(p.codex, s.id), n = setFound(p.codex, s.id), tot = Object.keys(s.pieces).length;
+      return `<button class="${cur === "set:" + s.id ? "on" : ""} ${ok ? "earn" : "locked"}" ${ok ? `data-cos="dye:set:${s.id}"` : "disabled"}><i class="sw"><i style="background:${s.color}"></i></i>${esc(s.name)}${ok ? "" : ` · ${n}/${tot}`}</button>`;
+    }).join("")}</div></div>`;
   }
   /** The Shop: every premium cosmetic, theme, decoration and skill effect. Prices are 0 in the test build. */
   /** Feats: permanent account-wide goals. Some unlock a Wardrobe item. */
+  /** The collection book: every set piece and legendary power ever found. A complete set unlocks its look in Looks. */
+  private collectionHtml(p: Profile) {
+    const have = new Set(p.codex ?? []);
+    const sets = SETS.map((s) => {
+      const pieces = Object.entries(s.pieces) as [string, string][], n = pieces.filter(([sl]) => have.has(`S:${s.id}:${sl}`)).length, done = n === pieces.length;
+      return `<div class="col-set" style="--c:${s.color}"><div><b style="color:${s.color}">${esc(s.name)}</b> <span class="dim small">${n}/${pieces.length}${done ? " · ✓ look unlocked in Looks" : " · find every piece to unlock its look"}</span></div>
+        <div class="col-pieces">${pieces.map(([sl, name]) => `<span class="${have.has(`S:${s.id}:${sl}`) ? "got" : ""}" title="${esc(name)}">${have.has(`S:${s.id}:${sl}`) ? esc(name) : "? " + esc(SLOT_NAME[sl as EquipSlot] ?? sl)}</span>`).join("")}</div></div>`;
+    }).join("");
+    const legs = Object.values(LEGENDARY);
+    const groups: [string, typeof legs][] = [["Any class", legs.filter((l) => !l.skill && !l.mythic)], ...Object.entries(CLASSES).map(([, cd]) => [cd.name, legs.filter((l) => l.skill && cd.skills.includes(l.skill))] as [string, typeof legs]), ["Mythic", legs.filter((l) => l.mythic)]];
+    const legHtml = groups.filter(([, ls]) => ls.length).map(([title, ls]) => `<div class="col-leg"><b>${esc(title)}</b> <span class="dim small">${ls.filter((l) => have.has("L:" + l.id)).length}/${ls.length}</span><div class="col-pieces">${ls.map((l) => have.has("L:" + l.id) ? `<span class="got ${l.mythic ? "myth" : "leg"}" title="${esc(powerText({ legendary: l.id } as Item))}">${esc(l.name)}</span>` : `<span>?</span>`).join("")}</div></div>`).join("");
+    const total = SETS.reduce((a, s) => a + Object.keys(s.pieces).length, 0) + legs.length;
+    return `<div class="dim small sub-intro">Everything you have ever found, across seasons: ${have.size}/${total}. Finish a set's page to wear its colours for free (Looks → Set looks).</div>
+      <div class="setting"><b>Sets</b>${sets}</div><div class="setting"><b>Legendary powers</b>${legHtml}</div>`;
+  }
   private journeyTab(p: Profile) {
     const L = lifeStats(p), done = new Set(p.feats ?? []);
     const fmt = (n: number) => n.toLocaleString("en-US");
@@ -720,7 +749,7 @@ export class UI {
       if (l === "earn") { this.toast(`Earn it: ${el.textContent!.split("🔒 ")[1] ?? "keep playing"}`, "#ffd23f"); return true; }
       return false;
     };
-    this.root.querySelectorAll<HTMLElement>("[data-cos]").forEach((el) => el.onclick = () => { if (locked(el)) return; const [k, v] = el.dataset.cos!.split(":"); H.setting("cos." + k, v); re(); });
+    this.root.querySelectorAll<HTMLElement>("[data-cos]").forEach((el) => el.onclick = () => { if (locked(el)) return; const i = el.dataset.cos!.indexOf(":"), k = el.dataset.cos!.slice(0, i), v = el.dataset.cos!.slice(i + 1); H.setting("cos." + k, v); re(); });
     this.root.querySelectorAll<HTMLElement>("[data-fx]").forEach((el) => el.onclick = () => { if (locked(el)) return; const [k, v] = el.dataset.fx!.split(":"); H.setting("fx." + k, v); re(); });
     this.root.querySelectorAll<HTMLElement>("[data-buy]").forEach((el) => el.onclick = () => {
       const price = +el.dataset.price!, key = el.dataset.buy!;
