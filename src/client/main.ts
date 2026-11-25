@@ -7,7 +7,7 @@ import { sfx, setMuted, unlockAudio } from "./audio";
 import { Input, KEY_LABELS } from "./input";
 import { Profile, char, isoWeek, seasonStats, loadProfile, saveProfile, setLocalSaves, setOnSaved, setupFor, syncFromSim, weeklySeed } from "./profile";
 import { queue as cloudQueue, startCloud } from "./cloud";
-import { driveQueue, driveRecheck, startDrive } from "./gdrive";
+import { driveQueue, driveRecheck, driveStatus, startDrive } from "./gdrive";
 import { HubOp, applyHubOp } from "../shared/ops";
 import { RARITY_COLOR, Sprite, buildSprites, renderMap } from "./sprites";
 import { allSpots, decorIcon, labels as hideLabels, drawDecor, drawPortal, drawShowcase, drawStation, drawThemeAir, drawThemeFloor, drawThemeUnder, spotPos } from "./hideout";
@@ -1795,7 +1795,15 @@ else {
     goHub();
   };
   startCloud(() => profile, useRemote);
-  startDrive(() => profile, (p) => { useRemote(p); }, () => !sim || inHideout(), () => { if (menuOpen || mode === "hub") ui.refreshDrive?.(); });
+  let driveWas = "";
+  startDrive(() => profile, (p) => { useRemote(p); }, () => !sim || inHideout(), () => {
+    if (menuOpen || mode === "hub") ui.refreshDrive?.();
+    // a lost Google connection used to show only in Settings, so saves quietly stopped reaching Drive
+    const st = driveStatus();
+    if (st.state === "error" && driveWas !== "error") ui.toast(`Google sync stopped (${st.text.replace(/^Not synced: /, "")}). Tap to reconnect.`, "#ffd23f");
+    if (st.state === "on" && driveWas === "error") ui.toast("Google sync back on", "#7dff9a");
+    driveWas = st.state;
+  });
   (window as any).__applyPendingRemote = () => { if (pendingRemote) { const p = pendingRemote; pendingRemote = null; useRemote(p); } };
 }
 requestAnimationFrame(frame);

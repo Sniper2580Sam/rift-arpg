@@ -89,10 +89,14 @@ async function connect(silent: boolean) {
     const list = await (await api(`/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id)`)).json();
     fileId = list.files?.[0]?.id ?? "";
     await reconcile();
+    retries = 0;
   } catch (e) {
     state = "error"; lastErr = (e as Error).message; onChange();
+    // a quiet reconnect can fail (phones block Google's window without a fresh tap): try again on the next taps
+    if (silent && store.get(FLAG) && retries++ < 3) { const once = () => { removeEventListener("pointerdown", once, true); connect(true); }; addEventListener("pointerdown", once, true); }
   }
 }
+let retries = 0;
 
 const setBase = (t: number | undefined) => store.set(BASE, String(t ?? 0));
 const take = (remote: Profile) => { setBase(remote.savedAt); lastSync = Date.now(); state = "on"; onChange(); useRemote(remote); };
