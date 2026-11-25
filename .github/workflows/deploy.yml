@@ -13,7 +13,8 @@ jobs:
     steps:
       - name: Skip until Cloudflare is set up
         id: ready
-        run: if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] && [ -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; else echo "No Cloudflare secrets yet: nothing to do (see CLOUDFLARE.md)." >> "$GITHUB_STEP_SUMMARY"; fi
+        run: |
+          if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] && [ -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; else echo "No Cloudflare secrets yet: nothing to do (see CLOUDFLARE.md)." >> "$GITHUB_STEP_SUMMARY"; fi
       - uses: actions/checkout@v4
       - name: Publish
         if: steps.ready.outputs.go == '1'
